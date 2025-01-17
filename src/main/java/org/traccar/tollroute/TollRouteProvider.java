@@ -31,6 +31,6 @@ public interface TollRouteProvider {
 
         void onFailure(Throwable e);
     }
-    
+
     void getTollRoute(double latitude, double longitude, TollRouteProviderCallback callback);
 }

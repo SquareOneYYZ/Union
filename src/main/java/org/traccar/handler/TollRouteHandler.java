@@ -24,9 +24,9 @@ public class TollRouteHandler extends BasePositionHandler {
                 new TollRouteProvider.TollRouteProviderCallback() {
             @Override
             public void onSuccess(TollData tollCost) {
-    position.set(Position.KEY_TOLL_COST, tollCost.getToll());  
-    position.set(Position.KEY_TOLL_REF, tollCost.getRef());     
-    position.set(Position.KEY_TOLL_NAME, tollCost.getName());   
+                position.set(Position.KEY_TOLL_COST, tollCost.getToll());
+                position.set(Position.KEY_TOLL_REF, tollCost.getRef());
+                position.set(Position.KEY_TOLL_NAME, tollCost.getName());
                 callback.processed(false);
             }
 
