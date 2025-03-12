@@ -66,42 +66,44 @@ public class NotificationResource extends ExtendedObjectResource<Notification> {
         super(Notification.class, "description");
     }
 
-    @GET
-    @Path("types")
-    public Collection<Typed> getTypes(
-         @QueryParam("all") boolean all, @QueryParam("userId") long userId,
-            @QueryParam("groupId") long groupId, @QueryParam("deviceId") long deviceId
-    ) throws StorageException {
-        List<Typed> types = new LinkedList<>();
-        Field[] fields = Event.class.getDeclaredFields();
-        for (Field field : fields) {
-            if (Modifier.isStatic(field.getModifiers()) && field.getName().startsWith("TYPE_")) {
-                try {
-                    types.add(new Typed(field.get(null).toString()));
-                } catch (IllegalArgumentException | IllegalAccessException error) {
-                    LOGGER.warn("Get event types error", error);
-                }
+@GET
+@Path("types")
+public Collection<Typed> getTypes(
+        @QueryParam("all") boolean all, 
+        @QueryParam("userId") long userId,
+        @QueryParam("groupId") long groupId, 
+        @QueryParam("deviceId") long deviceId) throws StorageException {
+    
+    List<Typed> types = new LinkedList<>();
+    Field[] fields = Event.class.getDeclaredFields();
+    for (Field field : fields) {
+        if (Modifier.isStatic(field.getModifiers()) && field.getName().startsWith("TYPE_")) {
+            try {
+                types.add(new Typed(field.get(null).toString()));
+            } catch (IllegalArgumentException | IllegalAccessException error) {
+                LOGGER.warn("Get event types error", error);
             }
         }
-        User user = permissionsService.getUser(userId);
-
-        Map<String, Object> userAttributes = user.getAttributes();
-
-        if (userAttributes.containsKey("removeNotifications")) {
-            Object userTypes = userAttributes.get("removeNotifications");
-            if (userTypes instanceof String) {
-                List<String> typesCSV = Arrays.asList(((String) userTypes).split(","));
-                types = types.stream().filter(typed -> !typesCSV.contains(typed.type())).collect(Collectors.toList());
-            }
-           
-        }
-
-
-        
-
-        return types;
     }
 
+    User user = permissionsService.getUser(userId);
+    Map<String, Object> userAttributes = user.getAttributes();
+
+    if (userAttributes.containsKey("RemoveNotificationTypes")) {
+        String userTypes = (String) userAttributes.get("RemoveNotificationTypes");
+        if (userTypes != null && !userTypes.isEmpty()) {
+            Set<String> typesToRemove = Arrays.stream(userTypes.split(","))
+                .map(String::trim)
+                .collect(Collectors.toSet());
+            
+            types = types.stream()
+                .filter(typed -> !typesToRemove.contains(typed.type()))
+                .collect(Collectors.toList());
+        }
+    }
+
+    return types;
+}
     @GET
     @Path("notificators")
     public Collection<Typed> getNotificators(@QueryParam("announcement") boolean announcement) {
