@@ -44,9 +44,11 @@ import org.traccar.storage.query.Request;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -66,7 +68,10 @@ public class NotificationResource extends ExtendedObjectResource<Notification> {
 
     @GET
     @Path("types")
-    public Collection<Typed> get() {
+    public Collection<Typed> getTypes(
+         @QueryParam("all") boolean all, @QueryParam("userId") long userId,
+            @QueryParam("groupId") long groupId, @QueryParam("deviceId") long deviceId
+    ) throws StorageException {
         List<Typed> types = new LinkedList<>();
         Field[] fields = Event.class.getDeclaredFields();
         for (Field field : fields) {
@@ -78,6 +83,22 @@ public class NotificationResource extends ExtendedObjectResource<Notification> {
                 }
             }
         }
+        User user = permissionsService.getUser(userId);
+
+        Map<String, Object> userAttributes = user.getAttributes();
+
+        if (userAttributes.containsKey("removeNotifications")) {
+            Object userTypes = userAttributes.get("removeNotifications");
+            if (userTypes instanceof String) {
+                List<String> typesCSV = Arrays.asList(((String) userTypes).split(","));
+                types = types.stream().filter(typed -> !typesCSV.contains(typed.type())).collect(Collectors.toList());
+            }
+           
+        }
+
+
+        
+
         return types;
     }
 
