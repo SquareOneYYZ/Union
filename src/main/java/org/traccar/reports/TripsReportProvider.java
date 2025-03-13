@@ -108,12 +108,6 @@ public class TripsReportProvider {
 
             }
 
-            // for (TripReportItem trip : trips) {
-            //     totalDistance += trip.getDistance();
-            //     totalFuel += trip.getSpentFuel();
-            //     totalDuration += trip.getDuration();
-
-            // }
             if (!trips.isEmpty()&& startTime!=null && endTime!=null) {
                 TripReportItem summaryRow = new TripReportItem();
                 summaryRow.setDeviceName("Summary");
