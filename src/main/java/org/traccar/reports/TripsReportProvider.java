@@ -41,6 +41,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 
 public class TripsReportProvider {
 
@@ -74,8 +75,11 @@ public class TripsReportProvider {
 
         ArrayList<DeviceReportSection> devicesTrips = new ArrayList<>();
         ArrayList<String> sheetNames = new ArrayList<>();
-        for (Device device: DeviceUtil.getAccessibleDevices(storage, userId, deviceIds, groupIds)) {
+        for (Device device : DeviceUtil.getAccessibleDevices(storage, userId, deviceIds, groupIds)) {
             Collection<TripReportItem> trips = reportUtils.detectTripsAndStops(device, from, to, TripReportItem.class);
+            if (trips == null) {
+                continue;
+            }
             DeviceReportSection deviceTrips = new DeviceReportSection();
             deviceTrips.setDeviceName(device.getName());
             sheetNames.add(WorkbookUtil.createSafeSheetName(deviceTrips.getDeviceName()));
@@ -86,6 +90,50 @@ public class TripsReportProvider {
                     deviceTrips.setGroupName(group.getName());
                 }
             }
+
+            double totalDistance = 0;
+            Date startTime = null;
+            Date endTime = null;
+
+            for (TripReportItem trip : trips) {
+                totalDistance += trip.getDistance();
+
+                if (startTime == null || trip.getStartTime().before(startTime)) {
+                    startTime = trip.getStartTime();
+                }
+
+                if (endTime == null || trip.getEndTime().after(endTime)) {
+                    endTime = trip.getEndTime();
+                }
+
+            }
+
+            // for (TripReportItem trip : trips) {
+            //     totalDistance += trip.getDistance();
+            //     totalFuel += trip.getSpentFuel();
+            //     totalDuration += trip.getDuration();
+
+            // }
+            if (!trips.isEmpty()&& startTime!=null && endTime!=null) {
+                TripReportItem summaryRow = new TripReportItem();
+                summaryRow.setDeviceName("Summary");
+                summaryRow.setStartTime(startTime);
+                summaryRow.setEndTime(endTime);
+                summaryRow.setDistance(Math.max(0 , totalDistance));
+                // Add summary row to trips collection
+                if (trips instanceof ArrayList) {
+                    ((ArrayList<TripReportItem>)trips).add(summaryRow);
+                } else {
+                    List<TripReportItem> mutableTrips = new ArrayList<>(trips);
+                    mutableTrips.add(summaryRow);
+                    trips = mutableTrips;
+                }
+            }
+
+
+
+
+
             deviceTrips.setObjects(trips);
             devicesTrips.add(deviceTrips);
         }
