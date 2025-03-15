@@ -5,7 +5,7 @@ import http.client as httplib
 import time
 import datetime
 
-id = '12345678901234'
+id = '1'
 server = 'localhost:5055'
 
 points = [

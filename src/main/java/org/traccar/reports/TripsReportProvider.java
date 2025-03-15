@@ -64,6 +64,31 @@ public class TripsReportProvider {
         ArrayList<TripReportItem> result = new ArrayList<>();
         for (Device device: DeviceUtil.getAccessibleDevices(storage, userId, deviceIds, groupIds)) {
             result.addAll(reportUtils.detectTripsAndStops(device, from, to, TripReportItem.class));
+            Collection<TripReportItem> trips = reportUtils.detectTripsAndStops(device, from, to, TripReportItem.class);
+            if (trips != null && !trips.isEmpty()) {
+            double totalDistance = 0;
+            Date startTime = null;
+            Date endTime = null;
+
+            for (TripReportItem trip : trips) {
+                totalDistance += trip.getDistance();
+                if (startTime == null || trip.getStartTime().before(startTime)) {
+                    startTime = trip.getStartTime();
+                }
+                if (endTime == null || trip.getEndTime().after(endTime)) {
+                    endTime = trip.getEndTime();
+                }
+            }
+
+            TripReportItem summaryRow = new TripReportItem();
+            summaryRow.setDeviceName("Summary");
+            summaryRow.setStartTime(startTime);
+            summaryRow.setEndTime(endTime);
+            summaryRow.setDistance(Math.max(0, totalDistance));
+
+            result.addAll(trips);
+            result.add(summaryRow);
+        }
         }
         return result;
     }
@@ -94,9 +119,17 @@ public class TripsReportProvider {
             double totalDistance = 0;
             Date startTime = null;
             Date endTime = null;
+             double totalSpentFuel = 0;
+             double maxSpeed = 0;
+             double totalSpeed = 0;
+             int tripCount = 0;
 
             for (TripReportItem trip : trips) {
                 totalDistance += trip.getDistance();
+                totalSpentFuel += trip.getSpentFuel();
+                maxSpeed = Math.max(maxSpeed, trip.getMaxSpeed());
+                totalSpeed += trip.getAverageSpeed();
+                tripCount++;
 
                 if (startTime == null || trip.getStartTime().before(startTime)) {
                     startTime = trip.getStartTime();
@@ -106,19 +139,41 @@ public class TripsReportProvider {
                     endTime = trip.getEndTime();
                 }
 
+
             }
 
-            if (!trips.isEmpty()&& startTime!=null && endTime!=null) {
+            if (!trips.isEmpty() && startTime != null && endTime != null) {
+                TripReportItem headerRow = new TripReportItem();
+                 headerRow.setDeviceName("");               
+                 headerRow.setStartAddress("SUMMARY REPORT");          
+                 headerRow.setEndAddress("SUMMARY REPORT");             
+                 headerRow.setStartTime(null);             
+                 headerRow.setEndTime(null);                
+
+                 headerRow.setDistance(0);                 
+                 headerRow.setAverageSpeed(0);              
+                 headerRow.setMaxSpeed(0);                 
+                 headerRow.setSpentFuel(0);                 
+                 headerRow.setDriverName(null);            
+                 headerRow.setDuration(0);
+
+
                 TripReportItem summaryRow = new TripReportItem();
                 summaryRow.setDeviceName("Summary");
                 summaryRow.setStartTime(startTime);
                 summaryRow.setEndTime(endTime);
-                summaryRow.setDistance(Math.max(0 , totalDistance));
+                summaryRow.setDistance(Math.max(0, totalDistance));
+                summaryRow.setSpentFuel(totalSpentFuel);
+                summaryRow.setMaxSpeed(maxSpeed);
+                summaryRow.setAverageSpeed(tripCount > 0 ? totalSpeed / tripCount : 0);
+                
                 // Add summary row to trips collection
                 if (trips instanceof ArrayList) {
+                    ((ArrayList<TripReportItem>)trips).add(headerRow);
                     ((ArrayList<TripReportItem>)trips).add(summaryRow);
                 } else {
                     List<TripReportItem> mutableTrips = new ArrayList<>(trips);
+                    mutableTrips.add(headerRow);
                     mutableTrips.add(summaryRow);
                     trips = mutableTrips;
                 }
