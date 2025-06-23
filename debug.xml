@@ -32,7 +32,7 @@
     <entry key='database.driver'>com.mysql.cj.jdbc.Driver</entry>
     <entry key='database.url'>jdbc:mysql://localhost:3306/traccar</entry>
     <entry key='database.user'>root</entry>
-    <entry key='database.password'>root123</entry>
+    <entry key='database.password'>root</entry>
 
     <entry key='notificator.types'>web,mail</entry>
 
