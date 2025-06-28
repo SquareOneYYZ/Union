@@ -19,11 +19,5 @@
 
   </changeSet>
 
-  <changeSet author="author" id="changelog-6.6.3-indexes-addition">
-    <createIndex tableName="tc_devices" indexName="idx_devices_vin">
-      <column name="vin" />
-    </createIndex>
-  </changeSet>
-
 
 </databaseChangeLog>
