@@ -93,7 +93,8 @@ public class TollRouteState {
             this.tollWindow = new ArrayList<Boolean>();
         }
         this.tollWindow.add(isToll);
-        LOGGER.info("TollWindow added value: {}, current size: {}, values: {}", isToll, this.tollWindow.size(), this.tollWindow);
+        LOGGER.info("TollWindow added value: {}, current size: {}, values: {}", isToll,
+         this.tollWindow.size(), this.tollWindow);
         if (this.tollWindow.size() > duration) {
             this.tollWindow.remove(0);
         }
@@ -106,7 +107,8 @@ public class TollRouteState {
             if (this.tollWindow.size() > duration) {
                 this.tollWindow.remove(0);
             }
-            LOGGER.info("TollWindow added value: {}, current size: {}, values: {}", isToll, this.tollWindow.size(), this.tollWindow);
+            LOGGER.info("TollWindow added value: {}, current size: {}, values: {}", isToll,
+                    this.tollWindow.size(), this.tollWindow);
         }
     }
 
@@ -119,7 +121,8 @@ public class TollRouteState {
         }
         if (tollWindowSet != null && tollWindowSet.size() == 1) {
             if (this.tollWindow.size() == (int) duration) {
-                LOGGER.info("TollWindow reached required size {} with same value: {}", duration, tollWindowSet.iterator().next());
+                LOGGER.info("TollWindow reached required size {} with same value: {}",
+                        duration, tollWindowSet.iterator().next());
                 return tollWindowSet.iterator().next();
             } else if (this.tollWindow.size() < duration && tollWindowSet.contains(false)) {
                 LOGGER.info("TollWindow not yet at required size {}, but contains false", duration);
