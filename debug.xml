@@ -69,5 +69,7 @@
     <entry key='redis.username'>default</entry>
 
 
+    <entry key='notification.types'>toll,surface</entry>
+
 
 </properties>

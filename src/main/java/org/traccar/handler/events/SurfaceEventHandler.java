@@ -1,0 +1,77 @@
+package org.traccar.handler.events;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.traccar.model.Event;
+import org.traccar.model.Position;
+import org.traccar.session.state.SurfaceState;
+import org.traccar.storage.localCache.RedisCache;
+
+import java.util.Set;
+
+@Singleton
+public class SurfaceEventHandler extends BaseEventHandler{
+    private static final Logger LOGGER = LoggerFactory.getLogger(SurfaceEventHandler.class);
+
+    private final Set<String> alertSurfaces = Set.of(
+            "unpaved", "compacted", "fine_gravel", "gravel", "shells",
+            "rock","pebblestone", "ground", "dirt", "earth","asphalt", "grass", "mud",
+            "sand", "woodchips", "snow","concrete", "ice", "salt");
+
+    private final RedisCache redisCache;
+    private final ObjectMapper objectMapper;
+    private final int confidenceWindow = 4; // configurable if you want
+
+    @Inject
+    public SurfaceEventHandler(RedisCache redisCache) {
+        this.redisCache = redisCache;
+        this.objectMapper = new ObjectMapper();
+    }
+
+    @Override
+    public void onPosition(Position position, Callback callback) {
+        String surface = position.getString(Position.KEY_SURFACE);
+        if (surface == null || !alertSurfaces.contains(surface.toLowerCase())) {
+            LOGGER.info("SurfaceEventHandler skipped: invalid or non-alert surface '{}'", surface);
+            return;
+        }
+
+        long deviceId = position.getDeviceId();
+        String cacheKey = "surface:" + deviceId;
+        SurfaceState surfaceState = null;
+
+        try {
+            if (redisCache.exists(cacheKey)) {
+                String json = redisCache.get(cacheKey);
+                surfaceState = objectMapper.readValue(json, SurfaceState.class);
+                LOGGER.info("Loaded SurfaceState from Redis for deviceId={}", deviceId);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Error reading SurfaceState from Redis for deviceId={}", deviceId, e);
+        }
+
+        if (surfaceState == null) {
+            surfaceState = new SurfaceState();
+        }
+
+        surfaceState.addSurface(surface.toLowerCase(), confidenceWindow, position);
+
+        try {
+            String updatedJson = objectMapper.writeValueAsString(surfaceState);
+            redisCache.set(cacheKey, updatedJson);
+            LOGGER.info("Updated SurfaceState in Redis for deviceId={}", deviceId);
+        } catch (Exception e) {
+            LOGGER.warn("Error writing SurfaceState to Redis for deviceId={}", deviceId, e);
+        }
+
+        if (surfaceState.getEvent() != null) {
+            surfaceState.getEvent().setDeviceId(deviceId);
+            surfaceState.getEvent().set(Position.KEY_SURFACE, surface);
+            callback.eventDetected(surfaceState.getEvent());
+            LOGGER.info("SurfaceEvent emitted: {}", surface);
+        }
+    }
+}
