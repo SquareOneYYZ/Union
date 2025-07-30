@@ -50,7 +50,7 @@ public class SurfaceState {
             if (unique.size() == 1) {
                 String confirmedSurface = unique.iterator().next();
                 LOGGER.info("SurfaceWindow reached required size {} with same value: {}", duration, confirmedSurface);
-                event = new Event(Event.TYPE_SURFACE_TYPE,position);
+                event = new Event(Event.TYPE_SURFACE_TYPE, position);
                 event.set(Position.KEY_SURFACE, confirmedSurface);
             }
         }
