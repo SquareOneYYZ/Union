@@ -5,7 +5,6 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.traccar.model.Event;
 import org.traccar.model.Position;
 import org.traccar.session.state.SurfaceState;
 import org.traccar.storage.localCache.RedisCache;
@@ -13,13 +12,13 @@ import org.traccar.storage.localCache.RedisCache;
 import java.util.Set;
 
 @Singleton
-public class SurfaceEventHandler extends BaseEventHandler{
+public class SurfaceEventHandler extends BaseEventHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(SurfaceEventHandler.class);
 
     private final Set<String> alertSurfaces = Set.of(
             "unpaved", "compacted", "fine_gravel", "gravel", "shells",
-            "rock","pebblestone", "ground", "dirt", "earth","asphalt", "grass", "mud",
-            "sand", "woodchips", "snow","concrete", "ice", "salt");
+            "rock", "pebblestone", "ground", "dirt", "earth", "asphalt", "grass", "mud",
+            "sand", "woodchips", "snow", "concrete", "ice", "salt");
 
     private final RedisCache redisCache;
     private final ObjectMapper objectMapper;

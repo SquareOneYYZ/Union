@@ -9,7 +9,7 @@ import org.traccar.tollroute.TollData;
 import org.traccar.tollroute.TollRouteProvider;
 
 @Singleton
-public class PositionInfoHandler extends BasePositionHandler{
+public class PositionInfoHandler extends BasePositionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(PositionInfoHandler.class);
     private final TollRouteProvider tollRouteProvider;
 

@@ -34,11 +34,13 @@ public class SurfaceState {
         }
 
         surfaceWindow.add(surface);
-        LOGGER.info("SurfaceWindow added value: {}, current size: {}, values: {}", surface, surfaceWindow.size(), surfaceWindow);
+        LOGGER.info("SurfaceWindow added value: {}, current size: {}, values: {}", surface,
+                surfaceWindow.size(), surfaceWindow);
 
         if (surfaceWindow.size() > duration) {
             String removed = surfaceWindow.remove(0);
-            LOGGER.info("SurfaceWindow removed oldest value: {}, new size: {}, values: {}", removed, surfaceWindow.size(), surfaceWindow);
+            LOGGER.info("SurfaceWindow removed oldest value: {}, new size: {}, values: {}",
+                    removed, surfaceWindow.size(), surfaceWindow);
         }
 
         if (surfaceWindow.size() == duration) {
