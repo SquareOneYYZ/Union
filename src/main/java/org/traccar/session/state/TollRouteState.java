@@ -84,8 +84,8 @@ public class TollRouteState {
 
 
     // private List<Boolean> tollWindow;
-   @JsonProperty
-   private List<Boolean> tollWindow = new ArrayList<>();
+    @JsonProperty
+    private List<Boolean> tollWindow = new ArrayList<>();
 
 /*
     public void addOnToll(Boolean isToll, int duration) {
