@@ -24,25 +24,7 @@ import jakarta.inject.Singleton;
 import org.traccar.config.Config;
 import org.traccar.database.BufferingManager;
 import org.traccar.database.NotificationManager;
-import org.traccar.handler.BasePositionHandler;
-import org.traccar.handler.ComputedAttributesHandler;
-import org.traccar.handler.CopyAttributesHandler;
-import org.traccar.handler.DatabaseHandler;
-import org.traccar.handler.DistanceHandler;
-import org.traccar.handler.DriverHandler;
-import org.traccar.handler.EngineHoursHandler;
-import org.traccar.handler.FilterHandler;
-import org.traccar.handler.GeocoderHandler;
-import org.traccar.handler.GeofenceHandler;
-import org.traccar.handler.GeolocationHandler;
-import org.traccar.handler.HemisphereHandler;
-import org.traccar.handler.MotionHandler;
-import org.traccar.handler.OutdatedHandler;
-import org.traccar.handler.PositionForwardingHandler;
-import org.traccar.handler.PostProcessHandler;
-import org.traccar.handler.SpeedLimitHandler;
-import org.traccar.handler.TimeHandler;
-import org.traccar.handler.TollRouteHandler;
+import org.traccar.handler.*;
 import org.traccar.handler.events.*;
 import org.traccar.handler.network.AcknowledgementHandler;
 import org.traccar.helper.PositionLogger;
@@ -95,7 +77,8 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
                 GeofenceHandler.class,
                 GeocoderHandler.class,
                 SpeedLimitHandler.class,
-                TollRouteHandler.class,
+               // TollRouteHandler.class,
+                PositionInfoHandler.class,
                 MotionHandler.class,
                 ComputedAttributesHandler.Late.class,
                 EngineHoursHandler.class,
@@ -112,6 +95,7 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
                 CommandResultEventHandler.class,
                 OverspeedEventHandler.class,
                 TollEventHandler.class,
+                SurfaceEventHandler.class,
                 BehaviorEventHandler.class,
                 FuelEventHandler.class,
                 MotionEventHandler.class,
