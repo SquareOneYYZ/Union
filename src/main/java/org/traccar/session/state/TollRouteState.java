@@ -84,8 +84,8 @@ public class TollRouteState {
 
 
     // private List<Boolean> tollWindow;
-   @JsonProperty
-   private List<Boolean> tollWindow = new ArrayList<>();
+    @JsonProperty
+    private List<Boolean> tollWindow = new ArrayList<>();
 
 /*
     public void addOnToll(Boolean isToll, int duration) {
@@ -102,15 +102,25 @@ public class TollRouteState {
 */
 
     public void addOnToll(Boolean isToll, int duration) {
-        if (isToll != null) {
-            this.tollWindow.add(isToll);
-            if (this.tollWindow.size() > duration) {
-                this.tollWindow.remove(0);
-            }
-            LOGGER.info("TollWindow added value: {}, current size: {}, values: {}", isToll,
+        if (this.tollWindow == null) {
+            this.tollWindow = new ArrayList<>();
+        }
+
+        this.tollWindow.add(isToll);
+        LOGGER.info("TollWindow added value: {}, current size: {}, values: {}", isToll,
+                this.tollWindow.size(), this.tollWindow);
+
+        if (this.tollWindow.size() > duration) {
+            Boolean removed = this.tollWindow.remove(0);
+            LOGGER.info("TollWindow removed oldest value: {}, new size: {}, values: {}", removed,
                     this.tollWindow.size(), this.tollWindow);
         }
+
+        if (this.tollWindow.size() == duration) {
+            LOGGER.info("TollWindow reached required size {} with values: {}", duration, this.tollWindow);
+        }
     }
+
 
 
     public Boolean isOnToll(int duration) {

@@ -30,6 +30,7 @@ public class TollRouteHandler extends BasePositionHandler {
                     position.set(Position.KEY_TOLL, tollData.getToll());
                     position.set(Position.KEY_TOLL_REF, tollData.getRef());
                     position.set(Position.KEY_TOLL_NAME, tollData.getName());
+                    position.set(Position.KEY_SURFACE, tollData.getSurface());
                     callback.processed(false);
                 }
 
