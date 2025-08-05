@@ -71,7 +71,8 @@ public class SurfaceState {
 
                 // Emit event only if the surface changed from the last emitted one
                 if (lastEmittedSurface == null || !confirmedSurface.equals(lastEmittedSurface)) {
-                    LOGGER.info("Confirmed new surface '{}' different from last emitted '{}'", confirmedSurface, lastEmittedSurface);
+                    LOGGER.info("Confirmed new surface '{}' different from last emitted '{}'",
+                            confirmedSurface, lastEmittedSurface);
                     event = new Event(Event.TYPE_SURFACE_TYPE, position);
                     event.set(Position.KEY_SURFACE, confirmedSurface);
                     lastEmittedSurface = confirmedSurface;
