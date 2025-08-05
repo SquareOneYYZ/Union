@@ -2036,6 +2036,10 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
     public static final ConfigKey<String> REDIS_PASSWORD = new StringConfigKey(
             "redis.password", List.of(KeyType.CONFIG));
 
+    public static final ConfigKey<String> EVENT_SURFACE_ALERT_TYPES = new StringConfigKey(
+            "event.surface.alertTypes", List.of(KeyType.CONFIG));
+
+
 
 
 

@@ -5,6 +5,8 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traccar.config.Config;
+import org.traccar.config.Keys;
 import org.traccar.model.Position;
 import org.traccar.session.state.SurfaceState;
 import org.traccar.storage.localCache.RedisCache;
@@ -15,24 +17,36 @@ import java.util.Set;
 public class SurfaceEventHandler extends BaseEventHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(SurfaceEventHandler.class);
 
-    private final Set<String> alertSurfaces = Set.of(
-            "unpaved", "compacted", "fine_gravel", "gravel", "shells",
-            "rock", "pebblestone", "ground", "dirt", "earth", "asphalt", "grass", "mud",
-            "sand", "woodchips", "snow", "concrete", "ice", "salt");
+//    private final Set<String> alertSurfaces = Set.of(
+//            "unpaved", "compacted", "fine_gravel", "gravel", "shells",
+//            "rock", "pebblestone", "ground", "dirt", "earth", "asphalt", "grass", "mud",
+//            "sand", "woodchips", "snow", "concrete", "ice", "salt");
+
+    private Set<String> getAlertSurfaces() {
+        String surfaces = config.getString(Keys.EVENT_SURFACE_ALERT_TYPES, "");
+        return surfaces.isEmpty()
+                ? Set.of()
+                : Set.of(surfaces.toLowerCase().split("\\s*,\\s*"));
+    }
+
 
     private final RedisCache redisCache;
     private final ObjectMapper objectMapper;
-    private final int confidenceWindow = 4; // configurable if you want
+    private final int confidenceWindow = 4;
+    private final Config config;
+
 
     @Inject
-    public SurfaceEventHandler(RedisCache redisCache) {
+    public SurfaceEventHandler(RedisCache redisCache, Config config) {
         this.redisCache = redisCache;
+        this.config = config;
         this.objectMapper = new ObjectMapper();
     }
 
     @Override
     public void onPosition(Position position, Callback callback) {
         String surface = position.getString(Position.KEY_SURFACE);
+        Set<String> alertSurfaces = getAlertSurfaces();
         if (surface == null || !alertSurfaces.contains(surface.toLowerCase())) {
             LOGGER.info("SurfaceEventHandler skipped: invalid or non-alert surface '{}'", surface);
             return;
