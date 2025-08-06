@@ -21,6 +21,11 @@ public class SurfaceState {
     @JsonProperty
     private List<String> surfaceWindow = new ArrayList<>();
 
+    @JsonProperty
+    private String lastEmittedSurface;
+
+
+
     @JsonIgnore
     private Event event;
 
@@ -43,17 +48,41 @@ public class SurfaceState {
                     removed, surfaceWindow.size(), surfaceWindow);
         }
 
+//        if (surfaceWindow.size() == duration) {
+//            LOGGER.info("SurfaceWindow reached required size {} with values: {}", duration, surfaceWindow);
+//
+//            Set<String> unique = new HashSet<>(surfaceWindow);
+//            if (unique.size() == 1) {
+//                String confirmedSurface = unique.iterator().next();
+//                LOGGER.info("SurfaceWindow reached required size {} with same value: {}", duration, confirmedSurface);
+//                event = new Event(Event.TYPE_SURFACE_TYPE, position);
+//                event.set(Position.KEY_SURFACE, confirmedSurface);
+//            }
+//        }
+
+
+
         if (surfaceWindow.size() == duration) {
             LOGGER.info("SurfaceWindow reached required size {} with values: {}", duration, surfaceWindow);
 
             Set<String> unique = new HashSet<>(surfaceWindow);
             if (unique.size() == 1) {
                 String confirmedSurface = unique.iterator().next();
-                LOGGER.info("SurfaceWindow reached required size {} with same value: {}", duration, confirmedSurface);
-                event = new Event(Event.TYPE_SURFACE_TYPE, position);
-                event.set(Position.KEY_SURFACE, confirmedSurface);
+
+                // Emit event only if the surface changed from the last emitted one
+                if (lastEmittedSurface == null || !confirmedSurface.equals(lastEmittedSurface)) {
+                    LOGGER.info("Confirmed new surface '{}' different from last emitted '{}'",
+                            confirmedSurface, lastEmittedSurface);
+                    event = new Event(Event.TYPE_SURFACE_TYPE, position);
+                    event.set(Position.KEY_SURFACE, confirmedSurface);
+                    lastEmittedSurface = confirmedSurface;
+                } else {
+                    LOGGER.info("Surface '{}' already emitted last time, skipping duplicate event", confirmedSurface);
+                    event = null;
+                }
             }
         }
+
     }
 
 }
