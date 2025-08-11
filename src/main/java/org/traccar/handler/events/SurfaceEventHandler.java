@@ -83,8 +83,15 @@ public class SurfaceEventHandler extends BaseEventHandler {
         if (surfaceState.getEvent() != null) {
             surfaceState.getEvent().setDeviceId(deviceId);
             surfaceState.getEvent().set(Position.KEY_SURFACE, surface);
+            LOGGER.info("Triggering surface event for deviceId={} with surface={}", deviceId, surface);
+            try {
             callback.eventDetected(surfaceState.getEvent());
             LOGGER.info("SurfaceEvent emitted: {}", surface);
+            } catch (Exception e) {
+                LOGGER.warn("Error emitting surface event for deviceId={}", deviceId, e);
+            }
+        } else {
+            LOGGER.info("No surface event generated for deviceId={} after window check", deviceId);
         }
     }
 }
