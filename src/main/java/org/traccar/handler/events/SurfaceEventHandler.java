@@ -17,11 +17,6 @@ import java.util.Set;
 public class SurfaceEventHandler extends BaseEventHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(SurfaceEventHandler.class);
 
-//    private final Set<String> alertSurfaces = Set.of(
-//            "unpaved", "compacted", "fine_gravel", "gravel", "shells",
-//            "rock", "pebblestone", "ground", "dirt", "earth", "asphalt", "grass", "mud",
-//            "sand", "woodchips", "snow", "concrete", "ice", "salt");
-
     private Set<String> getAlertSurfaces() {
         String surfaces = config.getString(Keys.EVENT_SURFACE_ALERT_TYPES, "");
         return surfaces.isEmpty()
@@ -48,7 +43,7 @@ public class SurfaceEventHandler extends BaseEventHandler {
         String surface = position.getString(Position.KEY_SURFACE);
         Set<String> alertSurfaces = getAlertSurfaces();
         if (surface == null || !alertSurfaces.contains(surface.toLowerCase())) {
-            LOGGER.info("SurfaceEventHandler skipped: invalid or non-alert surface '{}'", surface);
+            LOGGER.debug("SurfaceEventHandler skipped: invalid or non-alert surface '{}'", surface);
             return;
         }
 
@@ -60,7 +55,7 @@ public class SurfaceEventHandler extends BaseEventHandler {
             if (redisCache.exists(cacheKey)) {
                 String json = redisCache.get(cacheKey);
                 surfaceState = objectMapper.readValue(json, SurfaceState.class);
-                LOGGER.info("Loaded SurfaceState from Redis for deviceId={}", deviceId);
+                LOGGER.debug("Loaded SurfaceState from Redis for deviceId={}", deviceId);
             }
         } catch (Exception e) {
             LOGGER.warn("Error reading SurfaceState from Redis for deviceId={}", deviceId, e);
@@ -75,7 +70,7 @@ public class SurfaceEventHandler extends BaseEventHandler {
         try {
             String updatedJson = objectMapper.writeValueAsString(surfaceState);
             redisCache.set(cacheKey, updatedJson);
-            LOGGER.info("Updated SurfaceState in Redis for deviceId={}", deviceId);
+            LOGGER.debug("Updated SurfaceState in Redis for deviceId={}", deviceId);
         } catch (Exception e) {
             LOGGER.warn("Error writing SurfaceState to Redis for deviceId={}", deviceId, e);
         }
