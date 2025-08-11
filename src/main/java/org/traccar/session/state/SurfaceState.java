@@ -39,12 +39,12 @@ public class SurfaceState {
         }
 
         surfaceWindow.add(surface);
-        LOGGER.info("SurfaceWindow added value: {}, current size: {}, values: {}", surface,
+        LOGGER.debug("SurfaceWindow added value: {}, current size: {}, values: {}", surface,
                 surfaceWindow.size(), surfaceWindow);
 
         if (surfaceWindow.size() > duration) {
             String removed = surfaceWindow.remove(0);
-            LOGGER.info("SurfaceWindow removed oldest value: {}, new size: {}, values: {}",
+            LOGGER.debug("SurfaceWindow removed oldest value: {}, new size: {}, values: {}",
                     removed, surfaceWindow.size(), surfaceWindow);
         }
 
@@ -63,7 +63,7 @@ public class SurfaceState {
 
 
         if (surfaceWindow.size() == duration) {
-            LOGGER.info("SurfaceWindow reached required size {} with values: {}", duration, surfaceWindow);
+            LOGGER.debug("SurfaceWindow reached required size {} with values: {}", duration, surfaceWindow);
 
             Set<String> unique = new HashSet<>(surfaceWindow);
             if (unique.size() == 1) {
@@ -71,13 +71,13 @@ public class SurfaceState {
 
                 // Emit event only if the surface changed from the last emitted one
                 if (lastEmittedSurface == null || !confirmedSurface.equals(lastEmittedSurface)) {
-                    LOGGER.info("Confirmed new surface '{}' different from last emitted '{}'",
+                    LOGGER.debug("Confirmed new surface '{}' different from last emitted '{}'",
                             confirmedSurface, lastEmittedSurface);
                     event = new Event(Event.TYPE_SURFACE_TYPE, position);
                     event.set(Position.KEY_SURFACE, confirmedSurface);
                     lastEmittedSurface = confirmedSurface;
                 } else {
-                    LOGGER.info("Surface '{}' already emitted last time, skipping duplicate event", confirmedSurface);
+                    LOGGER.debug("Surface '{}' already emitted last time, skipping duplicate event", confirmedSurface);
                     event = null;
                 }
             }
