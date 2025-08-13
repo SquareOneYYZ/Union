@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import threading
 import urllib
 import http.client as httplib
 import time
@@ -9,7 +10,110 @@ import datetime
 # # server = 'localhost:5055'
 # server = 'data.iotrides.com:5055'
 
-id = '12345678901234'
+# id = '12345678901234'
+device_ids = [
+     '354876543210123',
+        '490154203237518',
+        '861075030123456',
+        '356938035643809',
+        '869470028364715',
+        '352044090876543',
+        '359112078654321',
+        '862549036547890',
+        '358967054321098',
+        '864209037654321',
+        '357924056789012',
+        '865432098765432',
+        '351987065432109',
+        '867890123456789',
+        '356789012345678',
+        '869012345678901',
+        '354321098765432',
+        '862109876543210',
+        '358765432109876',
+        '864567890123456',
+        '357654321098765',
+        '865678901234567',
+        '352345678901234',
+        '867789012345678',
+        '359876543210987',
+        '868901234567890',
+        '354567890123456',
+        '862345678901234',
+        '358901234567890',
+        '864321098765432',
+        '357890123456789',
+        '865432109876543',
+        '351234567890123',
+        '867654321098765',
+        '356543210987654',
+        '869876543210987',
+        '354098765432109',
+        '862210987654321',
+        '358432109876543',
+        '864654321098765',
+        '357876543210987',
+        '865098765432109',
+        '352109876543210',
+        '867321098765432',
+        '359543210987654',
+        '868765432109876',
+        '354987654321098',
+        '862109876543210',
+        '358321098765432',
+        '864543210987654',
+        '357765432109876',
+        '865987654321098',
+        '352210987654321',
+        '867432109876543',
+        '359654321098765',
+        '868876543210987',
+        '354210987654321',
+        '862432109876543',
+        '358654321098765',
+        '864876543210987',
+        '357098765432109',
+        '865210987654321',
+        '352432109876543',
+        '867654321098765',
+        '359876543210987',
+        '868098765432109',
+        '354321098765432',
+        '862543210987654',
+        '358765432109876',
+        '864987654321098',
+        '357210987654321',
+        '865432109876543',
+        '352654321098765',
+        '867876543210987',
+        '359098765432109',
+        '868210987654321',
+        '354432109876543',
+        '862654321098765',
+        '358876543210987',
+        '864098765432109',
+        '357321098765432',
+        '865543210987654',
+        '352765432109876',
+        '867987654321098',
+        '359210987654321',
+        '868432109876543',
+        '354654321098765',
+        '862876543210987',
+        '358098765432109',
+        '864210987654321',
+        '357432109876543',
+        '865654321098765',
+        '352876543210987',
+        '867098765432109',
+        '359321098765432',
+        '868543210987654',
+        '354765432109876',
+        '862987654321098',
+        '358210987654321',
+        '864432109876543'
+]
+
 # server = 'data.staging.iotrides.com:5055'
 server = 'localhost:5055'
 
@@ -1019,25 +1123,50 @@ points = [("2025-03-20 09:32:29",41.978698,-87.878196,31.3175,32),
 ]
 log_file = open("sent_points.log", "w")
 
-def send(conn, time, lat, lon, speed, heading):
-    params = (('id', id), ('timestamp', int(time)), ('lat', lat), ('lon', lon), ('speed', speed), ('heading', heading))
+def send(conn, device_id, time, lat, lon, speed, heading):
+    params = (('id', device_id), ('timestamp', int(time)), ('lat', lat), ('lon', lon),
+    ('speed', speed), ('heading', heading))
     log_file.write(f"Sending: {params}\n")
     print(f"Sending: {params}")
     conn.request('POST', '?' + urllib.parse.urlencode(params))
     conn.getresponse().read()
 
-conn = httplib.HTTPConnection(server)
+def send_points_for_device(device_id):
+    conn = httplib.HTTPConnection(server)
+    for i in range(0, len(points)):
+        (moment, lat, lon, speed, heading) = points[i]
+        if i == 0:
+            continue  # Skip first point to avoid index error
+        (momentOld, latOld, lonOld, speedOld, headingOld) = points[i - 1]
 
-for i in range(0, len(points)):
-    (moment,lat, lon, speed,heading) = points[i]
-    (momentOld,latOld, lonOld, speedOld,headingOld) = points[i-1]
+        print("sending ", time.mktime(time.localtime(time.time())), lat, lon, speed)
+        send(conn, device_id, time.mktime(time.localtime(time.time())), lat, lon, speed, heading)
+        time.sleep(2)
 
-    time_dif = time.mktime(datetime.datetime.strptime(moment, "%Y-%m-%d %H:%M:%S").timetuple()) - time.mktime(datetime.datetime.strptime(momentOld, "%Y-%m-%d %H:%M:%S").timetuple())
-#     time.sleep(5)
-#     if i-1 >= 0:
-#         time.sleep(2)
 
-    #send(conn, time.mktime(datetime.datetime.strptime(moment, "%Y-%m-%d %H:%M:%S").timetuple()), lat, lon, speed)
-    print("sending ", time.mktime(time.localtime(time.time())), lat, lon, speed)
-    send(conn, time.mktime(time.localtime(time.time())), lat, lon, speed,heading)
+# conn = httplib.HTTPConnection(server)
+#
+# for i in range(0, len(points)):
+#     (moment,lat, lon, speed,heading) = points[i]
+#     (momentOld,latOld, lonOld, speedOld,headingOld) = points[i-1]
+#
+#     time_dif = time.mktime(datetime.datetime.strptime(moment, "%Y-%m-%d %H:%M:%S").timetuple()) -
+# time.mktime(datetime.datetime.strptime(momentOld, "%Y-%m-%d %H:%M:%S").timetuple())
+# #     time.sleep(5)
+# #     if i-1 >= 0:
+# #         time.sleep(2)
+#
+#     #send(conn, time.mktime(datetime.datetime.strptime(moment, "%Y-%m-%d %H:%M:%S").timetuple()), lat, lon, speed)
+#     print("sending ", time.mktime(time.localtime(time.time())), lat, lon, speed)
+#     send(conn, time.mktime(time.localtime(time.time())), lat, lon, speed,heading)
+
+
+threads = []
+for device_id in device_ids:
+    thread = threading.Thread(target=send_points_for_device, args=(device_id,))
+    thread.start()
+    threads.append(thread)
+
+for thread in threads:
+    thread.join()
 
