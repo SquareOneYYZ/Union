@@ -21,7 +21,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         final String baseurl = config.getString(Keys.TOLL_ROUTE_URL, url);
         this.accuracy = config.getInteger(Keys.TOLL_ROUTE_ACCURACY);
         //  this.url = baseurl + "?data=[out:json];way[toll=yes](around:" + accuracy + ",%f,%f);out%%20tags;";
-        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f)[highway];out%%20tags;";
+        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
 
     }
 
