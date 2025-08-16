@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <body>
-$device.name detected surface type `$event.attributes.surface` at $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)<br>
+$device.name detected surface type `$event.attributes.surface`<br>
 Time: $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)<br>
 Point: <a href="$webUrl?eventId=$event.id">#{if}($position.address)$position.address#{else}$position.latitude&deg;, $position.longitude&deg;#{end}</a><br>
 <br>
