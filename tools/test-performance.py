@@ -3,13 +3,13 @@
 import asyncio
 import random
 
-host = 'localhost'
+host = 'iotstagingenv.duckdns.org'
 port = 5027
 
 messageLogin = bytearray.fromhex('000F313233343536373839303132333435')
 messageLocation = bytearray.fromhex('000000000000002b080100000140d4e3ec6e000cc661d01674a5e0fffc00000900000004020100f0000242322318000000000100007a04')
 
-devices = 100
+devices = 1000
 period = 1
 
 
