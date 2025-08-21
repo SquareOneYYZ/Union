@@ -299,7 +299,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         private String surface;
 
         // Default constructor for Jackson
-        public CachedTollData() {}
+        public CachedTollData() { }
 
         public CachedTollData(Boolean toll, String ref, String name, String surface) {
             this.toll = toll;
@@ -307,6 +307,11 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             this.name = name;
             this.surface = surface;
         }
+
+        Boolean getToll() { return toll; }
+        String getRef() { return ref; }
+        String getName() { return name; }
+        String getSurface() { return surface; }
     }
 
 }
