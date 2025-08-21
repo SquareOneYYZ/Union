@@ -287,16 +287,16 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
     // Inner class for JSON serialization
     private static class CachedTollData {
         @JsonProperty("toll")
-        public Boolean toll;
+        private Boolean toll;
 
         @JsonProperty("ref")
-        public String ref;
+        private String ref;
 
         @JsonProperty("name")
-        public String name;
+        private String name;
 
         @JsonProperty("surface")
-        public String surface;
+        private String surface;
 
         // Default constructor for Jackson
         public CachedTollData() {}
