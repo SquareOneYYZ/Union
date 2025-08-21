@@ -285,7 +285,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
 
 
     // Inner class for JSON serialization
-    private static class CachedTollData {
+    private static final class CachedTollData {
         @JsonProperty("toll")
         private Boolean toll;
 
