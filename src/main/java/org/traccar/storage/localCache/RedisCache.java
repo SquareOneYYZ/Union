@@ -38,4 +38,8 @@ public class RedisCache {
     public boolean exists(String key) {
         return jedis.exists(key);
     }
+
+    public void setWithTTL(String key, String value, int seconds) {
+        jedis.setex(key, seconds, value);
+    }
 }
