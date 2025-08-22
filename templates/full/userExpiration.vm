@@ -1,7 +1,70 @@
-#set($subject = "Account expiration")
+#set($subject = "Account Expiration")
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Account Expiration</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background-color: #f9fafc;
+      margin: 0;
+      padding: 0;
+      color: #1a1a1a;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background-color: #ffffff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
+      text-align: center;
+    }
+    .header img {
+      max-height: 60px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+      background: linear-gradient(to right, #8e2de2, #4a00e0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 20px 0;
+    }
+    .content {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #333333;
+      text-align: center;
+      margin-top: 20px;
+    }
+    .footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: #999;
+    }
+    .footer a {
+      color: #999;
+      text-decoration: underline;
+    }
+  </style>
+</head>
 <body>
-Your user account has expired.
+  <div class="container">
+    <div class="header">
+      <img src="https://chat.openai.com/cdn-cgi/imagedelivery/NmYdzWzHqzVdZW3S5UAY2A/9DPBYozZuSWgPeqBzx8eUC/public" alt="RidesIQ Logo" />
+    </div>
+    <div class="title">Account Expiration</div>
+    <div class="content">
+      <p>Your user account has expired.</p>
+    </div>
+    <div class="footer">
+      &copy; 2025 RidesIQ. All rights reserved. | <a href="$webUrl/privacy">Privacy Policy</a><br/>
+      <a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
+    </div>
+  </div>
 </body>
 </html>
