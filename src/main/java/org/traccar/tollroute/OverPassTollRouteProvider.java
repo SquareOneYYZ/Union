@@ -137,27 +137,50 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
     public void getTollRoute(double latitude, double longitude, TollRouteProviderCallback callback) {
         String cacheKey = generateCacheKey(latitude, longitude);
 
-        try {
-            // Check cache first
-            String cachedData = redisCache.get(cacheKey);
-            if (cachedData != null) {
-                System.out.println("Cache hit for coordinates: " + latitude + ", " + longitude);
-                CachedTollData cached = objectMapper.readValue(cachedData, CachedTollData.class);
-                TollData tollData = new TollData(cached.toll, cached.ref, cached.name, cached.surface);
-                callback.onSuccess(tollData);
-                return;
+//        try {
+//            // Check cache first
+//            String cachedData = redisCache.get(cacheKey);
+//            if (cachedData != null) {
+//                System.out.println("Cache hit for coordinates: " + latitude + ", " + longitude);
+//                CachedTollData cached = objectMapper.readValue(cachedData, CachedTollData.class);
+//                TollData tollData = new TollData(cached.toll, cached.ref, cached.name, cached.surface);
+//                callback.onSuccess(tollData);
+//                return;
+//            }
+//
+//            System.out.println("Cache miss for coordinates: " + latitude + ", " + longitude);
+//
+//            // If not in cache, make API call
+//            makeApiCall(latitude, longitude, cacheKey, callback);
+//
+//        } catch (Exception e) {
+//            System.err.println("Error checking cache: " + e.getMessage());
+//            // Fallback to API call if cache fails
+//            makeApiCall(latitude, longitude, cacheKey, callback);
+//        }
+
+
+        if (redisCache.isAvailable()) {   //  added check
+            try {
+                String cachedData = redisCache.get(cacheKey);
+                if (cachedData != null) {
+                    System.out.println("Cache hit for coordinates: " + latitude + ", " + longitude);
+                    CachedTollData cached = objectMapper.readValue(cachedData, CachedTollData.class);
+                    TollData tollData = new TollData(cached.toll, cached.ref, cached.name, cached.surface);
+                    callback.onSuccess(tollData);
+                    return;
+                }
+                System.out.println("Cache miss for coordinates: " + latitude + ", " + longitude);
+            } catch (Exception e) {
+                System.err.println("Error reading from cache: " + e.getMessage());
             }
-
-            System.out.println("Cache miss for coordinates: " + latitude + ", " + longitude);
-
-            // If not in cache, make API call
-            makeApiCall(latitude, longitude, cacheKey, callback);
-
-        } catch (Exception e) {
-            System.err.println("Error checking cache: " + e.getMessage());
-            // Fallback to API call if cache fails
-            makeApiCall(latitude, longitude, cacheKey, callback);
+        } else {
+            System.out.println(" Skipping Redis (unavailable), using API directly...");
         }
+
+//  always fallback to API
+        makeApiCall(latitude, longitude, cacheKey, callback);
+
     }
     private Boolean determineToll(String tollKey) {
         return tollKey.equals("yes");
