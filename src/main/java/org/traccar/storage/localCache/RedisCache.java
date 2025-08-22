@@ -45,7 +45,9 @@ public class RedisCache {
 //    }
 
     public void set(String key, String value) {
-        if (!redisAvailable) return;
+        if (!redisAvailable) {
+            return;
+        }
         try {
             jedis.set(key, value);
         } catch (Exception e) {
@@ -59,7 +61,9 @@ public class RedisCache {
 //    }
 
     public String get(String key) {
-        if (!redisAvailable) return null;
+        if (!redisAvailable) {
+            return null;
+        }
         try {
             return jedis.get(key);
         } catch (Exception e) {
@@ -75,7 +79,9 @@ public class RedisCache {
 //    }
 
     public void delete(String key) {
-        if (!redisAvailable) return;
+        if (!redisAvailable) {
+            return;
+        }
         try {
             jedis.del(key);
         } catch (Exception e) {
@@ -89,7 +95,9 @@ public class RedisCache {
 //    }
 
     public boolean exists(String key) {
-        if (!redisAvailable) return false;
+        if (!redisAvailable) {
+            return false;
+        }
         try {
             return jedis.exists(key);
         } catch (Exception e) {
@@ -104,7 +112,9 @@ public class RedisCache {
 //    }
 
     public void setWithTTL(String key, String value, int seconds) {
-        if (!redisAvailable) return;
+        if (!redisAvailable) {
+            return;
+        }
         try {
             jedis.setex(key, seconds, value);
         } catch (Exception e) {
