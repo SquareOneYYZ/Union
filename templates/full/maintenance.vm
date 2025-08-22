@@ -70,7 +70,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <img src="https://chat.openai.com/cdn-cgi/imagedelivery/NmYdzWzHqzVdZW3S5UAY2A/9DPBYozZuSWgPeqBzx8eUC/public" alt="RidesIQ Logo" />
+      <img src="/traccar-web/public/logo.svg" alt="RidesIQ Logo" />
     </div>
     <div class="title">Maintenance Required</div>
     <div class="content">
@@ -91,7 +91,7 @@
       <p>Please schedule maintenance as soon as possible to avoid issues.</p>
     </div>
     <div class="footer">
-      &copy; 2025 RidesIQ. All rights reserved. | <a href="$webUrl/privacy">Privacy Policy</a><br/>
+      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy">Privacy Policy</a><br/>
       <a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
     </div>
   </div>

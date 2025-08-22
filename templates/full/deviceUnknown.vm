@@ -29,7 +29,7 @@
     .title {
       font-size: 24px;
       font-weight: bold;
-      background: linear-gradient(to right, #667eea, #764ba2);
+      background: linear-gradient(to right, #667eea, #764ba2); /* Purple gradient */
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin: 20px 0;
@@ -70,7 +70,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <img src="https://chat.openai.com/cdn-cgi/imagedelivery/NmYdzWzHqzVdZW3S5UAY2A/9DPBYozZuSWgPeqBzx8eUC/public" alt="RidesIQ Logo" />
+      <img src="/traccar-web/public/logo.svg" alt="RidesIQ Logo" />
     </div>
     <div class="title">Device Status Unknown</div>
     <div class="content">
@@ -82,7 +82,7 @@
       <p>Please verify the device connectivity or recent activity.</p>
     </div>
     <div class="footer">
-      &copy; 2025 RidesIQ. All rights reserved. | <a href="$webUrl/privacy">Privacy Policy</a><br/>
+      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy">Privacy Policy</a><br/>
       <a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
     </div>
   </div>
