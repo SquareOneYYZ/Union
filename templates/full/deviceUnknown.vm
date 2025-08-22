@@ -1,11 +1,90 @@
-#set($subject = "$device.name: status is unknown")
+#set($subject = "$device.name: Status Unknown")
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Status Unknown</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background-color: #f9fafc;
+      margin: 0;
+      padding: 0;
+      color: #1a1a1a;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background-color: #ffffff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
+      text-align: center;
+    }
+    .header img {
+      max-height: 60px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+      background: linear-gradient(to right, #667eea, #764ba2); /* Purple gradient */
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 20px 0;
+    }
+    .content {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #333333;
+      text-align: center;
+      margin-top: 20px;
+    }
+    .info-table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      font-size: 14px;
+      text-align: left;
+      width: auto;
+    }
+    .info-table td {
+      padding: 10px 20px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .info-table td.label {
+      font-weight: bold;
+      color: #555;
+    }
+    .footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: #999;
+    }
+    .footer a {
+      color: #999;
+      text-decoration: underline;
+    }
+  </style>
+</head>
 <body>
-Device: $device.name<br>
-Status is unknown<br>
-Time: $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)<br>
-<br>
-<a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
+  <div class="container">
+    <div class="header">
+      <img src="/traccar-web/public/logo.svg" alt="RidesIQ Logo" />
+    </div>
+    <div class="title">Device Status Unknown</div>
+    <div class="content">
+      <p>The following device has reported an unknown status:</p>
+      <table class="info-table">
+        <tr><td class="label">Device:</td><td>$device.name</td></tr>
+        <tr><td class="label">Time:</td><td>$dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)</td></tr>
+      </table>
+      <p>Please verify the device connectivity or recent activity.</p>
+    </div>
+    <div class="footer">
+      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy">Privacy Policy</a><br/>
+      <a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
+    </div>
+  </div>
 </body>
 </html>

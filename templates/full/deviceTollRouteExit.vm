@@ -40,7 +40,7 @@
     .title {
       font-size: 24px;
       font-weight: bold;
-      background: linear-gradient(to right, #7ca6ff, #7ee6c6);
+      background: linear-gradient(to right, #7ca6ff, #7ee6c6); /* Blue-green gradient */
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin: 20px 0;
@@ -81,14 +81,13 @@
 <body>
   <div class="container">
     <div class="header">
-      <img src="https://chat.openai.com/cdn-cgi/imagedelivery/NmYdzWzHqzVdZW3S5UAY2A/9DPBYozZuSWgPeqBzx8eUC/public" alt="RidesIQ Logo" />
+      <img src="/traccar-web/public/logo.svg" alt="RidesIQ Logo" />
     </div>
     <div class="title">Toll Exit Alert</div>
     <div class="content">
       <p>This is to notify you that one of your devices has exited a toll zone:</p>
       <table class="info-table">
         <tr><td class="label">Device:</td><td>$device.name</td></tr>
-        <tr><td class="label">Group:</td><td>$device.groupName</td></tr>
         <tr><td class="label">Toll Name:</td><td>$event.attributes.tollName</td></tr>
         <tr><td class="label">Date:</td><td>$dateTool.format("YYYY-MM-dd", $event.eventTime, $locale, $timezone)</td></tr>
         <tr><td class="label">Time:</td><td>$dateTool.format("HH:mm:ss", $event.eventTime, $locale, $timezone)</td></tr>
@@ -105,7 +104,7 @@
       <p>For more information, visit your RidesIQ dashboard or contact support if this activity looks unusual.</p>
     </div>
     <div class="footer">
-      &copy; 2025 RidesIQ. All rights reserved. | <a href="$webUrl/privacy">Privacy Policy</a><br/>
+      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy">Privacy Policy</a><br/>
       <a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
     </div>
   </div>

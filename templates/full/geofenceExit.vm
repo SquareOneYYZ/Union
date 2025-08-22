@@ -29,7 +29,7 @@
     .title {
       font-size: 24px;
       font-weight: bold;
-      background: linear-gradient(to right, #7ca6ff, #7ee6c6);
+      background: linear-gradient(to right, #7ca6ff, #7ee6c6); /* Blue-green gradient */
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin: 20px 0;
@@ -70,7 +70,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <img src="https://chat.openai.com/cdn-cgi/imagedelivery/NmYdzWzHqzVdZW3S5UAY2A/9DPBYozZuSWgPeqBzx8eUC/public" alt="RidesIQ Logo" />
+      <img src="/traccar-web/public/logo.svg" alt="RidesIQ Logo" />
     </div>
     <div class="title">Geofence Exited</div>
     <div class="content">
@@ -80,16 +80,19 @@
         <tr><td class="label">Geofence Exited:</td><td>$geofence.name</td></tr>
         <tr><td class="label">Date:</td><td>$dateTool.format("YYYY-MM-dd", $event.eventTime, $locale, $timezone)</td></tr>
         <tr><td class="label">Time:</td><td>$dateTool.format("HH:mm:ss", $event.eventTime, $locale, $timezone)</td></tr>
-        <tr><td class="label">Address:</td>
-            <td><a href="$webUrl?eventId=$event.id">
-              #{if}($position.address)$position.address#{else}$position.latitude&deg;, $position.longitude&deg;#{end}
-            </a></td>
+        <tr>
+          <td class="label">Address:</td>
+          <td>
+            <a href="$webUrl?eventId=$event.id">
+              #if($position.address) $position.address #{else} $position.latitude&deg;, $position.longitude&deg; #{end}
+            </a>
+          </td>
         </tr>
       </table>
       <p>You can view this activity in real-time by accessing your RidesIQ dashboard.</p>
     </div>
     <div class="footer">
-      &copy; 2025 RidesIQ. All rights reserved. | <a href="$webUrl/privacy">Privacy Policy</a><br/>
+      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy">Privacy Policy</a><br/>
       <a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
     </div>
   </div>

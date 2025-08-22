@@ -1,11 +1,91 @@
-#set($subject = "$device.name: offline")
+#set($subject = "$device.name: Offline Alert")
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Device Offline Alert</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background-color: #f9fafc;
+      margin: 0;
+      padding: 0;
+      color: #1a1a1a;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background-color: #ffffff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
+      text-align: center;
+    }
+    .header img {
+      max-height: 60px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+      background: linear-gradient(to right, #ff6a6a, #ff9966);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 20px 0;
+    }
+    .content {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #333333;
+      text-align: center;
+      margin-top: 20px;
+    }
+    .info-table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      font-size: 14px;
+      text-align: left;
+      width: auto;
+    }
+    .info-table td {
+      padding: 10px 20px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .info-table td.label {
+      font-weight: bold;
+      color: #555;
+    }
+    .footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: #999;
+    }
+    .footer a {
+      color: #999;
+      text-decoration: underline;
+    }
+  </style>
+</head>
 <body>
-Device: $device.name<br>
-Offline<br>
-Time: $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)<br>
-<br>
-<a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
+  <div class="container">
+    <div class="header">
+
+    </div>
+    <div class="title">Device Offline Alert</div>
+    <div class="content">
+      <p>The following device is currently offline:</p>
+      <table class="info-table">
+        <tr><td class="label">Device:</td><td>$device.name</td></tr>
+        <tr><td class="label">Status:</td><td>Offline</td></tr>
+        <tr><td class="label">Time:</td><td>$dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)</td></tr>
+      </table>
+      <p>Please check connectivity or device power to restore online status.</p>
+    </div>
+    <div class="footer">
+      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy">Privacy Policy</a><br/>
+      <a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
+    </div>
+  </div>
 </body>
 </html>
