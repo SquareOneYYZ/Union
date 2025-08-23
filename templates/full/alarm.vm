@@ -148,7 +148,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <img src="/traccar-web/public/logo.svg" alt="RidesIQ Logo" />
+      
     </div>
     <div class="title">🚨 Important Alarm Triggered</div>
     <div class="content">
