@@ -55,7 +55,6 @@
 <body>
   <div class="container">
     <div class="header">
-    <img src="/traccar-web/public/logo.svg" alt="RidesIQ Logo" />
     </div>
     <div class="title">Account Expiration Reminder</div>
     <div class="content">
