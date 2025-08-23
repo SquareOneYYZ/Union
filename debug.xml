@@ -76,9 +76,6 @@
         grass,mud,sand,woodchips,snow,concrete,ice,salt
     </entry>
 
-    <entry key='tollRoute.roundingDecimals'>3</entry>
-
-
 
 
 </properties>
