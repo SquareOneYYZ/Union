@@ -23,7 +23,7 @@ public class RedisCache {
         String redisUrl = String.format("rediss://%s:%s@%s:%d", username, password, host, port);
         this.jedis = new JedisPooled(redisUrl);
 
-            this.jedis.ping();
+//            this.jedis.ping();
     } catch (Exception e) {
             System.err.println(" Redis connection failed: " + e.getMessage());
             redisAvailable = false;
