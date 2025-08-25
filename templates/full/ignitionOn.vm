@@ -70,7 +70,6 @@
 <body>
   <div class="container">
     <div class="header">
-      <img src="/traccar-web/public/logo.svg" alt="RidesIQ Logo" />
     </div>
     <div class="title">Ignition ON Alert</div>
     <div class="content">

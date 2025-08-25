@@ -95,7 +95,6 @@ import org.traccar.speedlimit.SpeedLimitProvider;
 import org.traccar.storage.DatabaseStorage;
 import org.traccar.storage.MemoryStorage;
 import org.traccar.storage.Storage;
-import org.traccar.storage.localCache.RedisCache;
 import org.traccar.tollroute.OverPassTollRouteProvider;
 import org.traccar.tollroute.TollRouteProvider;
 import org.traccar.web.WebServer;
@@ -279,13 +278,13 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static TollRouteProvider provideTollRouteProvider(Config config, Client client, RedisCache redisCache) {
+    public static TollRouteProvider provideTollRouteProvider(Config config, Client client) {
         if (config.getBoolean(Keys.TOLL_ROUTE_ENABLE)) {
             String type = config.getString(Keys.TOLL_ROUTE_TYPE);
             String url = config.getString(Keys.TOLL_ROUTE_URL);
             if (url != null) {
                 return switch (type) {
-                    case "overpass" -> new OverPassTollRouteProvider(config, client, url, redisCache);
+                    case "overpass" -> new OverPassTollRouteProvider(config, client, url);
                     default -> throw new IllegalArgumentException("Unknown Toll Route provider");
                 };
             }

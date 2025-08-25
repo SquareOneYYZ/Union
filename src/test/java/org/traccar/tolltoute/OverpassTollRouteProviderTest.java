@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.traccar.config.Config;
 import org.traccar.speedlimit.OverpassSpeedLimitProvider;
 import org.traccar.speedlimit.SpeedLimitProvider;
-import org.traccar.storage.localCache.RedisCache;
 import org.traccar.tollroute.OverPassTollRouteProvider;
 import org.traccar.tollroute.TollData;
 import org.traccar.tollroute.TollRouteProvider;
@@ -23,10 +22,7 @@ public class OverpassTollRouteProviderTest {
     @Test
     public void testOverpass() throws Exception {
         var config = new Config();
-        var redisCache = new RedisCache(config);
-
-        TollRouteProvider provider = new OverPassTollRouteProvider(config, client,
-                "https://overpass.private.coffee/api/interpreter", redisCache);
+        TollRouteProvider provider = new OverPassTollRouteProvider(config, client, "https://overpass.private.coffee/api/interpreter");
 
         provider.getTollRoute(43.34419,-79.83133, new TollRouteProvider.TollRouteProviderCallback() {
 
