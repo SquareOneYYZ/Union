@@ -19,6 +19,9 @@ import org.traccar.storage.query.Request;
 import org.traccar.storage.localCache.RedisCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 public class TollEventHandler extends BaseEventHandler {
 
@@ -32,6 +35,7 @@ public class TollEventHandler extends BaseEventHandler {
     private final ObjectMapper objectMapper;
 
     private final int minimalDuration;
+    private final Map<String, String> localCache = new ConcurrentHashMap<>();
 
     @Inject
     public TollEventHandler(Config config, CacheManager cacheManager, Storage storage, RedisCache redisCache) {
@@ -64,11 +68,22 @@ public void onPosition(Position position, Callback callback) {
     // Load state from Redis
     TollRouteState tollState = null;
     try {
-        if (redisCache.exists(cacheKey)) {
+//        if (redisCache.exists(cacheKey)) {
+//            String json = redisCache.get(cacheKey);
+//            LOGGER.debug("Redis hit for deviceId={}", deviceId);
+//            tollState = objectMapper.readValue(json, TollRouteState.class);
+//        }
+
+        if (redisCache.isAvailable() && redisCache.exists(cacheKey)) {
             String json = redisCache.get(cacheKey);
             LOGGER.debug("Redis hit for deviceId={}", deviceId);
             tollState = objectMapper.readValue(json, TollRouteState.class);
+        } else if (!redisCache.isAvailable() && localCache.containsKey(cacheKey)) {
+            String json = localCache.get(cacheKey);
+            LOGGER.debug("Local cache hit for deviceId={}", deviceId);
+            tollState = objectMapper.readValue(json, TollRouteState.class);
         }
+
     } catch (Exception e) {
         LOGGER.warn("Redis read error for deviceId={}", deviceId, e);
     }
@@ -87,9 +102,19 @@ public void onPosition(Position position, Callback callback) {
     Boolean tollConfidence = tollState.isOnToll(minimalDuration);
     if (tollConfidence != null || positionIsToll != null) {
         try {
+//            String json = objectMapper.writeValueAsString(tollState);
+//            redisCache.set(cacheKey, json);
+//            LOGGER.debug("Redis updated for deviceId={}", deviceId);
+
             String json = objectMapper.writeValueAsString(tollState);
-            redisCache.set(cacheKey, json);
-            LOGGER.debug("Redis updated for deviceId={}", deviceId);
+            if (redisCache.isAvailable()) {
+                redisCache.set(cacheKey, json);
+                LOGGER.debug("Redis updated for deviceId={}", deviceId);
+            } else {
+                localCache.put(cacheKey, json);
+                LOGGER.debug("Local cache updated for deviceId={}", deviceId);
+            }
+
         } catch (Exception e) {
             LOGGER.warn("Redis write error for deviceId={}", deviceId, e);
         }
