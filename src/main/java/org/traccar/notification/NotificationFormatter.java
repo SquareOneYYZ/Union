@@ -18,15 +18,7 @@ package org.traccar.notification;
 
 import org.apache.velocity.VelocityContext;
 import org.traccar.helper.model.UserUtil;
-import org.traccar.model.Device;
-import org.traccar.model.Driver;
-import org.traccar.model.Event;
-import org.traccar.model.Geofence;
-import org.traccar.model.Maintenance;
-import org.traccar.model.Notification;
-import org.traccar.model.Position;
-import org.traccar.model.Server;
-import org.traccar.model.User;
+import org.traccar.model.*;
 import org.traccar.session.cache.CacheManager;
 
 import jakarta.inject.Inject;
@@ -52,6 +44,15 @@ public class NotificationFormatter {
         Device device = cacheManager.getObject(Device.class, event.getDeviceId());
 
         VelocityContext velocityContext = textTemplateFormatter.prepareContext(server, user);
+
+        String groupName = "N/A";
+        if (device != null && device.getGroupId() != 0) {
+            Group group = cacheManager.getObject(Group.class, device.getGroupId());
+            if (group != null) {
+                groupName = group.getName();
+            }
+        }
+        velocityContext.put("groupName", groupName);
 
         velocityContext.put("notification", notification);
         velocityContext.put("device", device);
