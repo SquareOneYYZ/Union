@@ -24,47 +24,27 @@ public class SurfaceState {
     @JsonProperty
     private String lastEmittedSurface;
 
-
-
     @JsonIgnore
     private Event event;
 
     public Event getEvent() {
         return event;
     }
-
     public void addSurface(String surface, int duration, Position position) {
         if (surfaceWindow == null) {
             surfaceWindow = new ArrayList<>();
         }
-
         surfaceWindow.add(surface);
         LOGGER.debug("SurfaceWindow added value: {}, current size: {}, values: {}", surface,
                 surfaceWindow.size(), surfaceWindow);
-
         if (surfaceWindow.size() > duration) {
             String removed = surfaceWindow.remove(0);
             LOGGER.debug("SurfaceWindow removed oldest value: {}, new size: {}, values: {}",
                     removed, surfaceWindow.size(), surfaceWindow);
         }
 
-//        if (surfaceWindow.size() == duration) {
-//            LOGGER.info("SurfaceWindow reached required size {} with values: {}", duration, surfaceWindow);
-//
-//            Set<String> unique = new HashSet<>(surfaceWindow);
-//            if (unique.size() == 1) {
-//                String confirmedSurface = unique.iterator().next();
-//                LOGGER.info("SurfaceWindow reached required size {} with same value: {}", duration, confirmedSurface);
-//                event = new Event(Event.TYPE_SURFACE_TYPE, position);
-//                event.set(Position.KEY_SURFACE, confirmedSurface);
-//            }
-//        }
-
-
-
         if (surfaceWindow.size() == duration) {
             LOGGER.debug("SurfaceWindow reached required size {} with values: {}", duration, surfaceWindow);
-
             Set<String> unique = new HashSet<>(surfaceWindow);
             if (unique.size() == 1) {
                 String confirmedSurface = unique.iterator().next();
