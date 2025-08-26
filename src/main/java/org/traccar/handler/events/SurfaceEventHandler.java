@@ -11,7 +11,9 @@ import org.traccar.model.Position;
 import org.traccar.session.state.SurfaceState;
 import org.traccar.storage.localCache.RedisCache;
 
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Singleton
 public class SurfaceEventHandler extends BaseEventHandler {
@@ -29,6 +31,8 @@ public class SurfaceEventHandler extends BaseEventHandler {
     private final ObjectMapper objectMapper;
     private final int confidenceWindow = 4;
     private final Config config;
+    private final Map<String, String> localCache = new ConcurrentHashMap<>();
+
 
 
     @Inject
@@ -52,11 +56,22 @@ public class SurfaceEventHandler extends BaseEventHandler {
         SurfaceState surfaceState = null;
 
         try {
-            if (redisCache.exists(cacheKey)) {
+//            if (redisCache.exists(cacheKey)) {
+//                String json = redisCache.get(cacheKey);
+//                surfaceState = objectMapper.readValue(json, SurfaceState.class);
+//                LOGGER.debug("Loaded SurfaceState from Redis for deviceId={}", deviceId);
+//            }
+
+            if (redisCache.isAvailable() && redisCache.exists(cacheKey)) {
                 String json = redisCache.get(cacheKey);
                 surfaceState = objectMapper.readValue(json, SurfaceState.class);
                 LOGGER.debug("Loaded SurfaceState from Redis for deviceId={}", deviceId);
+            } else if (!redisCache.isAvailable() && localCache.containsKey(cacheKey)) {
+                String json = localCache.get(cacheKey);
+                surfaceState = objectMapper.readValue(json, SurfaceState.class);
+                LOGGER.debug("Loaded SurfaceState from local cache for deviceId={}", deviceId);
             }
+
         } catch (Exception e) {
             LOGGER.warn("Error reading SurfaceState from Redis for deviceId={}", deviceId, e);
         }
@@ -68,9 +83,19 @@ public class SurfaceEventHandler extends BaseEventHandler {
         surfaceState.addSurface(surface.toLowerCase(), confidenceWindow, position);
 
         try {
+//            String updatedJson = objectMapper.writeValueAsString(surfaceState);
+//            redisCache.set(cacheKey, updatedJson);
+//            LOGGER.debug("Updated SurfaceState in Redis for deviceId={}", deviceId);
+
             String updatedJson = objectMapper.writeValueAsString(surfaceState);
-            redisCache.set(cacheKey, updatedJson);
-            LOGGER.debug("Updated SurfaceState in Redis for deviceId={}", deviceId);
+            if (redisCache.isAvailable()) {
+                redisCache.set(cacheKey, updatedJson);
+                LOGGER.debug("Updated SurfaceState in Redis for deviceId={}", deviceId);
+            } else {
+                localCache.put(cacheKey, updatedJson);
+                LOGGER.debug("Updated SurfaceState in local cache for deviceId={}", deviceId);
+            }
+
         } catch (Exception e) {
             LOGGER.warn("Error writing SurfaceState to Redis for deviceId={}", deviceId, e);
         }
@@ -80,8 +105,8 @@ public class SurfaceEventHandler extends BaseEventHandler {
             surfaceState.getEvent().set(Position.KEY_SURFACE, surface);
             LOGGER.info("Triggering surface event for deviceId={} with surface={}", deviceId, surface);
             try {
-            callback.eventDetected(surfaceState.getEvent());
-            LOGGER.info("SurfaceEvent emitted: {}", surface);
+                callback.eventDetected(surfaceState.getEvent());
+                LOGGER.info("SurfaceEvent emitted: {}", surface);
             } catch (Exception e) {
                 LOGGER.warn("Error emitting surface event for deviceId={}", deviceId, e);
             }

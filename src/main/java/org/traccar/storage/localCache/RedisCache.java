@@ -15,20 +15,20 @@ public class RedisCache {
     @Inject
     public RedisCache(Config config) {
         try {
-        String host = config.getString(Keys.REDIS_HOST);
-        int port = config.getInteger(Keys.REDIS_PORT);
-        String username = config.getString(Keys.REDIS_USERNAME);
-        String password = config.getString(Keys.REDIS_PASSWORD);
+            String host = config.getString(Keys.REDIS_HOST);
+            int port = config.getInteger(Keys.REDIS_PORT);
+            String username = config.getString(Keys.REDIS_USERNAME);
+            String password = config.getString(Keys.REDIS_PASSWORD);
 
-        String redisUrl = String.format("rediss://%s:%s@%s:%d", username, password, host, port);
-        this.jedis = new JedisPooled(redisUrl);
+            String redisUrl = String.format("rediss://%s:%s@%s:%d", username, password, host, port);
+            this.jedis = new JedisPooled(redisUrl);
 
-            this.jedis.ping();
-    } catch (Exception e) {
+//            this.jedis.ping();
+        } catch (Exception e) {
             System.err.println(" Redis connection failed: " + e.getMessage());
             redisAvailable = false;
         }
-        }
+    }
 
     public RedisCache(JedisPooled jedis) {
         this.jedis = jedis;
