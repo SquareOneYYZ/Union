@@ -53,9 +53,6 @@ public class NotificationFormatter {
             }
         }
         velocityContext.put("groupName", groupName);
-        System.out.println("DEBUG: Device: " + (device != null ? device.getName() : "null") +
-                ", Group ID: " + (device != null ? device.getGroupId() : "null") +
-                ", Group Name: " + groupName);
 
         velocityContext.put("notification", notification);
         velocityContext.put("device", device);
