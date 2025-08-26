@@ -81,6 +81,7 @@
 <body>
   <div class="container">
     <div class="header">
+       <img src="https://www.ridesiq.com/favicon.ico" alt="RidesIQ Logo" />
     </div>
     <div class="title">Toll Exit Alert</div>
     <div class="content">
