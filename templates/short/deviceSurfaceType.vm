@@ -1,3 +1,2 @@
 #set($subject = "$device.name: Surface Type Detected")
 $device.name detected surface type `$event.attributes.surface` at $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)
-Group: $groupName
