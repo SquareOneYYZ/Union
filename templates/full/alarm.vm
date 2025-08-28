@@ -102,12 +102,12 @@
       text-align: center;
     }
     .header img {
-      max-height: 60px;
+      max-height: 90px;
     }
     .title {
       font-size: 24px;
       font-weight: bold;
-      color:#FF3B30;
+      color: #DC143C;
       margin: 20px 0;
     }
     .content {
@@ -146,7 +146,7 @@
 <body>
   <div class="container">
     <div class="header">
-       <img src="https://www.ridesiq.com/favicon.ico" alt="RidesIQ Logo" />
+       <img src="https://www.iotrides.com/logo.svg" alt="RidesIQ Logo" />
     </div>
     <div class="title">🚨 Important Alarm Triggered</div>
     <div class="content">

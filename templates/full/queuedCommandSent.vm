@@ -24,14 +24,12 @@
       text-align: center;
     }
     .header img {
-      max-height: 60px;
+      max-height: 90px;
     }
     .title {
       font-size: 24px;
       font-weight: bold;
-      background: linear-gradient(to right, #8e2de2, #4a00e0); /* Purple gradient */
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color:#708090;
       margin: 20px 0;
     }
     .content {
@@ -70,7 +68,7 @@
 <body>
   <div class="container">
     <div class="header">
-           <img src="https://www.ridesiq.com/favicon.ico" alt="RidesIQ Logo" />
+           <img src="https://www.iotrides.com/logo.svg" alt="RidesIQ Logo" />
     </div>
     <div class="title">Queued Command Sent</div>
     <div class="content">
