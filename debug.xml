@@ -15,8 +15,13 @@
     <entry key='logger.fullStackTraces'>true</entry>
     <entry key='logger.level'>fine</entry>
 
-    <entry key='mail.debug'>true</entry>
-
+    <entry key='mail.smtp.port'>587</entry>
+<entry key='mail.smtp.starttls.enable'>true</entry>
+<entry key='mail.smtp.host'>smtp.office365.com</entry>
+<entry key='mail.smtp.from'>noreply@ridesiq.com</entry>
+<entry key='mail.smtp.auth'>true</entry>
+<entry key='mail.smtp.username'>noreply@ridesiq.com</entry>
+<entry key='mail.smtp.password'>cxvzflwnsmfppbrz</entry>
 
 <!--    <entry key='database.driver'>org.h2.Driver</entry>-->
 <!--    <entry key='database.url'>jdbc:h2:./target/database</entry>-->

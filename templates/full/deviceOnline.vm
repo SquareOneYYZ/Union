@@ -29,9 +29,7 @@
     .title {
       font-size: 24px;
       font-weight: bold;
-      background: linear-gradient(to right, #4caf50, #81c784); /* Green gradient for online */
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: #28A745;
       margin: 20px 0;
     }
     .content {

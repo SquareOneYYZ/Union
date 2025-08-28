@@ -37,7 +37,7 @@
     .content {
       font-size: 16px;
       line-height: 1.6;
-      color: #333333;
+      color: #708090;
       text-align: center;
       margin-top: 20px;
     }

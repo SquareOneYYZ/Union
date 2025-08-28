@@ -29,9 +29,7 @@
     .title {
       font-size: 24px;
       font-weight: bold;
-      background: linear-gradient(to right, #a83279, #d38312); /* Purple-Orange gradient */
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: #FFA500;
       margin: 20px 0;
     }
     .content {

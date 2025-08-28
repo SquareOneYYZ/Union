@@ -29,9 +29,7 @@
     .title {
       font-size: 24px;
       font-weight: bold;
-      background: linear-gradient(to right, #1e3c72, #2a5298); /* Blue gradient for ON */
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: #9400D3;
       margin: 20px 0;
     }
     .content {
