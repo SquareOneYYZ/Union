@@ -37,8 +37,11 @@ public class TollData {
     public String getSurface() {
         return this.surface;
     }
-    public String getCountry() { return country; }
-    public String getState() { return state; }
-    public String getCity() { return city; }
+    public String getCountry() {
+        return country; }
+    public String getState() {
+        return state; }
+    public String getCity() {
+        return city; }
 
 }

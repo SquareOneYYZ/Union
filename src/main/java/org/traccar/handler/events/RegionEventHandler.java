@@ -64,8 +64,11 @@ public class RegionEventHandler extends BaseEventHandler {
 
         try {
             String updatedJson = objectMapper.writeValueAsString(regionState);
-            if (redisCache.isAvailable()) redisCache.set(cacheKey, updatedJson);
-            else localCache.put(cacheKey, updatedJson);
+            if (redisCache.isAvailable()) {
+                redisCache.set(cacheKey, updatedJson);
+            } else {
+                localCache.put(cacheKey, updatedJson);
+            }
         } catch (Exception e) {
             LOGGER.warn("Error writing RegionState to Redis for deviceId={}", deviceId, e);
         }
