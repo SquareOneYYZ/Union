@@ -15,34 +15,24 @@ public class RedisCache {
     @Inject
     public RedisCache(Config config) {
         try {
-        String host = config.getString(Keys.REDIS_HOST);
-        int port = config.getInteger(Keys.REDIS_PORT);
-        String username = config.getString(Keys.REDIS_USERNAME);
-        String password = config.getString(Keys.REDIS_PASSWORD);
-
-        String redisUrl = String.format("rediss://%s:%s@%s:%d", username, password, host, port);
-        this.jedis = new JedisPooled(redisUrl);
-
-            this.jedis.ping();
-    } catch (Exception e) {
+            String host = config.getString(Keys.REDIS_HOST);
+            int port = config.getInteger(Keys.REDIS_PORT);
+            String username = config.getString(Keys.REDIS_USERNAME);
+            String password = config.getString(Keys.REDIS_PASSWORD);
+            String redisUrl = String.format("rediss://%s:%s@%s:%d", username, password, host, port);
+            this.jedis = new JedisPooled(redisUrl);
+//            this.jedis.ping();
+        } catch (Exception e) {
             System.err.println(" Redis connection failed: " + e.getMessage());
             redisAvailable = false;
         }
-        }
-
+    }
     public RedisCache(JedisPooled jedis) {
         this.jedis = jedis;
     }
-
     public boolean isAvailable() {
         return redisAvailable;
     }
-
-
-
-//    public void set(String key, String value) {
-//        jedis.set(key, value);
-//    }
 
     public void set(String key, String value) {
         if (!redisAvailable) {
@@ -55,11 +45,6 @@ public class RedisCache {
             redisAvailable = false;
         }
     }
-
-//    public String get(String key) {
-//        return jedis.get(key);
-//    }
-
     public String get(String key) {
         if (!redisAvailable) {
             return null;
@@ -73,11 +58,6 @@ public class RedisCache {
         }
     }
 
-
-//    public void delete(String key) {
-//        jedis.del(key);
-//    }
-
     public void delete(String key) {
         if (!redisAvailable) {
             return;
@@ -89,10 +69,6 @@ public class RedisCache {
             redisAvailable = false;
         }
     }
-
-//    public boolean exists(String key) {
-//        return jedis.exists(key);
-//    }
 
     public boolean exists(String key) {
         if (!redisAvailable) {
@@ -106,10 +82,6 @@ public class RedisCache {
             return false;
         }
     }
-
-//    public void setWithTTL(String key, String value, int seconds) {
-//        jedis.setex(key, seconds, value);
-//    }
 
     public void setWithTTL(String key, String value, int seconds) {
         if (!redisAvailable) {

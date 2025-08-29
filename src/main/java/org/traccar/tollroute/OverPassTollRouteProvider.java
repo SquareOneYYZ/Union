@@ -36,131 +36,11 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
 
     }
-/*
-    @Override
-    public void getTollRoute(double latitude, double longitude, TollRouteProviderCallback callback) {
-        String formattedUrl = String.format(url, latitude, longitude);
-        System.out.println(" Overpass Query URL: " + formattedUrl);
-        AsyncInvoker invoker = client.target(formattedUrl).request().async();
-        invoker.get(new InvocationCallback<JsonObject>() {
-//            @Override
-//            public void completed(JsonObject json) {
-//                JsonArray elements = json.getJsonArray("elements");
-//                if (!elements.isEmpty()) {
-//                    JsonObject tags = elements.getJsonObject(0).getJsonObject("tags");
-//                    Boolean isToll = determineToll(tags.getString("toll", "no"));
-//                    String ref = tags.getString("ref", null);
-//                    String name = tags.getString("name", null);
-//                    if (ref == null) {
-//                        ref = tags.getString("destination:ref", null);
-//                    }
-//                    if (name == null) {
-//                        name = tags.getString("destination:name", null);
-//                    }
-//                    if (tags.containsKey("toll")) {
-//                        callback.onSuccess(new TollData(isToll, ref, name));
-//                    } else {
-//                        callback.onSuccess(new TollData(isToll, ref, name));
-//                    }
-//                } else {
-//                    callback.onSuccess(new TollData(false, null, null));
-//                }
-//            }
-
-            @Override
-            public void completed(JsonObject json) {
-                JsonArray elements = json.getJsonArray("elements");
-                if (!elements.isEmpty()) {
-                    Boolean isToll = false;
-                    String ref = null;
-                    String name = null;
-                    String surface = null;
-
-                    for (int i = 0; i < elements.size(); i++) {
-                        JsonObject element = elements.getJsonObject(i);
-                        JsonObject tags = element.getJsonObject("tags");
-
-                        if (tags == null) {
-                            continue;
-                        }
-
-                        // Collect surface if available
-                        if (surface == null && tags.containsKey("surface")) {
-                            surface = tags.getString("surface");
-                            System.out.println(" Overpass returned surface: " + surface);
-                        }
-
-                        // Toll-specific check
-                        if (!isToll && tags.containsKey("toll") && determineToll(tags.getString("toll"))) {
-                            isToll = true;
-                        }
-
-                        // ref or destination:ref
-                        if (ref == null && tags.containsKey("ref")) {
-                            ref = tags.getString("ref");
-                        }
-                        if (ref == null && tags.containsKey("destination:ref")) {
-                            ref = tags.getString("destination:ref");
-                        }
-
-                        // name or destination:name
-                        if (name == null && tags.containsKey("name")) {
-                            name = tags.getString("name");
-                        }
-                        if (name == null && tags.containsKey("destination:name")) {
-                            name = tags.getString("destination:name");
-                        }
-
-                        if (isToll && ref != null && name != null && surface != null) {
-                            break;
-                        }
-                    }
-
-
-                    callback.onSuccess(new TollData(isToll, ref, name, surface));
-
-                } else {
-                    callback.onSuccess(new TollData(false, null, null, null));
-                }
-            }
-
-
-            @Override
-            public void failed(Throwable throwable) {
-                callback.onFailure(throwable);
-            }
-        });
-    }
-*/
 
     @Override
     public void getTollRoute(double latitude, double longitude, TollRouteProviderCallback callback) {
         String cacheKey = generateCacheKey(latitude, longitude);
-
-//        try {
-//            // Check cache first
-//            String cachedData = redisCache.get(cacheKey);
-//            if (cachedData != null) {
-//                System.out.println("Cache hit for coordinates: " + latitude + ", " + longitude);
-//                CachedTollData cached = objectMapper.readValue(cachedData, CachedTollData.class);
-//                TollData tollData = new TollData(cached.toll, cached.ref, cached.name, cached.surface);
-//                callback.onSuccess(tollData);
-//                return;
-//            }
-//
-//            System.out.println("Cache miss for coordinates: " + latitude + ", " + longitude);
-//
-//            // If not in cache, make API call
-//            makeApiCall(latitude, longitude, cacheKey, callback);
-//
-//        } catch (Exception e) {
-//            System.err.println("Error checking cache: " + e.getMessage());
-//            // Fallback to API call if cache fails
-//            makeApiCall(latitude, longitude, cacheKey, callback);
-//        }
-
-
-        if (redisCache.isAvailable()) {   //  added check
+        if (redisCache.isAvailable()) {
             try {
                 String cachedData = redisCache.get(cacheKey);
                 if (cachedData != null) {
@@ -195,7 +75,6 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             public void completed(JsonObject json) {
                 try {
                     TollData tollData = processApiResponse(json);
-
                     // Cache the result with TTL
                     cacheResult(cacheKey, tollData);
 
@@ -205,7 +84,6 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     callback.onFailure(e);
                 }
             }
-
             @Override
             public void failed(Throwable throwable) {
                 System.err.println("API call failed: " + throwable.getMessage());
@@ -225,43 +103,34 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             for (int i = 0; i < elements.size(); i++) {
                 JsonObject element = elements.getJsonObject(i);
                 JsonObject tags = element.getJsonObject("tags");
-
                 if (tags == null) {
                     continue;
                 }
-
                 // Collect surface if available
                 if (surface == null && tags.containsKey("surface")) {
                     surface = tags.getString("surface");
                     System.out.println(" Overpass returned surface: " + surface);
                 }
-
                 // Toll-specific check
                 if (!isToll && tags.containsKey("toll") && determineToll(tags.getString("toll"))) {
                     isToll = true;
                 }
-
-                // ref or destination:ref
                 if (ref == null && tags.containsKey("ref")) {
                     ref = tags.getString("ref");
                 }
                 if (ref == null && tags.containsKey("destination:ref")) {
                     ref = tags.getString("destination:ref");
                 }
-
-                // name or destination:name
                 if (name == null && tags.containsKey("name")) {
                     name = tags.getString("name");
                 }
                 if (name == null && tags.containsKey("destination:name")) {
                     name = tags.getString("destination:name");
                 }
-
                 if (isToll && ref != null && name != null && surface != null) {
                     break;
                 }
             }
-
             return new TollData(isToll, ref, name, surface);
         } else {
             return new TollData(false, null, null, null);
@@ -278,7 +147,6 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             );
 
             String jsonData = objectMapper.writeValueAsString(cached);
-
             // Set with TTL (24 hours)
             redisCache.setWithTTL(cacheKey, jsonData, CACHE_TTL_SECONDS);
 
@@ -289,24 +157,14 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         }
     }
 
-//    private String generateCacheKey(double latitude, double longitude) {
-//        double roundedLat = Math.round(latitude * 1000.0) / 1000.0;
-//        double roundedLon = Math.round(longitude * 1000.0) / 1000.0;
-//        return CACHE_KEY_PREFIX + String.format("%.3f:%.3f", roundedLat, roundedLon);
-//    }
-
     private String generateCacheKey(double latitude, double longitude) {
         double scale = Math.pow(10, roundingDecimals);  // 10^decimals
         double roundedLat = Math.round(latitude * scale) / scale;
         double roundedLon = Math.round(longitude * scale) / scale;
-
         String format = "%." + roundingDecimals + "f:%.";
         format += roundingDecimals + "f";
-
         return CACHE_KEY_PREFIX + String.format(format, roundedLat, roundedLon);
     }
-
-
     // Inner class for JSON serialization
     private static final class CachedTollData {
         @JsonProperty("toll")
