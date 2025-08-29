@@ -36,7 +36,9 @@ public class RegionEventHandler extends BaseEventHandler {
         String state = position.getString(Position.KEY_STATE);
         String city = position.getString(Position.KEY_CITY);
 
-        if (country == null && state == null && city == null) return;
+        if (country == null && state == null && city == null) {
+            return;
+        }
 
         RegionState regionState = null;
 
@@ -54,7 +56,9 @@ public class RegionEventHandler extends BaseEventHandler {
             LOGGER.warn("Error reading RegionState from Redis for deviceId={}", deviceId, e);
         }
 
-        if (regionState == null) regionState = new RegionState();
+        if (regionState == null) {
+            regionState = new RegionState();
+        }
 
         regionState.updateRegion(country, state, city, position);
 

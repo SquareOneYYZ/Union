@@ -14,7 +14,8 @@ public class RegionState {
     private Event exitEvent;
 
     public void updateRegion(String country, String state, String city, Position position) {
-        boolean regionChanged = (lastCountry == null || !lastCountry.equals(country)) ||
+        boolean regionChanged =
+                (lastCountry == null || !lastCountry.equals(country)) ||
                 (lastState == null || !lastState.equals(state)) ||
                 (lastCity == null || !lastCity.equals(city));
 

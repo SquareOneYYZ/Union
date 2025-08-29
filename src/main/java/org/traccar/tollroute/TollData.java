@@ -10,8 +10,10 @@ public class TollData {
     private final String state;
     private final String city;
 
-    public TollData(Boolean toll, String ref, String name, String surface,
-                    String country, String state, String city) {
+    public TollData(
+            Boolean toll, String ref, String name, String surface,
+                    String country, String state, String city
+    ) {
         this.toll = toll;
         this.ref = ref;
         this.name = name;
