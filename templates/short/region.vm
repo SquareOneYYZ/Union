@@ -1,0 +1,6 @@
+#set($subject = "$device.name: Region Changed")
+$device.name entered a new region at $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)
+
+Country: $event.attributes.country
+State: $event.attributes.state
+City: $event.attributes.city

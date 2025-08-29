@@ -37,6 +37,16 @@ public class PositionInfoHandler extends BasePositionHandler {
                             if (data.getSurface() != null) {
                                 position.set(Position.KEY_SURFACE, data.getSurface());
                             }
+                            if (data.getCountry() != null) {
+                                position.set(Position.KEY_COUNTRY, data.getCountry());
+                            }
+                            if (data.getState() != null) {
+                                position.set(Position.KEY_STATE, data.getState());
+                            }
+                            if (data.getCity() != null) {
+                                position.set(Position.KEY_CITY, data.getCity());
+                            }
+
                             callback.processed(false);
                         }
 

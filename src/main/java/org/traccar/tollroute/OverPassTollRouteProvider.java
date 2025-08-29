@@ -33,7 +33,9 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         this.accuracy = config.getInteger(Keys.TOLL_ROUTE_ACCURACY);
         this.roundingDecimals = config.getInteger(Keys.TOLL_ROUTE_ROUNDING_DECIMALS);
         //  this.url = baseurl + "?data=[out:json];way[toll=yes](around:" + accuracy + ",%f,%f);out%%20tags;";
-        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
+//        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
+     this.url = baseurl + "?data=[out:json];is_in(%f,%f);out%%20tags;way(around:" + accuracy + ",%f,%f);out%%20tags;";
+
 
     }
 
@@ -46,7 +48,15 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                 if (cachedData != null) {
                     System.out.println("Cache hit for coordinates: " + latitude + ", " + longitude);
                     CachedTollData cached = objectMapper.readValue(cachedData, CachedTollData.class);
-                    TollData tollData = new TollData(cached.toll, cached.ref, cached.name, cached.surface);
+                    TollData tollData = new TollData(
+                            cached.getToll(),
+                            cached.getRef(),
+                            cached.getName(),
+                            cached.getSurface(),
+                            cached.getCountry(),
+                            cached.getState(),
+                            cached.getCity()
+                    );
                     callback.onSuccess(tollData);
                     return;
                 }
@@ -63,7 +73,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
 
     }
     private Boolean determineToll(String tollKey) {
-        return tollKey.equals("yes");
+        return tollKey != null && tollKey.equalsIgnoreCase("yes");
     }
 
     private void makeApiCall(double latitude, double longitude, String cacheKey, TollRouteProviderCallback callback) {
@@ -99,6 +109,9 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             String ref = null;
             String name = null;
             String surface = null;
+            String country = null;
+            String state = null;
+            String city = null;
 
             for (int i = 0; i < elements.size(); i++) {
                 JsonObject element = elements.getJsonObject(i);
@@ -109,11 +122,32 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                 // Collect surface if available
                 if (surface == null && tags.containsKey("surface")) {
                     surface = tags.getString("surface");
-                    System.out.println(" Overpass returned surface: " + surface);
+                    System.out.println("Overpass returned surface: " + surface);
                 }
+                if (tags.containsKey("addr:country")) {
+                    country = tags.getString("addr:country");
+                }
+                if (tags.containsKey("addr:state")) {
+                    state = tags.getString("addr:state");
+                }
+                if (tags.containsKey("addr:city")) {
+                    city = tags.getString("addr:city");
+                }
+                if (country == null && tags.containsKey("is_in:country")) {
+                    country = tags.getString("is_in:country");
+                }
+                if (state == null && tags.containsKey("is_in:state")) {
+                    state = tags.getString("is_in:state");
+                }
+                if (city == null && tags.containsKey("is_in:city")) {
+                    city = tags.getString("is_in:city");
+                }
+
+
                 // Toll-specific check
                 if (!isToll && tags.containsKey("toll") && determineToll(tags.getString("toll"))) {
                     isToll = true;
+                    System.out.println(" Overpass returned toll: " + isToll);
                 }
                 if (ref == null && tags.containsKey("ref")) {
                     ref = tags.getString("ref");
@@ -128,12 +162,30 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     name = tags.getString("destination:name");
                 }
                 if (isToll && ref != null && name != null && surface != null) {
+                    if (country == null && tags.containsKey("addr:country")) {
+                        country = tags.getString("addr:country");
+                    }
+                    if (state == null && tags.containsKey("addr:state")) {
+                        state = tags.getString("addr:state");
+                    }
+                    if (city == null && tags.containsKey("addr:city")) {
+                        city = tags.getString("addr:city");
+                    }
+                    if (country == null && tags.containsKey("is_in:country")) {
+                        country = tags.getString("is_in:country");
+                    }
+                    if (state == null && tags.containsKey("is_in:state")) {
+                        state = tags.getString("is_in:state");
+                    }
+                    if (city == null && tags.containsKey("is_in:city")) {
+                        city = tags.getString("is_in:city");
+                    }
                     break;
                 }
             }
-            return new TollData(isToll, ref, name, surface);
+            return new TollData(isToll, ref, name, surface, country, state, city);
         } else {
-            return new TollData(false, null, null, null);
+            return new TollData(false, null, null, null, null, null, null);
         }
     }
 
@@ -143,7 +195,10 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     tollData.getToll(),
                     tollData.getRef(),
                     tollData.getName(),
-                    tollData.getSurface()
+                    tollData.getSurface(),
+                    tollData.getCountry(),
+                    tollData.getState(),
+                    tollData.getCity()
             );
 
             String jsonData = objectMapper.writeValueAsString(cached);
@@ -179,14 +234,27 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         @JsonProperty("surface")
         private String surface;
 
+        @JsonProperty("country")
+        private String country;
+
+        @JsonProperty("state")
+        private String state;
+
+        @JsonProperty("city")
+        private String city;
+
         // Default constructor for Jackson
         private CachedTollData() { }
 
-        private CachedTollData(Boolean toll, String ref, String name, String surface) {
+        private CachedTollData(Boolean toll, String ref, String name, String surface,
+                               String country, String state, String city) {
             this.toll = toll;
             this.ref = ref;
             this.name = name;
             this.surface = surface;
+            this.country = country;
+            this.state = state;
+            this.city = city;
         }
 
         Boolean getToll() {
@@ -201,6 +269,16 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         String getSurface() {
             return surface;
         }
+        String getCountry() {
+            return country;
+        }
+        String getState() {
+            return state;
+        }
+        String getCity() {
+            return city;
+        }
+
     }
 
 }
