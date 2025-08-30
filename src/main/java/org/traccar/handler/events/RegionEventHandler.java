@@ -73,19 +73,40 @@ public class RegionEventHandler extends BaseEventHandler {
             LOGGER.warn("Error writing RegionState to Redis for deviceId={}", deviceId, e);
         }
 
-        // Trigger exit event first
-        if (regionState.getExitEvent() != null) {
-            regionState.getExitEvent().setDeviceId(deviceId);
-            LOGGER.info("Triggering region exit event for deviceId={}", deviceId);
-            callback.eventDetected(regionState.getExitEvent());
+        // Trigger all specific region events
+
+// Country first
+        if (regionState.getCountryExitEvent() != null) {
+            regionState.getCountryExitEvent().setDeviceId(deviceId);
+            callback.eventDetected(regionState.getCountryExitEvent());
+        }
+        if (regionState.getCountryEnterEvent() != null) {
+            regionState.getCountryEnterEvent().setDeviceId(deviceId);
+            callback.eventDetected(regionState.getCountryEnterEvent());
         }
 
-// Trigger enter event next
-        if (regionState.getEnterEvent() != null) {
-            regionState.getEnterEvent().setDeviceId(deviceId);
-            LOGGER.info("Triggering region enter event for deviceId={}", deviceId);
-            callback.eventDetected(regionState.getEnterEvent());
+// State next
+        if (regionState.getStateExitEvent() != null) {
+            regionState.getStateExitEvent().setDeviceId(deviceId);
+            callback.eventDetected(regionState.getStateExitEvent());
         }
+        if (regionState.getStateEnterEvent() != null) {
+            regionState.getStateEnterEvent().setDeviceId(deviceId);
+            callback.eventDetected(regionState.getStateEnterEvent());
+        }
+
+// City last
+        if (regionState.getCityExitEvent() != null) {
+            regionState.getCityExitEvent().setDeviceId(deviceId);
+            callback.eventDetected(regionState.getCityExitEvent());
+        }
+        if (regionState.getCityEnterEvent() != null) {
+            regionState.getCityEnterEvent().setDeviceId(deviceId);
+            callback.eventDetected(regionState.getCityEnterEvent());
+        }
+
+
+
 
     }
 }

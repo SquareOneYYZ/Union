@@ -12,39 +12,66 @@ public class RegionState {
     private String lastCity;
     private Event enterEvent;
     private Event exitEvent;
+    private Event countryEnterEvent;
+    private Event countryExitEvent;
+    private Event stateEnterEvent;
+    private Event stateExitEvent;
+    private Event cityEnterEvent;
+    private Event cityExitEvent;
+
 
     public void updateRegion(String country, String state, String city, Position position) {
-        boolean regionChanged =
-                (lastCountry == null
-                        || !lastCountry.equals(country))
-                        || (lastState == null
-                             || !lastState.equals(state))
-                        || (lastCity == null
-                             || !lastCity.equals(city));
+        countryEnterEvent = null;
+        countryExitEvent = null;
+        stateEnterEvent = null;
+        stateExitEvent = null;
+        cityEnterEvent = null;
+        cityExitEvent = null;
 
-        if (regionChanged) {
-            // Exit event for previous region (if any)
-            if (lastCountry != null || lastState != null || lastCity != null) {
-                exitEvent = new Event(Event.TYPE_REGION_EXIT, position);
-                exitEvent.set(Position.KEY_COUNTRY, lastCountry);
-                exitEvent.set(Position.KEY_STATE, lastState);
-                exitEvent.set(Position.KEY_CITY, lastCity);
+        // Clear old generic events (kept for backward compatibility)
+        enterEvent = null;
+        exitEvent = null;
+
+        // Country change
+        if (lastCountry == null || !lastCountry.equals(country)) {
+            if (lastCountry != null) {
+                countryExitEvent = new Event(Event.TYPE_REGION_COUNTRY_EXIT, position);
+                countryExitEvent.set(Position.KEY_COUNTRY, lastCountry);
             }
-
-            // Enter event for new region
-            enterEvent = new Event(Event.TYPE_REGION_ENTER, position);
-            enterEvent.set(Position.KEY_COUNTRY, country);
-            enterEvent.set(Position.KEY_STATE, state);
-            enterEvent.set(Position.KEY_CITY, city);
-
+            if (country != null) {
+                countryEnterEvent = new Event(Event.TYPE_REGION_COUNTRY_ENTER, position);
+                countryEnterEvent.set(Position.KEY_COUNTRY, country);
+            }
             lastCountry = country;
+        }
+
+        // State change
+        if (lastState == null || !lastState.equals(state)) {
+            if (lastState != null) {
+                stateExitEvent = new Event(Event.TYPE_REGION_STATE_EXIT, position);
+                stateExitEvent.set(Position.KEY_STATE, lastState);
+            }
+            if (state != null) {
+                stateEnterEvent = new Event(Event.TYPE_REGION_STATE_ENTER, position);
+                stateEnterEvent.set(Position.KEY_STATE, state);
+            }
             lastState = state;
+        }
+
+        // City change
+        if (lastCity == null || !lastCity.equals(city)) {
+            if (lastCity != null) {
+                cityExitEvent = new Event(Event.TYPE_REGION_CITY_EXIT, position);
+                cityExitEvent.set(Position.KEY_CITY, lastCity);
+            }
+            if (city != null) {
+                cityEnterEvent = new Event(Event.TYPE_REGION_CITY_ENTER, position);
+                cityEnterEvent.set(Position.KEY_CITY, city);
+            }
             lastCity = city;
-        } else {
-            enterEvent = null;
-            exitEvent = null;
         }
     }
+
 
     public Event getEnterEvent() {
         return enterEvent;
@@ -53,5 +80,25 @@ public class RegionState {
     public Event getExitEvent() {
         return exitEvent;
     }
+
+    public Event getCountryEnterEvent() {
+        return countryEnterEvent;
+    }
+    public Event getCountryExitEvent() {
+        return countryExitEvent;
+    }
+    public Event getStateEnterEvent() {
+        return stateEnterEvent;
+    }
+    public Event getStateExitEvent() {
+        return stateExitEvent;
+    }
+    public Event getCityEnterEvent() {
+        return cityEnterEvent;
+    }
+    public Event getCityExitEvent() {
+        return cityExitEvent;
+    }
+
 
 }
