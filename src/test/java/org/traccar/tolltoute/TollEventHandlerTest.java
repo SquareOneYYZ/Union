@@ -16,7 +16,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
+
 public class TollEventHandlerTest {
+
     private TollEventHandler tollEventHandler;
     private RedisCache redisCache;
     private CacheManager cacheManager;
@@ -59,4 +61,5 @@ public class TollEventHandlerTest {
         assertTrue(eventTriggered.get() || !eventTriggered.get(),
                 "Handler should process even if Redis is unavailable (localCache used)");
     }
+
 }

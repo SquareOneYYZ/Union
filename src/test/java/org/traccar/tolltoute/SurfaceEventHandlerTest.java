@@ -13,7 +13,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
+
 public class SurfaceEventHandlerTest {
+
     private SurfaceEventHandler surfaceEventHandler;
     private RedisCache redisCache;
 
@@ -54,4 +56,5 @@ public class SurfaceEventHandlerTest {
         assertTrue(eventTriggered.get(), "Surface event should trigger after confidence " +
                 "window using localCache");
     }
+
 }

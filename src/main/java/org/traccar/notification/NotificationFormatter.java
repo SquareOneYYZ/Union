@@ -53,7 +53,6 @@ public class NotificationFormatter {
             }
         }
         velocityContext.put("groupName", groupName);
-
         velocityContext.put("notification", notification);
         velocityContext.put("device", device);
         velocityContext.put("event", event);
