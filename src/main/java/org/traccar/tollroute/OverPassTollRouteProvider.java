@@ -13,7 +13,6 @@ import jakarta.json.JsonObject;
 import jakarta.ws.rs.client.AsyncInvoker;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.InvocationCallback;
-import org.traccar.handler.PositionInfoHandler;
 import org.traccar.storage.localCache.RedisCache;
 
 @Singleton
@@ -142,14 +141,12 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                 if ("2".equals(adminLevel) && country == null) {
                     country = elementName;
                     LOGGER.info("Found country: {}", country);
-                }
-                // State detection (admin_level=4)
-                else if ("4".equals(adminLevel) && state == null) {
+                } else if ("4".equals(adminLevel) && state == null) {
                     state = elementName;
                     LOGGER.info("Found state: {}", state);
-                }
-                // City detection (admin_level=8 or specific city tags)
-                else if (("8".equals(adminLevel) || "city".equals(tags.containsKey("border_type") ? tags.getString("border_type") : null)) && city == null) {
+                } else if (("8".equals(adminLevel)
+                        || "city".equals(tags.containsKey("border_type")
+                        ? tags.getString("border_type") : null)) && city == null) {
                     city = elementName;
                     LOGGER.info("Found city: {}", city);
                 }

@@ -127,15 +127,6 @@ public class RegionEventHandler extends BaseEventHandler {
             callback.eventDetected(regionState.getCityEnterEvent());
         }
 
-        // Log if no events were triggered
-        if (regionState.getCountryEnterEvent() == null && regionState.getCountryExitEvent() == null &&
-                regionState.getStateEnterEvent() == null && regionState.getStateExitEvent() == null &&
-                regionState.getCityEnterEvent() == null && regionState.getCityExitEvent() == null) {
-            LOGGER.debug("No region change events detected for deviceId={}", deviceId);
-        }
-
-
-
 
     }
 }
