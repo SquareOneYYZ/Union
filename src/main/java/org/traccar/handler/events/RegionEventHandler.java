@@ -30,6 +30,7 @@ public class RegionEventHandler extends BaseEventHandler {
     @Override
     public void onPosition(Position position, Callback callback) {
         long deviceId = position.getDeviceId();
+        LOGGER.debug("RegionEventHandler received position for deviceId={}", deviceId);
         String cacheKey = "region:" + deviceId;
 
         String country = position.getString(Position.KEY_COUNTRY);
@@ -37,6 +38,7 @@ public class RegionEventHandler extends BaseEventHandler {
         String city = position.getString(Position.KEY_CITY);
 
         if (country == null && state == null && city == null) {
+            LOGGER.debug("No region info in position, skipping deviceId={}", deviceId);
             return;
         }
 
@@ -58,6 +60,7 @@ public class RegionEventHandler extends BaseEventHandler {
 
         if (regionState == null) {
             regionState = new RegionState();
+            LOGGER.debug("Created new RegionState for deviceId={}", deviceId);
         }
 
         regionState.updateRegion(country, state, city, position);
@@ -68,41 +71,67 @@ public class RegionEventHandler extends BaseEventHandler {
                 redisCache.set(cacheKey, updatedJson);
             } else {
                 localCache.put(cacheKey, updatedJson);
+                LOGGER.debug("Stored RegionState in local cache for deviceId={}", deviceId);
             }
         } catch (Exception e) {
             LOGGER.warn("Error writing RegionState to Redis for deviceId={}", deviceId, e);
         }
 
         // Trigger all specific region events
-
+        LOGGER.debug("Checking region events for deviceId={}", deviceId);
 // Country first
         if (regionState.getCountryExitEvent() != null) {
             regionState.getCountryExitEvent().setDeviceId(deviceId);
+            LOGGER.info(" Triggering COUNTRY EXIT event: {} -> {}",
+                    regionState.getCountryExitEvent().getString(Position.KEY_COUNTRY),
+                    country);
             callback.eventDetected(regionState.getCountryExitEvent());
         }
         if (regionState.getCountryEnterEvent() != null) {
+            LOGGER.info("Country Event ALL Attributes: {}",
+                    regionState.getCountryEnterEvent().getAttributes());
             regionState.getCountryEnterEvent().setDeviceId(deviceId);
+            LOGGER.info(" Triggering COUNTRY ENTER event: {}",
+                    regionState.getCountryEnterEvent().getString(Position.KEY_COUNTRY));
             callback.eventDetected(regionState.getCountryEnterEvent());
         }
+        LOGGER.debug("RegionEventHandler completed for device: {}", position.getDeviceId());
 
 // State next
         if (regionState.getStateExitEvent() != null) {
             regionState.getStateExitEvent().setDeviceId(deviceId);
+            LOGGER.info(" Triggering STATE EXIT event: {} -> {}",
+                    regionState.getStateExitEvent().getString(Position.KEY_STATE),
+                    state);
             callback.eventDetected(regionState.getStateExitEvent());
         }
         if (regionState.getStateEnterEvent() != null) {
             regionState.getStateEnterEvent().setDeviceId(deviceId);
+            LOGGER.info(" Triggering STATE ENTER event: {}",
+                    regionState.getStateEnterEvent().getString(Position.KEY_STATE));
             callback.eventDetected(regionState.getStateEnterEvent());
         }
 
 // City last
         if (regionState.getCityExitEvent() != null) {
             regionState.getCityExitEvent().setDeviceId(deviceId);
+            LOGGER.info(" Triggering CITY EXIT event: {} -> {}",
+                    regionState.getCityExitEvent().getString(Position.KEY_CITY),
+                    city);
             callback.eventDetected(regionState.getCityExitEvent());
         }
         if (regionState.getCityEnterEvent() != null) {
             regionState.getCityEnterEvent().setDeviceId(deviceId);
+            LOGGER.info(" Triggering CITY ENTER event: {}",
+                    regionState.getCityEnterEvent().getString(Position.KEY_CITY));
             callback.eventDetected(regionState.getCityEnterEvent());
+        }
+
+        // Log if no events were triggered
+        if (regionState.getCountryEnterEvent() == null && regionState.getCountryExitEvent() == null &&
+                regionState.getStateEnterEvent() == null && regionState.getStateExitEvent() == null &&
+                regionState.getCityEnterEvent() == null && regionState.getCityExitEvent() == null) {
+            LOGGER.debug("No region change events detected for deviceId={}", deviceId);
         }
 
 

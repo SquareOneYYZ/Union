@@ -59,9 +59,6 @@ public class Event extends Message {
     public static final String TYPE_DEVICE_TOLLROUTE_EXIT = "deviceTollRouteExit";
 //    public static final String TYPE_SURFACE_ALERT = "deviceSurfaceType";
     public static final String TYPE_SURFACE_TYPE = "deviceSurfaceType";
-//    public static final String TYPE_REGION_CHANGE = "deviceRegionChange";
-public static final String TYPE_REGION_ENTER = "deviceRegionEnter";
-    public static final String TYPE_REGION_EXIT  = "deviceRegionExit";
 
     public static final String TYPE_REGION_COUNTRY_ENTER = "deviceRegionCountryEnter";
     public static final String TYPE_REGION_COUNTRY_EXIT = "deviceRegionCountryExit";
