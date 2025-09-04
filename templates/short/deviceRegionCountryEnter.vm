@@ -1,0 +1,2 @@
+#set($subject = $text.eventDeviceRegionCountryEnter)
+Vehicle "$device.name" entered country: $event.getString("country")
