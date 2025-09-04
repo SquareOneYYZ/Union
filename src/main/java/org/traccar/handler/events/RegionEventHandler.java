@@ -82,16 +82,16 @@ public class RegionEventHandler extends BaseEventHandler {
 // Country first
         if (regionState.getCountryExitEvent() != null) {
             regionState.getCountryExitEvent().setDeviceId(deviceId);
-            LOGGER.info(" Triggering COUNTRY EXIT event: {} -> {}",
+            LOGGER.debug(" Triggering COUNTRY EXIT event: {} -> {}",
                     regionState.getCountryExitEvent().getString(Position.KEY_COUNTRY),
                     country);
             callback.eventDetected(regionState.getCountryExitEvent());
         }
         if (regionState.getCountryEnterEvent() != null) {
-            LOGGER.info("Country Event ALL Attributes: {}",
+            LOGGER.debug("Country Event ALL Attributes: {}",
                     regionState.getCountryEnterEvent().getAttributes());
             regionState.getCountryEnterEvent().setDeviceId(deviceId);
-            LOGGER.info(" Triggering COUNTRY ENTER event: {}",
+            LOGGER.debug(" Triggering COUNTRY ENTER event: {}",
                     regionState.getCountryEnterEvent().getString(Position.KEY_COUNTRY));
             callback.eventDetected(regionState.getCountryEnterEvent());
         }
@@ -100,14 +100,14 @@ public class RegionEventHandler extends BaseEventHandler {
 // State next
         if (regionState.getStateExitEvent() != null) {
             regionState.getStateExitEvent().setDeviceId(deviceId);
-            LOGGER.info(" Triggering STATE EXIT event: {} -> {}",
+            LOGGER.debug(" Triggering STATE EXIT event: {} -> {}",
                     regionState.getStateExitEvent().getString(Position.KEY_STATE),
                     state);
             callback.eventDetected(regionState.getStateExitEvent());
         }
         if (regionState.getStateEnterEvent() != null) {
             regionState.getStateEnterEvent().setDeviceId(deviceId);
-            LOGGER.info(" Triggering STATE ENTER event: {}",
+            LOGGER.debug(" Triggering STATE ENTER event: {}",
                     regionState.getStateEnterEvent().getString(Position.KEY_STATE));
             callback.eventDetected(regionState.getStateEnterEvent());
         }
@@ -115,14 +115,14 @@ public class RegionEventHandler extends BaseEventHandler {
 // City last
         if (regionState.getCityExitEvent() != null) {
             regionState.getCityExitEvent().setDeviceId(deviceId);
-            LOGGER.info(" Triggering CITY EXIT event: {} -> {}",
+            LOGGER.debug(" Triggering CITY EXIT event: {} -> {}",
                     regionState.getCityExitEvent().getString(Position.KEY_CITY),
                     city);
             callback.eventDetected(regionState.getCityExitEvent());
         }
         if (regionState.getCityEnterEvent() != null) {
             regionState.getCityEnterEvent().setDeviceId(deviceId);
-            LOGGER.info(" Triggering CITY ENTER event: {}",
+            LOGGER.debug(" Triggering CITY ENTER event: {}",
                     regionState.getCityEnterEvent().getString(Position.KEY_CITY));
             callback.eventDetected(regionState.getCityEnterEvent());
         }
