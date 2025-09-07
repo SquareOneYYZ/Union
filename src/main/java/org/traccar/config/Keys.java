@@ -2041,6 +2041,12 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
 
 
 
+    public static final ConfigKey<Integer> TOLL_ROUTE_ROUNDING_DECIMALS = new IntegerConfigKey(
+            "tollRoute.roundingDecimals",
+            List.of(KeyType.CONFIG),
+            3
+    );
+
 
 
 }
