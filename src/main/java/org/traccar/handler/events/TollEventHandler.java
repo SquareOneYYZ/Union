@@ -7,6 +7,7 @@ import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.helper.model.PositionUtil;
 import org.traccar.model.Device;
+import org.traccar.model.Event;
 import org.traccar.model.Position;
 import org.traccar.session.cache.CacheManager;
 import org.traccar.session.state.TollRouteProcessor;
@@ -19,8 +20,11 @@ import org.traccar.storage.query.Request;
 import org.traccar.storage.localCache.RedisCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 
 public class TollEventHandler extends BaseEventHandler {
@@ -34,6 +38,7 @@ public class TollEventHandler extends BaseEventHandler {
 
     private final int minimalDuration;
     private final Map<String, String> localCache = new ConcurrentHashMap<>();
+    private final Set<String> customTollNames;
 
     @Inject
     public TollEventHandler(Config config, CacheManager cacheManager, Storage storage, RedisCache redisCache) {
@@ -42,6 +47,14 @@ public class TollEventHandler extends BaseEventHandler {
         this.redisCache = redisCache;
         this.minimalDuration = config.getInteger(Keys.EVENT_TOLL_ROUTE_MINIMAL_DURATION);
         this.objectMapper = new ObjectMapper();
+
+        String list = config.getString(Keys.EVENT_CUSTOM_TOLL_NAMES, "");
+        this.customTollNames = Arrays.stream(list.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
+        LOGGER.debug("Custom toll names loaded: {}", customTollNames);
+
     }
 
     @Override
@@ -79,6 +92,22 @@ public class TollEventHandler extends BaseEventHandler {
         }
         tollState.addOnToll(positionIsToll, minimalDuration);
         TollRouteProcessor.updateState(tollState, position, positionTollRef, positionTollName, minimalDuration);
+
+        boolean isCustomMatch = positionTollName != null && customTollNames.contains(positionTollName);
+        tollState.addOnCustomToll(isCustomMatch, minimalDuration);
+
+        if (tollState.isCustomTollConfirmed(minimalDuration)) {
+            String lastCustom = tollState.getLastCustomTollName();
+            if (lastCustom == null || !lastCustom.equals(positionTollName)) {
+                Event event = new Event(Event.TYPE_DEVICE_CUSTOM_TOLL, position);
+                event.set("tollName", positionTollName);
+                tollState.setLastCustomTollName(positionTollName);
+                tollState.setEvent(event);
+
+                LOGGER.debug("Custom toll CONFIRMED after {} points: {}", minimalDuration, positionTollName);
+            }
+        }
+
 
         Boolean tollConfidence = tollState.isOnToll(minimalDuration);
         if (tollConfidence != null || positionIsToll != null) {

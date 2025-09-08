@@ -66,6 +66,8 @@ public class Event extends Message {
     public static final String TYPE_REGION_STATE_EXIT = "deviceRegionStateExit";
     public static final String TYPE_REGION_CITY_ENTER = "deviceRegionCityEnter";
     public static final String TYPE_REGION_CITY_EXIT = "deviceRegionCityExit";
+    public static final String TYPE_DEVICE_CUSTOM_TOLL = "deviceCustomToll";
+
 
 
 
