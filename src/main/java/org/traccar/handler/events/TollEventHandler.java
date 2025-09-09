@@ -8,6 +8,7 @@ import org.traccar.config.Keys;
 import org.traccar.helper.model.PositionUtil;
 import org.traccar.model.Device;
 import org.traccar.model.Event;
+import org.traccar.model.Group;
 import org.traccar.model.Position;
 import org.traccar.session.cache.CacheManager;
 import org.traccar.session.state.TollRouteProcessor;
@@ -38,7 +39,7 @@ public class TollEventHandler extends BaseEventHandler {
 
     private final int minimalDuration;
     private final Map<String, String> localCache = new ConcurrentHashMap<>();
-    private final Set<String> customTollNames;
+//    private final Set<String> customTollNames;
 
     @Inject
     public TollEventHandler(Config config, CacheManager cacheManager, Storage storage, RedisCache redisCache) {
@@ -48,12 +49,12 @@ public class TollEventHandler extends BaseEventHandler {
         this.minimalDuration = config.getInteger(Keys.EVENT_TOLL_ROUTE_MINIMAL_DURATION);
         this.objectMapper = new ObjectMapper();
 
-        String list = config.getString(Keys.EVENT_CUSTOM_TOLL_NAMES, "");
-        this.customTollNames = Arrays.stream(list.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
-        LOGGER.debug("Custom toll names loaded: {}", customTollNames);
+//        String list = config.getString(Keys.EVENT_CUSTOM_TOLL_NAMES, "");
+//        this.customTollNames = Arrays.stream(list.split(","))
+//                .map(String::trim)
+//                .filter(s -> !s.isEmpty())
+//                .collect(Collectors.toSet());
+//        LOGGER.debug("Custom toll names loaded: {}", customTollNames);
 
     }
 
@@ -65,6 +66,14 @@ public class TollEventHandler extends BaseEventHandler {
         if (device == null) {
             return;
         }
+        //  Load group attribute for custom toll
+        Group group = cacheManager.getObject(Group.class, device.getGroupId());
+        String groupCustomToll = null;
+        if (group != null && group.hasAttribute("customRoadEvent")) {
+            groupCustomToll = group.getString("customRoadEvent");
+            LOGGER.debug("Group custom toll loaded for deviceId {}: {}", deviceId, groupCustomToll);
+        }
+
         if (!PositionUtil.isLatest(cacheManager, position) || !position.getValid()) {
             return;
         }
@@ -93,7 +102,15 @@ public class TollEventHandler extends BaseEventHandler {
         tollState.addOnToll(positionIsToll, minimalDuration);
         TollRouteProcessor.updateState(tollState, position, positionTollRef, positionTollName, minimalDuration);
 
-        boolean isCustomMatch = positionTollName != null && customTollNames.contains(positionTollName);
+        LOGGER.debug("Position tollName={}, Group customToll={}", positionTollName, groupCustomToll);
+
+        boolean isCustomMatch = positionTollName != null
+                && groupCustomToll != null
+                && positionTollName.equalsIgnoreCase(groupCustomToll);
+        LOGGER.debug("CustomToll compare: positionTollName='{}' vs groupCustomToll='{}' => {}",
+                positionTollName, groupCustomToll, isCustomMatch);
+
+
         tollState.addOnCustomToll(isCustomMatch, minimalDuration);
 
         if (tollState.isCustomTollConfirmed(minimalDuration)) {
