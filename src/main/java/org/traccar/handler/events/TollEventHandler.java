@@ -20,12 +20,8 @@ import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Request;
 import org.traccar.storage.localCache.RedisCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.util.Arrays;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 
 public class TollEventHandler extends BaseEventHandler {
