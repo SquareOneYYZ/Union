@@ -2047,6 +2047,11 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             3
     );
 
+    public static final ConfigKey<String> EVENT_CUSTOM_TOLL_NAMES = new StringConfigKey(
+            "event.customToll.names",
+            List.of(KeyType.CONFIG));
+
+
 
 
 }

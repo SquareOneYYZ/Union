@@ -1,0 +1,2 @@
+#set($subject = $text.eventDeviceRegionStateEnter)
+Vehicle "$device.name" entered state: $event.getString("state")
