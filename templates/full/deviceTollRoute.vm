@@ -1,0 +1,4 @@
+#set($subject = "$device.name: Toll Route Trip Completed")
+$device.name completed a toll route $event.attributes.tollName
+from $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.attributes.enterTime, $locale, $timezone)
+to $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.attributes.exitTime, $locale, $timezone)
