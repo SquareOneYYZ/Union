@@ -15,10 +15,21 @@
  */
 package org.traccar.geocoder;
 
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
+import jakarta.json.Json;
+import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.ws.rs.client.Client;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.traccar.storage.localCache.RedisCache;
+
+import java.io.StringReader;
 
 public class NominatimGeocoder extends JsonGeocoder {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(NominatimGeocoder.class);
 
     private static String formatUrl(String url, String key, String language) {
         if (url == null) {
@@ -34,9 +45,27 @@ public class NominatimGeocoder extends JsonGeocoder {
         return url;
     }
 
+    private final RedisCache redisManager;
+    private final Client client;
+
+//    public NominatimGeocoder(
+//            Client client, String url, String key, String language, int cacheSize, AddressFormat addressFormat) {
+//        super(client, formatUrl(url, key, language), cacheSize, addressFormat);
+//    }
+
+    @Inject
     public NominatimGeocoder(
-            Client client, String url, String key, String language, int cacheSize, AddressFormat addressFormat) {
+            Client client,
+            RedisCache redisManager,
+            @Named("geocoder.url") String url,
+            @Named("geocoder.key") String key,
+            @Named("geocoder.language") String language,
+            @Named("geocoder.cacheSize") int cacheSize,
+            AddressFormat addressFormat) {
+
         super(client, formatUrl(url, key, language), cacheSize, addressFormat);
+        this.client = client;
+        this.redisManager = redisManager;
     }
 
     @Override
@@ -89,5 +118,82 @@ public class NominatimGeocoder extends JsonGeocoder {
 
         return null;
     }
+
+    //  Override reverse geocoding to use Redis cache
+    @Override
+    public String getAddress(double latitude, double longitude, ReverseGeocoderCallback callback) {
+        String key = String.format("geocode:reverse:%.5f:%.5f", latitude, longitude);
+
+        // Try Redis first
+        String cached = redisManager.get(key);
+        if (cached != null) {
+            LOGGER.debug("[Geocoder] Cache HIT for key={} (lat={}, lon={})", key, latitude, longitude);
+            if (callback != null) callback.onSuccess(cached);
+            return cached;
+        }
+
+        LOGGER.debug("[Geocoder] Cache MISS for key={} (lat={}, lon={}), calling Nominatim API", key, latitude, longitude);
+        // Fall back to normal JsonGeocoder logic
+        String result = super.getAddress(latitude, longitude, callback);
+        if (result != null) {
+            redisManager.setWithTTL(key, result, 86400);
+            LOGGER.debug("[Geocoder] Stored result in Redis with TTL=86400s, key={}", key);
+        } else {
+            LOGGER.warn("[Geocoder] API returned NULL for lat={}, lon={}", latitude, longitude);
+        }
+        return result;
+    }
+
+    //  Add forward geocoding support
+    public Address getCoordinates(String query) {
+        String key = "geocode:forward:" + query.toLowerCase();
+
+        // Try Redis
+        String cached = redisManager.get(key);
+        if (cached != null) {
+            LOGGER.debug("[Geocoder] Forward cache HIT for query='{}'", query);
+            try {
+                JsonArray results = Json.createReader(new StringReader(cached)).readArray();
+                if (!results.isEmpty()) {
+                    return parseForward(results.getJsonObject(0));
+                }
+            } catch (Exception e) {
+                LOGGER.warn("[Geocoder] Failed to parse cached forward geocode for '{}'", query, e);
+            }
+        }
+        LOGGER.debug("[Geocoder] Forward cache MISS for query='{}', calling Nominatim API", query);
+        try {
+            JsonArray results = client.target("https://nominatim.openstreetmap.org/search")
+                    .queryParam("format", "json")
+                    .queryParam("limit", 1)
+                    .queryParam("q", query)
+                    .request()
+                    .get(JsonArray.class);
+
+            if (!results.isEmpty()) {
+                JsonObject json = results.getJsonObject(0);
+                redisManager.setWithTTL(key, results.toString(), 86400);
+                LOGGER.debug("[Geocoder] Forward geocode result stored in Redis with TTL=86400s, query='{}'", query);
+                return parseForward(json);
+            }
+        } catch (Exception e) {
+            LOGGER.error("[Geocoder] Forward geocoding error for '{}'", query, e);
+        }
+
+        return null;
+    }
+
+    private Address parseForward(JsonObject json) {
+        Address address = new Address();
+        if (json.containsKey("display_name")) {
+            address.setFormattedAddress(json.getString("display_name"));
+        }
+        if (json.containsKey("lat") && json.containsKey("lon")) {
+            // Optional: extend Address to hold coordinates if needed
+        }
+        return address;
+    }
+
+
 
 }
