@@ -128,11 +128,14 @@ public class NominatimGeocoder extends JsonGeocoder {
         String cached = redisManager.get(key);
         if (cached != null) {
             LOGGER.debug("[Geocoder] Cache HIT for key={} (lat={}, lon={})", key, latitude, longitude);
-            if (callback != null) callback.onSuccess(cached);
+            if (callback != null) {
+                callback.onSuccess(cached);
+            }
             return cached;
         }
 
-        LOGGER.debug("[Geocoder] Cache MISS for key={} (lat={}, lon={}), calling Nominatim API", key, latitude, longitude);
+        LOGGER.debug("[Geocoder] Cache MISS for key={} (lat={}, lon={}), calling Nominatim API",
+                key, latitude, longitude);
         // Fall back to normal JsonGeocoder logic
         String result = super.getAddress(latitude, longitude, callback);
         if (result != null) {
@@ -189,7 +192,7 @@ public class NominatimGeocoder extends JsonGeocoder {
             address.setFormattedAddress(json.getString("display_name"));
         }
         if (json.containsKey("lat") && json.containsKey("lon")) {
-            // Optional: extend Address to hold coordinates if needed
+            LOGGER.trace("Coordinates present but not stored in Address");
         }
         return address;
     }
