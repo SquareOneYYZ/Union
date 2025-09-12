@@ -39,8 +39,16 @@ public class TollRouteState {
         }
         device.set(Position.KEY_TOLL_EXIT, tollExitDistance);
 
-
+/*
         if (event != null && event.getType().equals(Event.TYPE_DEVICE_TOLLROUTE_EXIT)) {
+            Map<String, Object> deviceAttributes = device.getAttributes();
+            deviceAttributes.remove(Position.KEY_TOLL_REF);
+            deviceAttributes.remove(Position.KEY_TOLL_NAME);
+            deviceAttributes.remove(Position.KEY_TOLL_EXIT);
+            device.setAttributes(deviceAttributes);
+        }
+*/
+        if (event != null && event.getType().equals(Event.TYPE_DEVICE_TOLLROUTE)) {
             Map<String, Object> deviceAttributes = device.getAttributes();
             deviceAttributes.remove(Position.KEY_TOLL_REF);
             deviceAttributes.remove(Position.KEY_TOLL_NAME);
@@ -228,7 +236,5 @@ public class TollRouteState {
             }
         }
     }
-
-
 
 }

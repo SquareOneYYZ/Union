@@ -78,7 +78,9 @@ public class TollEventHandler extends BaseEventHandler {
             tollState.fromDevice(device);
         }
         tollState.addOnToll(positionIsToll, minimalDuration);
-        TollRouteProcessor.updateState(tollState, position, positionTollRef, positionTollName, minimalDuration);
+//        TollRouteProcessor.updateState(tollState, position, positionTollRef, positionTollName, minimalDuration);
+        TollRouteProcessor.updateState(tollState, position, minimalDuration);
+
 
         Boolean tollConfidence = tollState.isOnToll(minimalDuration);
         if (tollConfidence != null || positionIsToll != null) {
