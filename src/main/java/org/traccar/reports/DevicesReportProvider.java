@@ -68,7 +68,8 @@ public class DevicesReportProvider {
         return storage.getObjects(Device.class, new Request(
                 new Columns.All(),
                 new Condition.Permission(User.class, userId, Device.class))).stream()
-                .map(device -> new DeviceReportItem(device, positions.get(device.getId()), groups.get(device.getGroupId())))
+                .map(device -> new DeviceReportItem(
+                        device, positions.get(device.getId()), groups.get(device.getGroupId())))
                 .toList();
     }
 
