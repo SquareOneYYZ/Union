@@ -21,6 +21,7 @@ import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.helper.model.PositionUtil;
 import org.traccar.model.Device;
+import org.traccar.model.Group;
 import org.traccar.model.Message;
 import org.traccar.model.User;
 import org.traccar.reports.common.ReportUtils;
@@ -58,10 +59,17 @@ public class DevicesReportProvider {
         var positions = PositionUtil.getLatestPositions(storage, userId).stream()
                 .collect(Collectors.toMap(Message::getDeviceId, p -> p));
 
+        var groups = storage.getObjects(Group.class, new Request(
+                        new Columns.All(),
+                        new Condition.Permission(User.class, userId, Group.class)))
+                .stream()
+                .collect(Collectors.toMap(Group::getId, g -> g));
+
         return storage.getObjects(Device.class, new Request(
                 new Columns.All(),
                 new Condition.Permission(User.class, userId, Device.class))).stream()
-                .map(device -> new DeviceReportItem(device, positions.get(device.getId())))
+                .map(device -> new DeviceReportItem(
+                        device, positions.get(device.getId()), groups.get(device.getGroupId())))
                 .toList();
     }
 
