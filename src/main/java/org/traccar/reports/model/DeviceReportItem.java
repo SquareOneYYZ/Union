@@ -16,13 +16,15 @@
 package org.traccar.reports.model;
 
 import org.traccar.model.Device;
+import org.traccar.model.Group;
 import org.traccar.model.Position;
 
 public class DeviceReportItem {
 
-    public DeviceReportItem(Device device, Position position) {
+    public DeviceReportItem(Device device, Position position, Group group) {
         this.device = device;
         this.position = position;
+        this.group = group;
     }
 
     private Device device;
@@ -43,6 +45,16 @@ public class DeviceReportItem {
 
     public void setPosition(Position position) {
         this.position = position;
+    }
+
+    private Group group;
+
+    public Group getGroup() {
+        return group;
+    }
+
+    public void setGroup(Group group) {
+        this.group = group;
     }
 
 }
