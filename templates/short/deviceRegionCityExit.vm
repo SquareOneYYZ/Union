@@ -1,0 +1,2 @@
+#set($subject = $text.eventDeviceRegionCityExit)
+Vehicle "$device.name" exited city: $event.getString("city")

@@ -1,0 +1,2 @@
+#set($subject = $text.eventDeviceCustomToll)
+Vehicle $device.name passed through custom toll: $event.getString("tollName")

@@ -55,6 +55,10 @@ public class Position extends Message {
     public static final String KEY_TOLL_NAME = "tollName";
     public static final String KEY_TOLL_EXIT = "tollExitDist";
     public static final String KEY_SURFACE = "surface";
+    public static final String KEY_COUNTRY = "country";
+    public static final String KEY_STATE = "state";
+    public static final String KEY_CITY = "city";
+
 
 
     // The units for the below four KEYs currently vary.

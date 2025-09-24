@@ -1,0 +1,2 @@
+#set($subject = $text.eventDeviceRegionStateExit)
+Vehicle "$device.name" exited state: $event.getString("state")

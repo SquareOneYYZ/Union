@@ -87,6 +87,47 @@ public class TollRouteState {
     @JsonProperty
     private List<Boolean> tollWindow = new ArrayList<>();
 
+    @JsonProperty
+    private List<Boolean> customTollWindow = new ArrayList<>();
+
+    @JsonProperty
+    private String lastCustomTollName;
+
+    public void addOnCustomToll(boolean match, int duration) {
+        if (this.customTollWindow == null) {
+            this.customTollWindow = new ArrayList<>();
+        }
+        this.customTollWindow.add(match);
+        LOGGER.debug("CustomTollWindow added value: {}, current size: {}, values: {}", match,
+                this.customTollWindow.size(), this.customTollWindow);
+        if (this.customTollWindow.size() > duration) {
+            Boolean removed = this.customTollWindow.remove(0);
+            LOGGER.debug("CustomTollWindow removed oldest value: {}, new size: {}, values: {}", removed,
+                    this.customTollWindow.size(), this.customTollWindow);
+        }
+        if (this.customTollWindow.size() == duration) {
+            LOGGER.debug("CustomTollWindow reached required size {} with values: {}", duration, this.customTollWindow);
+        }
+    }
+
+    public boolean isCustomTollConfirmed(int duration) {
+        if (this.customTollWindow != null
+                && this.customTollWindow.size() == duration) {
+            Set<Boolean> set = new HashSet<>(this.customTollWindow);
+            return set.size() == 1 && set.contains(true);
+        }
+        return false;
+    }
+
+    public String getLastCustomTollName() {
+        return lastCustomTollName;
+    }
+
+    public void setLastCustomTollName(String tollName) {
+        this.lastCustomTollName = tollName;
+    }
+
+
 /*
     public void addOnToll(Boolean isToll, int duration) {
         if (this.tollWindow == null) {

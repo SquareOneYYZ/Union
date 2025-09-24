@@ -96,6 +96,7 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
                 OverspeedEventHandler.class,
                 TollEventHandler.class,
                 SurfaceEventHandler.class,
+                RegionEventHandler.class,
                 BehaviorEventHandler.class,
                 FuelEventHandler.class,
                 MotionEventHandler.class,
