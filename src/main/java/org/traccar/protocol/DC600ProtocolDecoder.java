@@ -28,15 +28,12 @@ import org.traccar.model.Network;
 import org.traccar.model.Position;
 import org.traccar.model.WifiAccessPoint;
 import org.traccar.session.DeviceSession;
-
-import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import org.traccar.helper.Log;
 
 public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
@@ -414,9 +411,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             // Terminal responds with video resource list (would need complex decoding)
 
-        } else if (type == MSG_PTZ_ROTATION || type == MSG_PTZ_FOCUS ||
-                type == MSG_PTZ_APERTURE || type == MSG_PTZ_WIPER ||
-                type == MSG_PTZ_INFRARED || type == MSG_PTZ_ZOOM) {
+        } else if (type == MSG_PTZ_ROTATION
+                || type == MSG_PTZ_FOCUS
+                || type == MSG_PTZ_APERTURE
+                || type == MSG_PTZ_WIPER
+                || type == MSG_PTZ_INFRARED
+                || type == MSG_PTZ_ZOOM) {
 
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             Position position = new Position(getProtocolName());
@@ -643,13 +643,27 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 switch (infoId) {
                     case 0x14: // Video related alarm (Table 13)
                         long videoAlarm = buf.readUnsignedInt();
-                        if (BitUtil.check(videoAlarm, 0)) position.addAlarm("videoSignalLoss");
-                        if (BitUtil.check(videoAlarm, 1)) position.addAlarm("videoSignalBlocked");
-                        if (BitUtil.check(videoAlarm, 2)) position.addAlarm("storageUnitFailure");
-                        if (BitUtil.check(videoAlarm, 3)) position.addAlarm("videoDeviceFailure");
-                        if (BitUtil.check(videoAlarm, 4)) position.addAlarm("passengerOvercrowding");
-                        if (BitUtil.check(videoAlarm, 5)) position.addAlarm("abnormalDrivingBehavior");
-                        if (BitUtil.check(videoAlarm, 6)) position.addAlarm("specialAlarmStorageThreshold");
+                        if (BitUtil.check(videoAlarm, 0)) {
+                            position.addAlarm("videoSignalLoss");
+                        }
+                        if (BitUtil.check(videoAlarm, 1)) {
+                            position.addAlarm("videoSignalBlocked");
+                        }
+                        if (BitUtil.check(videoAlarm, 2)) {
+                            position.addAlarm("storageUnitFailure");
+                        }
+                        if (BitUtil.check(videoAlarm, 3)) {
+                            position.addAlarm("videoDeviceFailure");
+                        }
+                        if (BitUtil.check(videoAlarm, 4)) {
+                            position.addAlarm("passengerOvercrowding");
+                        }
+                        if (BitUtil.check(videoAlarm, 5)) {
+                            position.addAlarm("abnormalDrivingBehavior");
+                        }
+                        if (BitUtil.check(videoAlarm, 6)) {
+                            position.addAlarm("specialAlarmStorageThreshold");
+                        }
                         break;
 
                     case 0x15: // Video signal loss alarm status

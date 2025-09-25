@@ -122,10 +122,10 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     String startTimeStr = command.getString(Command.KEY_START_TIME);
                     String endTimeStr = command.getString(Command.KEY_END_TIME);
 
-                    byte[] startTimeBytes = startTimeStr != null ?
-                            DataConverter.parseHex(startTimeStr) : time;
-                    byte[] endTimeBytes = endTimeStr != null ?
-                            DataConverter.parseHex(endTimeStr) : time;
+                    byte[] startTimeBytes = startTimeStr != null
+                            ? DataConverter.parseHex(startTimeStr) : time;
+                    byte[] endTimeBytes = endTimeStr != null
+                            ? DataConverter.parseHex(endTimeStr) : time;
 
                     data.writeBytes(startTimeBytes);
                     data.writeBytes(endTimeBytes);
