@@ -29,12 +29,14 @@ import org.traccar.model.Position;
 import org.traccar.model.WifiAccessPoint;
 import org.traccar.session.DeviceSession;
 
+import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import org.traccar.helper.Log;
 
 public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
@@ -65,6 +67,35 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     public static final int MSG_PARAMETER_SETTING = 0x0310;
     public static final int MSG_SEND_TEXT_MESSAGE = 0x8300;
     public static final int MSG_REPORT_TEXT_MESSAGE = 0x6006;
+
+    // new added
+    public static final int MSG_VIDEO_ATTRIBUTES_QUERY = 0x9003;
+    public static final int MSG_VIDEO_ATTRIBUTES_UPLOAD = 0x1003;
+    public static final int MSG_PASSENGER_TRAFFIC_UPLOAD = 0x1005;
+    public static final int MSG_VIDEO_RESOURCE_LIST_QUERY = 0x9205;
+    public static final int MSG_VIDEO_RESOURCE_LIST_UPLOAD = 0x1205;
+    public static final int MSG_PTZ_ROTATION = 0x9301;
+    public static final int MSG_PTZ_FOCUS = 0x9302;
+    public static final int MSG_PTZ_APERTURE = 0x9303;
+    public static final int MSG_PTZ_WIPER = 0x9304;
+    public static final int MSG_PTZ_INFRARED = 0x9305;
+    public static final int MSG_PTZ_ZOOM = 0x9306;
+
+    public static final int MSG_VIDEO_LIVE_STREAM_REQUEST = 0x9101;
+    public static final int MSG_VIDEO_LIVE_STREAM_RESPONSE = 0x1101;
+    public static final int MSG_VIDEO_LIVE_STREAM_CONTROL = 0x9102;
+    public static final int MSG_VIDEO_PLAYBACK_REQUEST = 0x9201;
+    public static final int MSG_VIDEO_PLAYBACK_RESPONSE = 0x1201;
+    public static final int MSG_VIDEO_PLAYBACK_CONTROL = 0x9202;
+    public static final int MSG_VIDEO_DOWNLOAD_REQUEST = 0x9203;
+    public static final int MSG_VIDEO_DOWNLOAD_RESPONSE = 0x1203;
+    public static final int MSG_IMAGE_CAPTURE_REQUEST = 0x9001;
+    public static final int MSG_IMAGE_CAPTURE_RESPONSE = 0x1001;
+    public static final int MSG_IMAGE_UPLOAD_REQUEST = 0x9002;
+    public static final int MSG_IMAGE_UPLOAD_RESPONSE = 0x1002;
+    public static final int MSG_AUDIO_LIVE_STREAM_REQUEST = 0x9103;
+    public static final int MSG_AUDIO_LIVE_STREAM_RESPONSE = 0x1103;
+    public static final int MSG_AUDIO_LIVE_STREAM_CONTROL = 0x9104;
     // TODO: add other message types
 
     public static final int RESULT_SUCCESS = 0;
@@ -189,6 +220,18 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
     }
 
+    private String saveMediaFile(DeviceSession deviceSession, ByteBuf data, String extension) {
+        return deviceSession.getUniqueId() + "_" + System.currentTimeMillis() + "." + extension;
+    }
+
+    private Position createMediaPosition(DeviceSession deviceSession, String mediaType, String fileName) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        getLastLocation(position, null);
+        position.set(mediaType, fileName);
+        return position;
+    }
+
     @Override
     protected Object decode(
             Channel channel, SocketAddress remoteAddress, Object msg) throws Exception {
@@ -298,30 +341,21 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
 
         } else if (type == MSG_ACCELERATION) {
-
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
-
             getLastLocation(position, null);
 
-            StringBuilder data = new StringBuilder("[");
-            while (buf.readableBytes() > 2) {
-                buf.skipBytes(6); // time
-                if (data.length() > 1) {
-                    data.append(",");
-                }
-                data.append("[");
-                data.append(readSignedWord(buf));
-                data.append(",");
-                data.append(readSignedWord(buf));
-                data.append(",");
-                data.append(readSignedWord(buf));
-                data.append("]");
+            List<String> gSensorReadings = new ArrayList<>();
+            while (buf.readableBytes() > 6) {
+                Date gSensorTime = readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE));
+                int x = readSignedWord(buf);
+                int y = readSignedWord(buf);
+                int z = readSignedWord(buf);
+                gSensorReadings.add(String.format("{\"time\":%d,\"x\":%d,\"y\":%d,\"z\":%d}",
+                        gSensorTime.getTime(), x, y, z));
             }
-            data.append("]");
 
-            position.set(Position.KEY_G_SENSOR, data.toString());
-
+            position.set(Position.KEY_G_SENSOR, "[" + String.join(",", gSensorReadings) + "]");
             return position;
 
         } else if (type == MSG_TRANSPARENT) {
@@ -330,8 +364,163 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
             return decodeTransparent(deviceSession, buf);
 
-        }
+        } else if (type == MSG_VIDEO_ATTRIBUTES_QUERY) {
 
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            // Platform queries terminal video attributes
+
+        } else if (type == MSG_VIDEO_ATTRIBUTES_UPLOAD) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+
+            // Decode video attributes (Table 11)
+            position.set("videoAudioEncoding", buf.readUnsignedByte());
+            position.set("videoAudioChannels", buf.readUnsignedByte());
+            position.set("videoAudioSampleRate", buf.readUnsignedByte());
+            position.set("videoAudioSampleBits", buf.readUnsignedByte());
+            position.set("videoAudioFrameLength", buf.readUnsignedShort());
+            position.set("videoAudioOutputSupported", buf.readUnsignedByte());
+            position.set("videoVideoEncoding", buf.readUnsignedByte());
+            position.set("videoMaxAudioChannels", buf.readUnsignedByte());
+            position.set("videoMaxVideoChannels", buf.readUnsignedByte());
+
+            return position;
+
+        } else if (type == MSG_PASSENGER_TRAFFIC_UPLOAD) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+
+            // Decode passenger traffic data (Table 16)
+            position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE))); // Start time
+            buf.skipBytes(6); // Skip end time BCD[6]
+            position.set("passengersBoarded", buf.readUnsignedShort());
+            position.set("passengersDeparted", buf.readUnsignedShort());
+
+            return position;
+
+        } else if (type == MSG_VIDEO_RESOURCE_LIST_QUERY) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            // Platform queries video resource list
+
+        } else if (type == MSG_VIDEO_RESOURCE_LIST_UPLOAD) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            // Terminal responds with video resource list (would need complex decoding)
+
+        } else if (type == MSG_PTZ_ROTATION || type == MSG_PTZ_FOCUS ||
+                type == MSG_PTZ_APERTURE || type == MSG_PTZ_WIPER ||
+                type == MSG_PTZ_INFRARED || type == MSG_PTZ_ZOOM) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+
+            // Basic PTZ control acknowledgment
+            position.set("ptzControl", type);
+            position.set("ptzChannel", buf.readUnsignedByte());
+            position.set("ptzCommand", buf.readUnsignedByte());
+
+            return position;
+            } else if (type == MSG_IMAGE_CAPTURE_REQUEST) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+        } else if (type == MSG_IMAGE_CAPTURE_RESPONSE) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            position.set("imageCaptureResult", buf.readUnsignedByte());
+            return position;
+        } else if (type == MSG_IMAGE_UPLOAD_REQUEST) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+        } else if (type == MSG_IMAGE_UPLOAD_RESPONSE) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            int result = buf.readUnsignedByte();
+            if (result == 0x00 && buf.readableBytes() > 0) {
+                int imageLength = buf.readUnsignedShort();
+                ByteBuf imageData = buf.readSlice(imageLength);
+                String fileName = saveMediaFile(deviceSession, imageData, "jpg");
+                return createMediaPosition(deviceSession, Position.KEY_IMAGE, fileName);
+            }
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            position.set("imageUploadResult", result);
+            return position;
+        } else if (type == MSG_VIDEO_LIVE_STREAM_REQUEST) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+        } else if (type == MSG_VIDEO_LIVE_STREAM_RESPONSE) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            position.set("liveStreamResult", buf.readUnsignedByte());
+            position.set("liveStreamServerIp", buf.readCharSequence(16, StandardCharsets.US_ASCII).toString().trim());
+            position.set("liveStreamServerPort", buf.readUnsignedShort());
+            return position;
+        } else if (type == MSG_VIDEO_LIVE_STREAM_CONTROL) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            position.set("liveStreamControl", buf.readUnsignedByte());
+            return position;
+        } else if (type == MSG_VIDEO_PLAYBACK_REQUEST) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+        } else if (type == MSG_VIDEO_PLAYBACK_RESPONSE) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            position.set("playbackResult", buf.readUnsignedByte());
+            return position;
+        } else if (type == MSG_VIDEO_PLAYBACK_CONTROL) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            position.set("playbackControl", buf.readUnsignedByte());
+            return position;
+        } else if (type == MSG_VIDEO_DOWNLOAD_REQUEST) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+        } else if (type == MSG_VIDEO_DOWNLOAD_RESPONSE) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            int result = buf.readUnsignedByte();
+            if (result == 0x00 && buf.readableBytes() > 0) {
+                int videoLength = buf.readUnsignedShort();
+                ByteBuf videoData = buf.readSlice(videoLength);
+                String fileName = saveMediaFile(deviceSession, videoData, "h264");
+                return createMediaPosition(deviceSession, Position.KEY_VIDEO, fileName);
+            }
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            position.set("videoDownloadResult", result);
+            return position;
+        } else if (type == MSG_AUDIO_LIVE_STREAM_REQUEST) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+        } else if (type == MSG_AUDIO_LIVE_STREAM_RESPONSE) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            position.set("audioStreamResult", buf.readUnsignedByte());
+            return position;
+        } else if (type == MSG_AUDIO_LIVE_STREAM_CONTROL) {
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            Position position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            position.set("audioStreamControl", buf.readUnsignedByte());
+            return position;
+        }
         return null;
     }
 
@@ -442,6 +631,56 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.setSpeed(UnitsConverter.knotsFromKph(buf.readUnsignedShort() * 0.1));
         position.setCourse(buf.readUnsignedShort());
         position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
+
+        // JT/T 1078 Video Alarm Extensions (Additional Information IDs 0x14-0x18)
+        if (buf.readableBytes() > 2) {
+            int endIndex = buf.writerIndex();
+            while (buf.readerIndex() < endIndex - 1) {
+                int infoId = buf.readUnsignedByte();
+                int infoLength = buf.readUnsignedByte();
+                int infoEndIndex = buf.readerIndex() + infoLength;
+
+                switch (infoId) {
+                    case 0x14: // Video related alarm (Table 13)
+                        long videoAlarm = buf.readUnsignedInt();
+                        if (BitUtil.check(videoAlarm, 0)) position.addAlarm("videoSignalLoss");
+                        if (BitUtil.check(videoAlarm, 1)) position.addAlarm("videoSignalBlocked");
+                        if (BitUtil.check(videoAlarm, 2)) position.addAlarm("storageUnitFailure");
+                        if (BitUtil.check(videoAlarm, 3)) position.addAlarm("videoDeviceFailure");
+                        if (BitUtil.check(videoAlarm, 4)) position.addAlarm("passengerOvercrowding");
+                        if (BitUtil.check(videoAlarm, 5)) position.addAlarm("abnormalDrivingBehavior");
+                        if (BitUtil.check(videoAlarm, 6)) position.addAlarm("specialAlarmStorageThreshold");
+                        break;
+
+                    case 0x15: // Video signal loss alarm status
+                        long signalLoss = buf.readUnsignedInt();
+                        position.set("videoSignalLossStatus", signalLoss);
+                        break;
+
+                    case 0x16: // Video signal occlusion alarm status
+                        long signalOcclusion = buf.readUnsignedInt();
+                        position.set("videoSignalOcclusionStatus", signalOcclusion);
+                        break;
+
+                    case 0x17: // Memory fault alarm status
+                        int memoryFault = buf.readUnsignedShort();
+                        position.set("memoryFaultStatus", memoryFault);
+                        break;
+
+                    case 0x18: // Abnormal driving behavior details
+                        int behaviorType = buf.readUnsignedShort();
+                        int fatigueLevel = buf.readUnsignedByte();
+                        position.set("abnormalBehaviorType", behaviorType);
+                        position.set("fatigueLevel", fatigueLevel);
+                        break;
+
+                    default:
+                        buf.readerIndex(infoEndIndex);
+                        break;
+                }
+                buf.readerIndex(infoEndIndex);
+            }
+        }
 
         if (buf.readableBytes() == 20) {
 
