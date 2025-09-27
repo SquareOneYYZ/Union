@@ -95,16 +95,19 @@ public class DevicesReportProvider {
             stream = stream.filter(d -> groupIds.contains(d.getGroupId()));
         }
         if (model != null && !model.isEmpty()) {
-            stream = stream.filter(d -> d.getModel() != null && d.getModel().toLowerCase().contains(model.toLowerCase()));
+            stream = stream.filter(d -> d.getModel() != null && d.getModel().toLowerCase()
+                    .contains(model.toLowerCase()));
         }
         if (status != null && !status.isEmpty()) {
-            stream = stream.filter(d -> d.getStatus() != null && d.getStatus().toLowerCase().contains(status.toLowerCase()));
+            stream = stream.filter(d -> d.getStatus() != null && d.getStatus().toLowerCase()
+                    .contains(status.toLowerCase()));
         }
         if (name != null && !name.isEmpty()) {
             stream = stream.filter(d -> d.getName() != null && d.getName().toLowerCase().contains(name.toLowerCase()));
         }
         if (identifier != null && !identifier.isEmpty()) {
-            stream = stream.filter(d -> d.getUniqueId() != null && d.getUniqueId().toLowerCase().contains(identifier.toLowerCase()));
+            stream = stream.filter(d -> d.getUniqueId() != null && d.getUniqueId().toLowerCase()
+                    .contains(identifier.toLowerCase()));
         }
         if (vin != null && !vin.isEmpty()) {
             stream = stream.filter(d -> d.getVin() != null && d.getVin().toLowerCase().contains(vin.toLowerCase()));
