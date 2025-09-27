@@ -330,10 +330,18 @@ public class ReportResource extends SimpleObjectResource<Report> {
     @GET
     @Produces(EXCEL)
     public Response getDevicesExcel(
+            @QueryParam("deviceId") List<Long> deviceIds,
+            @QueryParam("group") List<Long> groupIds,
+            @QueryParam("model") String model,
+            @QueryParam("status") String status,
+            @QueryParam("name") String name,
+            @QueryParam("identifier") String identifier,
+            @QueryParam("vin") String vin,
             @PathParam("type") String type) throws StorageException {
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         return executeReport(getUserId(), type.equals("mail"), stream -> {
-            devicesReportProvider.getExcel(stream, getUserId());
+            devicesReportProvider.getExcel(stream, getUserId(),
+                    deviceIds, groupIds, model, status, name, identifier, vin);
         });
     }
 
