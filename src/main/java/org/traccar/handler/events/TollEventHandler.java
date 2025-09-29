@@ -20,6 +20,8 @@ import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Request;
 import org.traccar.storage.localCache.RedisCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -69,6 +71,13 @@ public class TollEventHandler extends BaseEventHandler {
             groupCustomToll = group.getString("customRoadEvent");
             LOGGER.debug("Group custom toll loaded for deviceId {}: {}", deviceId, groupCustomToll);
         }
+        // Load device attribute for custom toll
+        String deviceCustomToll = null;
+        if (device != null && device.hasAttribute("customRoadEvent")) {
+            deviceCustomToll = device.getString("customRoadEvent");
+            LOGGER.debug("Device custom toll loaded for deviceId {}: {}", deviceId, deviceCustomToll);
+        }
+
 
         if (!PositionUtil.isLatest(cacheManager, position) || !position.getValid()) {
             return;
@@ -100,9 +109,28 @@ public class TollEventHandler extends BaseEventHandler {
 
         LOGGER.debug("Position tollName={}, Group customToll={}", positionTollName, groupCustomToll);
 
-        boolean isCustomMatch = positionTollName != null
-                && groupCustomToll != null
-                && positionTollName.equalsIgnoreCase(groupCustomToll);
+//        boolean isCustomMatch = positionTollName != null
+//                && groupCustomToll != null
+//                && positionTollName.equalsIgnoreCase(groupCustomToll);
+
+        boolean isCustomMatch = false;
+        if (positionTollName != null) {
+            String toll = positionTollName.trim();
+
+            // Check group custom tolls
+            if (groupCustomToll != null) {
+                isCustomMatch = Arrays.stream(groupCustomToll.split(","))
+                        .map(String::trim)
+                        .anyMatch(name -> toll.equalsIgnoreCase(name));
+            }
+
+            // If not matched in group, check device custom tolls
+            if (!isCustomMatch && deviceCustomToll != null) {
+                isCustomMatch = Arrays.stream(deviceCustomToll.split(","))
+                        .map(String::trim)
+                        .anyMatch(name -> toll.equalsIgnoreCase(name));
+            }
+        }
         LOGGER.debug("CustomToll compare: positionTollName='{}' vs groupCustomToll='{}' => {}",
                 positionTollName, groupCustomToll, isCustomMatch);
 
