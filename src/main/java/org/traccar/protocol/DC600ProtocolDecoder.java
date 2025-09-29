@@ -207,14 +207,35 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private String decodeId(ByteBuf id) {
-        String serial = ByteBufUtil.hexDump(id);
-        if (serial.matches("[0-9]+")) {
-            return serial;
-        } else {
-            long imei = id.getUnsignedShort(0);
-            imei = (imei << 32) + id.getUnsignedInt(2);
-            return String.valueOf(imei) + Checksum.luhn(imei);
+        // For JT/T 1078, device IDs are BCD encoded
+        StringBuilder deviceId = new StringBuilder();
+        for (int i = 0; i < id.readableBytes(); i++) {
+            int b = id.getUnsignedByte(i);
+            int high = (b & 0xF0) >> 4;
+            int low = b & 0x0F;
+            deviceId.append(high).append(low);
         }
+
+        String result = deviceId.toString();
+
+        // Handle partial IMEI case - try to match with known devices
+        if (result.length() == 12) {
+            // This could be a truncated IMEI, try to find full device ID
+            DeviceSession session = getDeviceSession(null, null, result);
+            if (session == null) {
+                // Try with common IMEI prefixes
+                String[] prefixes = {"866", "860", "862", "864", "863"};
+                for (String prefix : prefixes) {
+                    String fullId = prefix + result;
+                    session = getDeviceSession(null, null, fullId);
+                    if (session != null) {
+                        return fullId;
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 
     private String saveMediaFile(DeviceSession deviceSession, ByteBuf data, String extension) {
