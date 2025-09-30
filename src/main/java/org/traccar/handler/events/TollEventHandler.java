@@ -107,7 +107,8 @@ public class TollEventHandler extends BaseEventHandler {
         tollState.addOnToll(positionIsToll, minimalDuration);
         TollRouteProcessor.updateState(tollState, position, positionTollRef, positionTollName, minimalDuration);
 
-        LOGGER.debug("Position tollName={}, Group customToll={}", positionTollName, groupCustomToll);
+        LOGGER.debug("Position tollName={}, Group customToll={}, Device customToll={}", positionTollName,
+                groupCustomToll, deviceCustomToll);
 
 //        boolean isCustomMatch = positionTollName != null
 //                && groupCustomToll != null
@@ -131,8 +132,8 @@ public class TollEventHandler extends BaseEventHandler {
                         .anyMatch(name -> toll.equalsIgnoreCase(name));
             }
         }
-        LOGGER.debug("CustomToll compare: positionTollName='{}' vs groupCustomToll='{}' => {}",
-                positionTollName, groupCustomToll, isCustomMatch);
+        LOGGER.debug("CustomToll compare: positionTollName='{}' vs groupCustomToll='{}', deviceCustomToll='{}' => {}",
+                positionTollName, groupCustomToll, deviceCustomToll, isCustomMatch);
 
 
         tollState.addOnCustomToll(isCustomMatch, minimalDuration);
