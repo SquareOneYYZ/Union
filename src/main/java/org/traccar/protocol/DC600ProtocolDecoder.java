@@ -93,6 +93,22 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     public static final int MSG_AUDIO_LIVE_STREAM_REQUEST = 0x9103;
     public static final int MSG_AUDIO_LIVE_STREAM_RESPONSE = 0x1103;
     public static final int MSG_AUDIO_LIVE_STREAM_CONTROL = 0x9104;
+    // === ADD THESE MISSING MESSAGE TYPES ===
+// Alarm Attachment Upload (Section 4.5-4.6)
+    public static final int MSG_ALARM_ATTACHMENT_UPLOAD = 0x9208;
+    public static final int MSG_ALARM_ATTACHMENT_INFO = 0x1210;
+    public static final int MSG_FILE_UPLOAD_COMPLETE = 0x1212;
+    public static final int MSG_FILE_UPLOAD_COMPLETE_RESPONSE = 0x9212;
+
+    // ADAS/DSM Parameter Setting (Section 4.2)
+    public static final int MSG_PARAMETER_QUERY = 0x8103;
+    public static final int MSG_PARAMETER_RESPONSE = 0x0104;
+    public static final int MSG_PARAMETER_SETTING_ADAS = 0xF364;
+    public static final int MSG_PARAMETER_SETTING_DSM = 0xF365;
+    // Add these channel definitions
+    public static final int VIDEO_CHANNEL_ADAS = 64;
+    public static final int VIDEO_CHANNEL_DSM = 65;
+    public static final int MSG_FILE_DATA_UPLOAD = 0x1211;
     // TODO: add other message types
 
     public static final int RESULT_SUCCESS = 0;
@@ -240,6 +256,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
     private String saveMediaFile(DeviceSession deviceSession, ByteBuf data, String extension) {
         return deviceSession.getUniqueId() + "_" + System.currentTimeMillis() + "." + extension;
+    }
+    private String generateProtocolFileName(int fileType, int channel, int alarmType, String serialNumber, String alarmNumber, String suffix) {
+        return String.format("%02d_%02d_%02d_%s_%s.%s",
+                fileType, channel, alarmType, serialNumber, alarmNumber, suffix);
     }
 
     private Position createMediaPosition(DeviceSession deviceSession, String mediaType, String fileName) {
@@ -541,6 +561,36 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             getLastLocation(position, null);
             position.set("audioStreamControl", buf.readUnsignedByte());
             return position;
+        } else if (type == MSG_ALARM_ATTACHMENT_UPLOAD) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            return decodeAlarmAttachmentUpload(deviceSession, buf);
+
+        } else if (type == MSG_ALARM_ATTACHMENT_INFO) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            return decodeAlarmAttachmentInfo(deviceSession, buf);
+
+        } else if (type == MSG_FILE_UPLOAD_COMPLETE) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            return decodeFileUploadComplete(deviceSession, buf);
+
+        } else if (type == MSG_PARAMETER_QUERY || type == MSG_PARAMETER_RESPONSE) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            return decodeParameterMessage(deviceSession, buf, type);
+
+        } else if (type == MSG_FILE_DATA_UPLOAD) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            return decodeFileDataUpload(deviceSession, buf);
+
+        } else if (type == MSG_FILE_UPLOAD_COMPLETE_RESPONSE) {
+
+            sendGeneralResponse(channel, remoteAddress, id, type, index);
+            return decodeFileUploadCompleteResponse(deviceSession, buf);
+
         }
         return null;
     }
@@ -818,15 +868,75 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         buf.readUnsignedByte(); // rssi
                     }
                     break;
-                case 0x64:
-                    buf.readUnsignedInt(); // alarm serial number
-                    buf.readUnsignedByte(); // alarm status
-                    position.set("adasAlarm", buf.readUnsignedByte());
+                case 0x64: // ADAS Alarm Information (Table 4-15)
+                    position.set("adasAlarmId", buf.readUnsignedInt());
+                    int adasFlagStatus = buf.readUnsignedByte();
+                    position.set("adasFlagStatus", adasFlagStatus);
+
+                    int adasAlarmType = buf.readUnsignedByte();
+                    position.set("adasAlarmType", adasAlarmType);
+                    decodeAdasAlarmType(position, adasAlarmType);
+
+                    int adasAlarmLevel = buf.readUnsignedByte();
+                    position.set("adasAlarmLevel", adasAlarmLevel);
+
+                    position.set("precedingVehicleSpeed", buf.readUnsignedByte());
+                    position.set("precedingVehicleDistance", buf.readUnsignedByte());
+
+                    int deviationType = buf.readUnsignedByte();
+                    if (deviationType > 0) {
+                        position.set("deviationType", deviationType);
+                    }
+
+                    int roadSignType = buf.readUnsignedByte();
+                    if (roadSignType > 0) {
+                        position.set("roadSignType", roadSignType);
+                    }
+
+                    position.set("roadSignData", buf.readUnsignedByte());
+                    position.set("vehicleSpeed", buf.readUnsignedByte());
+                    position.setAltitude(buf.readUnsignedShort());
+                    position.setLatitude(buf.readUnsignedInt() * 0.000001);
+                    position.setLongitude(buf.readUnsignedInt() * 0.000001);
+                    position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
+                    position.set(Position.KEY_STATUS, buf.readUnsignedShort());
+
+                    // Read alarm identification number (Table 4-16)
+                    byte[] alarmSign = new byte[16];
+                    buf.readBytes(alarmSign);
+                    position.set("alarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmSign)));
                     break;
-                case 0x65:
-                    buf.readUnsignedInt(); // alarm serial number
-                    buf.readUnsignedByte(); // alarm status
-                    position.set("dmsAlarm", buf.readUnsignedByte());
+
+                case 0x65: // DSM Alarm Information (Table 4-17)
+                    position.set("dsmAlarmId", buf.readUnsignedInt());
+                    int dsmFlagStatus = buf.readUnsignedByte();
+                    position.set("dsmFlagStatus", dsmFlagStatus);
+
+                    int dsmAlarmType = buf.readUnsignedByte();
+                    position.set("dsmAlarmType", dsmAlarmType);
+                    decodeDsmAlarmType(position, dsmAlarmType);
+
+                    int dsmAlarmLevel = buf.readUnsignedByte();
+                    position.set("dsmAlarmLevel", dsmAlarmLevel);
+
+                    if (dsmAlarmType == 0x01) { // Fatigue driving
+                        position.set("fatigueLevel", buf.readUnsignedByte());
+                    } else {
+                        buf.skipBytes(1); // reserved
+                    }
+
+                    buf.skipBytes(4); // reserved bytes
+                    position.set("vehicleSpeed", buf.readUnsignedByte());
+                    position.setAltitude(buf.readUnsignedShort());
+                    position.setLatitude(buf.readUnsignedInt() * 0.000001);
+                    position.setLongitude(buf.readUnsignedInt() * 0.000001);
+                    position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
+                    position.set(Position.KEY_STATUS, buf.readUnsignedShort());
+
+                    // Read alarm identification number
+                    byte[] dsmAlarmSign = new byte[16];
+                    buf.readBytes(dsmAlarmSign);
+                    position.set("dsmAlarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(dsmAlarmSign)));
                     break;
                 case 0x67:
                     stringValue = buf.readCharSequence(8, StandardCharsets.US_ASCII).toString();
@@ -1475,6 +1585,247 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
 
         return null;
+    }
+
+
+    // === ADD THESE NEW METHODS AT THE END OF THE CLASS ===
+
+    private void decodeAdasAlarmType(Position position, int alarmType) {
+        switch (alarmType) {
+            case 0x01 -> position.addAlarm("forwardCollision");
+            case 0x02 -> position.addAlarm("laneDeparture");
+            case 0x03 -> position.addAlarm("vehicleTooClose");
+            case 0x04 -> position.addAlarm("pedestrianCollision");
+            case 0x05 -> position.addAlarm("frequentLaneChange");
+            case 0x06 -> position.addAlarm("roadSignExceeded");
+            case 0x07 -> position.addAlarm("obstacleDetection");
+            case 0x10 -> position.set("roadSignRecognized", true);
+            case 0x11 -> position.set("activeCapture", true);
+            default -> position.set("adasEventType", alarmType);
+        }
+    }
+
+    private void decodeDsmAlarmType(Position position, int alarmType) {
+        switch (alarmType) {
+            case 0x01 -> position.addAlarm(Position.ALARM_FATIGUE_DRIVING);
+            case 0x02 -> position.addAlarm("calling");
+            case 0x03 -> position.addAlarm("smoking");
+            case 0x04 -> position.addAlarm("distractedDriving");
+            case 0x05 -> position.addAlarm("driverAbnormal");
+            case 0x10 -> position.set("autoCapture", true);
+            case 0x11 -> position.set("driverChanged", true);
+            default -> position.set("dsmEventType", alarmType);
+        }
+    }
+
+    private Position decodeAlarmAttachmentUpload(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        getLastLocation(position, null);
+
+        // Decode attachment upload instruction (Table 4-21)
+        int ipLength = buf.readUnsignedByte();
+        String serverIp = buf.readCharSequence(ipLength, StandardCharsets.US_ASCII).toString();
+        position.set("attachmentServerIp", serverIp);
+
+        position.set("attachmentTcpPort", buf.readUnsignedShort());
+        position.set("attachmentUdpPort", buf.readUnsignedShort());
+
+        byte[] alarmFlag = new byte[16];
+        buf.readBytes(alarmFlag);
+        position.set("alarmFlag", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmFlag)));
+
+        byte[] alarmNumber = new byte[32];
+        buf.readBytes(alarmNumber);
+        position.set("alarmNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmNumber)));
+
+        return position;
+    }
+
+    private Position decodeAlarmAttachmentInfo(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        getLastLocation(position, null);
+
+        // Decode alarm attachment info (Table 4-23)
+        byte[] terminalId = new byte[7];
+        buf.readBytes(terminalId);
+        position.set("terminalId", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(terminalId)));
+
+        byte[] alarmFlag = new byte[16];
+        buf.readBytes(alarmFlag);
+        position.set("alarmFlag", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmFlag)));
+
+        byte[] alarmNumber = new byte[32];
+        buf.readBytes(alarmNumber);
+        position.set("alarmNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmNumber)));
+
+        position.set("infoType", buf.readUnsignedByte());
+        position.set("attachmentCount", buf.readUnsignedByte());
+
+        // Decode attachment list (Table 4-24)
+        List<String> attachments = new ArrayList<>();
+        while (buf.readableBytes() > 0) {
+            int nameLength = buf.readUnsignedByte();
+            String fileName = buf.readCharSequence(nameLength, StandardCharsets.US_ASCII).toString();
+            long fileSize = buf.readUnsignedInt();
+            attachments.add(fileName + ":" + fileSize);
+        }
+        position.set("attachments", String.join(",", attachments));
+
+        return position;
+    }
+
+    private Position decodeFileUploadComplete(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        getLastLocation(position, null);
+
+        // Decode file upload complete (Table 4-27)
+        int nameLength = buf.readUnsignedByte();
+        String fileName = buf.readCharSequence(nameLength, StandardCharsets.US_ASCII).toString();
+        position.set("fileName", fileName);
+
+        position.set("fileType", buf.readUnsignedByte());
+        position.set("fileSize", buf.readUnsignedInt());
+
+        return position;
+    }
+
+    private Position decodeParameterMessage(DeviceSession deviceSession, ByteBuf buf, int type) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        getLastLocation(position, null);
+
+        // Decode parameter query/response
+        int paramCount = buf.readUnsignedByte();
+        List<String> parameters = new ArrayList<>();
+
+        for (int i = 0; i < paramCount; i++) {
+            int paramId = buf.readUnsignedShort();
+            int paramLength = buf.readUnsignedByte();
+
+            switch (paramId) {
+                case 0xF364 -> {
+                    // ADAS parameters (Table 4-10)
+                    position.set("adasAlarmStatus", buf.readUnsignedInt());
+                    position.set("laneDepartureThreshold", buf.readUnsignedByte());
+                    position.set("forwardCollisionThreshold", buf.readUnsignedByte());
+                    position.set("pedestrianCollisionThreshold", buf.readUnsignedByte());
+                    position.set("vehicleDistanceThreshold", buf.readUnsignedByte());
+                }
+                case 0xF365 -> {
+                    // DSM parameters (Table 4-11)
+                    position.set("dsmAlarmStatus", buf.readUnsignedInt());
+                    position.set("fatigueDrivingThreshold", buf.readUnsignedByte());
+                    position.set("callAlarmThreshold", buf.readUnsignedByte());
+                    position.set("smokingAlarmThreshold", buf.readUnsignedByte());
+                    position.set("distractedDrivingThreshold", buf.readUnsignedByte());
+                    position.set("abnormalBehaviorThreshold", buf.readUnsignedByte());
+                }
+                default -> buf.skipBytes(paramLength);
+            }
+        }
+
+        return position;
+    }
+    // === ADD THESE FINAL METHODS AT THE END ===
+
+    private Position decodeFileDataUpload(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        getLastLocation(position, null);
+
+        // Decode file data upload (Table 4-26)
+        long frameHeader = buf.readUnsignedInt();
+        position.set("frameHeader", String.format("0x%08X", frameHeader));
+
+        byte[] fileNameBytes = new byte[50];
+        buf.readBytes(fileNameBytes);
+        String fileName = new String(fileNameBytes, StandardCharsets.US_ASCII).trim();
+        position.set("fileName", fileName);
+
+        position.set("dataOffset", buf.readUnsignedInt());
+        position.set("dataLength", buf.readUnsignedInt());
+
+        // Store the actual file data
+        ByteBuf fileData = buf.readSlice(buf.readableBytes());
+        position.set("fileDataLength", fileData.readableBytes());
+
+        return position;
+    }
+
+    private Position decodeFileUploadCompleteResponse(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        getLastLocation(position, null);
+
+        // Decode file upload complete response (Table 4-28)
+        int nameLength = buf.readUnsignedByte();
+        String fileName = buf.readCharSequence(nameLength, StandardCharsets.US_ASCII).toString();
+        position.set("fileName", fileName);
+
+        position.set("fileType", buf.readUnsignedByte());
+        position.set("uploadResult", buf.readUnsignedByte());
+        position.set("supplementaryPackets", buf.readUnsignedByte());
+
+        // Decode supplementary packet list if present
+        if (buf.readableBytes() > 0) {
+            List<String> supplementaryPackets = new ArrayList<>();
+            while (buf.readableBytes() >= 8) { // Each packet has 8 bytes (4+4)
+                long dataOffset = buf.readUnsignedInt();
+                long dataLength = buf.readUnsignedInt();
+                supplementaryPackets.add(dataOffset + ":" + dataLength);
+            }
+            position.set("supplementaryPacketList", String.join(",", supplementaryPackets));
+        }
+
+        return position;
+    }
+
+    private void decodeVehicleStatusData(Position position, ByteBuf buf) {
+        // Decode vehicle status data record file (Table 4-22)
+        position.set("totalDataBlocks", buf.readUnsignedInt());
+        position.set("currentBlockNumber", buf.readUnsignedInt());
+        position.set("alarmFlag", buf.readUnsignedInt());
+        position.set("vehicleStatus", buf.readUnsignedInt());
+
+        position.setLatitude(buf.readUnsignedInt() * 0.000001);
+        position.setLongitude(buf.readUnsignedInt() * 0.000001);
+        position.setAltitude(buf.readUnsignedShort());
+        position.setSpeed(buf.readUnsignedShort() * 0.1); // 1/10km/h
+
+        position.setCourse(buf.readUnsignedShort());
+        position.setTime(readDate(buf, TimeZone.getTimeZone("GMT+8")));
+
+        // Acceleration data
+        position.set("xAcceleration", buf.readShort() * 0.01); // in g
+        position.set("yAcceleration", buf.readShort() * 0.01); // in g
+        position.set("zAcceleration", buf.readShort() * 0.01); // in g
+
+        // Angular velocity
+        position.set("xAngularVelocity", buf.readShort() * 0.01); // deg/s
+        position.set("yAngularVelocity", buf.readShort() * 0.01); // deg/s
+        position.set("zAngularVelocity", buf.readShort() * 0.01); // deg/s
+
+        position.set("pulseSpeed", buf.readUnsignedShort() * 0.1); // 1/10km/h
+        position.set("obdSpeed", buf.readUnsignedShort() * 0.1); // 1/10km/h
+
+        int gearStatus = buf.readUnsignedByte();
+        position.set("gearStatus", gearStatus);
+
+        position.set("acceleratorPedal", buf.readUnsignedByte()); // %
+        position.set("brakePedal", buf.readUnsignedByte()); // %
+        position.set("brakeStatus", buf.readUnsignedByte());
+        position.set("engineRpm", buf.readUnsignedShort());
+        position.set("steeringWheelAngle", readSignedWord(buf));
+        position.set("turnSignalStatus", buf.readUnsignedByte());
+
+        // Skip reserved bytes
+        buf.skipBytes(2);
+
+        // Calculate and verify checksum
+        // Note: You might need to implement checksum verification based on the protocol
     }
 
 }
