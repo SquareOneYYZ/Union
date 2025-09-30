@@ -257,7 +257,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     private String saveMediaFile(DeviceSession deviceSession, ByteBuf data, String extension) {
         return deviceSession.getUniqueId() + "_" + System.currentTimeMillis() + "." + extension;
     }
-    private String generateProtocolFileName(int fileType, int channel, int alarmType, String serialNumber, String alarmNumber, String suffix) {
+    private String generateProtocolFileName(int fileType, int channel, int alarmType, String serialNumber,
+                                            String alarmNumber, String suffix) {
         return String.format("%02d_%02d_%02d_%s_%s.%s",
                 fileType, channel, alarmType, serialNumber, alarmNumber, suffix);
     }
