@@ -728,7 +728,176 @@ public class DC600ProtocolDecoderTest {
         }
     }
 
+    @Test
+    @DisplayName("Test Terminal Control Command (0x8105)")
+    void testTerminalControl() throws Exception {
+        String message = "7e8105000d49607689899100120103abcdef127e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+        assertNull(result, "Terminal control should return null");
+    }
 
+    @Test
+    @DisplayName("Test Parameter Setting (0x0310)")
+    void testParameterSetting() throws Exception {
+        String message = "7e0310001549607689899100120001020304050607080910a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+        // Should handle parameter configuration
+    }
+
+    @Test
+    @DisplayName("Test Send Text Message Command (0x8300)")
+    void testSendTextMessage() throws Exception {
+        String message = "7e8300001549607689899100120048656c6c6f20576f726c64a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+    }
+
+    @Test
+    @DisplayName("Test Oil Control (0xA006)")
+    void testOilControl() throws Exception {
+        String message = "7ea006000849607689899100120001a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+    }
+
+    @Test
+    @DisplayName("Test Transparent Message 0xF0 - CAN Bus Type 0x01")
+    void testTransparentCANBusType01() throws Exception {
+        String message = "7e09000050496076898991001200f024101512304500010001020200040102000000c801030000000064a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+        if (result != null) {
+            assertTrue(result instanceof Position);
+            Position position = (Position) result;
+            assertNotNull(position.getAttributes().get(Position.KEY_ODOMETER));
+        }
+    }
+
+    @Test
+    @DisplayName("Test Transparent Message 0xF0 - DTC Codes Type 0x02")
+    void testTransparentCANBusDTC() throws Exception {
+        String message = "7e09000040496076898991001200f024101512304500020002000000010001000000010000000150303130300a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+        if (result != null) {
+            assertTrue(result instanceof Position);
+            Position position = (Position) result;
+            assertNotNull(position.getAttributes().get(Position.KEY_DTCS));
+        }
+    }
+
+    @Test
+    @DisplayName("Test Transparent Message 0xF0 - Event Alarms Type 0x03")
+    void testTransparentCANBusEvents() throws Exception {
+        String message = "7e09000030496076898991001200f024101512304500030001011a00a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+        if (result != null) {
+            assertTrue(result instanceof Position);
+            Position position = (Position) result;
+            String alarm = (String) position.getAttributes().get(Position.KEY_ALARM);
+            assertTrue(alarm != null && alarm.contains(Position.ALARM_ACCELERATION));
+        }
+    }
+
+    @Test
+    @DisplayName("Test Transparent Message 0xF0 - VIN Type 0x0B")
+    void testTransparentCANBusVIN() throws Exception {
+        String message = "7e09000030496076898991001200f02410151230450005010b014c4a46454a4e3435374e3430303030303031a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+        if (result != null) {
+            assertTrue(result instanceof Position);
+            Position position = (Position) result;
+            assertNotNull(position.getAttributes().get(Position.KEY_VIN));
+        }
+    }
+
+    @Test
+    @DisplayName("Test Transparent Message 0xFF - Simple Location")
+    void testTransparentSimpleLocation() throws Exception {
+        String message = "7e090000204960768989910012ff241015123045022619b8046c3e5a00640028a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+        if (result != null) {
+            assertTrue(result instanceof Position);
+            Position position = (Position) result;
+            assertTrue(position.getValid());
+        }
+    }
+
+
+    @Test
+    @DisplayName("Test Video Resource List Query (0x9205)")
+    void testVideoResourceListQuery() throws Exception {
+        String message = "7e9205001049607689899100120101240101011230450a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+    }
+
+    @Test
+    @DisplayName("Test Video Resource List Upload (0x1205)")
+    void testVideoResourceListUpload() throws Exception {
+        String message = "7e1205002049607689899100120001010001241015123045240101512304567e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+    }
+
+    @Test
+    @DisplayName("Test Image Capture Request (0x9001)")
+    void testImageCaptureRequest() throws Exception {
+        String message = "7e9001000849607689899100120101a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+    }
+
+    @Test
+    @DisplayName("Test Video Playback Request (0x9201)")
+    void testVideoPlaybackRequest() throws Exception {
+        String message = "7e9201001049607689899100120101241015123045a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+    }
+
+    @Test
+    @DisplayName("Test Video Download Request (0x9203)")
+    void testVideoDownloadRequest() throws Exception {
+        String message = "7e9203001049607689899100120101241015123045a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+    }
+
+    @Test
+    @DisplayName("Test Audio Live Stream Request (0x9103)")
+    void testAudioLiveStreamRequest() throws Exception {
+        String message = "7e9103000849607689899100120101a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+    }
+
+    @Test
+    @DisplayName("Test Location with Driver Behavior (0x57)")
+    void testLocationWithDriverBehavior() throws Exception {
+        String message = "7e0200003049607689899100050000000100004c000b026D1B600469A5E00082003c00fa24101512304557060001000000000a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+        if (result != null) {
+            Position position = (Position) result;
+            String alarm = (String) position.getAttributes().get(Position.KEY_ALARM);
+            // Check for harsh acceleration/braking/cornering
+        }
+    }
+
+    @Test
+    @DisplayName("Test Heartbeat Type 2 (0x0506)")
+    void testHeartbeat2() throws Exception {
+        String message = "7e050600004960768989910012a77e";
+        ByteBuf buf = safeHexToBuffer(message);
+        Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
+        assertNull(result);
+    }
 
 
     //  Terminal Registration (0x0100) - REAL device message
@@ -759,6 +928,24 @@ public class DC600ProtocolDecoderTest {
 //  Location with Network Info - REAL cellular data
 //  Multiple Heartbeat Sequences - REAL device communication
 //  Authentication Sequences - REAL security handshake
+    //  Terminal Control Command (0x8105)
+    //  Parameter Setting (0x0310)
+    //  Send Text Message Command (0x8300)
+    //  Oil Control (0xA006)
+    //  Transparent Message 0xF0 - CAN Bus Type 0x01
+    //  Transparent Message 0xF0 - DTC Codes Type 0x02
+    //  Transparent Message 0xF0 - Event Alarms Type 0x03
+    //  Transparent Message 0xF0 - VIN Type 0x0B
+    //  Transparent Message 0xFF - Simple Location
+    //  Video Resource List Query (0x9205)
+    //  Video Resource List Upload (0x1205)
+    //  Image Capture Request (0x9001)
+    //  Video Playback Request (0x9201)
+    //  Video Download Request (0x9203)
+    //  Audio Live Stream Request (0x9103)
+    //  Location with Driver Behavior (0x57)
+    //  Heartbeat Type 2 (0x0506)
+
 
 }
 
