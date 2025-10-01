@@ -1,16 +1,22 @@
 package org.traccar.storage.localCache;
 
+import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import redis.clients.jedis.JedisPooled;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 
 @Singleton
 public class RedisCache {
     private JedisPooled jedis;
     private boolean redisAvailable = true;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     @Inject
     public RedisCache(Config config) {
@@ -21,11 +27,20 @@ public class RedisCache {
             String password = config.getString(Keys.REDIS_PASSWORD);
             String redisUrl = String.format("rediss://%s:%s@%s:%d", username, password, host, port);
             this.jedis = new JedisPooled(redisUrl);
-//            this.jedis.ping();
+            this.jedis.ping();
         } catch (Exception e) {
             System.err.println(" Redis connection failed: " + e.getMessage());
             redisAvailable = false;
         }
+
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                jedis.ping();
+                redisAvailable = true;
+            } catch (Exception e) {
+                redisAvailable = false;
+            }
+        }, 0, 30, TimeUnit.SECONDS);
     }
     public RedisCache(JedisPooled jedis) {
         this.jedis = jedis;
@@ -93,5 +108,11 @@ public class RedisCache {
             System.err.println(" Redis setWithTTL failed: " + e.getMessage());
             redisAvailable = false;
         }
+    }
+
+
+    @PreDestroy
+    public void shutdown() {
+        scheduler.shutdown();
     }
 }
