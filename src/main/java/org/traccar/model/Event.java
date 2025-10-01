@@ -60,15 +60,15 @@ public class Event extends Message {
 //    public static final String TYPE_SURFACE_ALERT = "deviceSurfaceType";
     public static final String TYPE_SURFACE_TYPE = "deviceSurfaceType";
 
-    public static final String TYPE_REGION_COUNTRY_ENTER = "deviceRegionCountryEnter";
-    public static final String TYPE_REGION_COUNTRY_EXIT = "deviceRegionCountryExit";
-    public static final String TYPE_REGION_STATE_ENTER = "deviceRegionStateEnter";
-    public static final String TYPE_REGION_STATE_EXIT = "deviceRegionStateExit";
-    public static final String TYPE_REGION_CITY_ENTER = "deviceRegionCityEnter";
-    public static final String TYPE_REGION_CITY_EXIT = "deviceRegionCityExit";
+//    public static final String TYPE_REGION_COUNTRY_ENTER = "deviceRegionCountryEnter";
+//    public static final String TYPE_REGION_COUNTRY_EXIT = "deviceRegionCountryExit";
+//    public static final String TYPE_REGION_STATE_ENTER = "deviceRegionStateEnter";
+//    public static final String TYPE_REGION_STATE_EXIT = "deviceRegionStateExit";
+//    public static final String TYPE_REGION_CITY_ENTER = "deviceRegionCityEnter";
+//    public static final String TYPE_REGION_CITY_EXIT = "deviceRegionCityExit";
     public static final String TYPE_DEVICE_CUSTOM_TOLL = "deviceCustomToll";
-
-
+//
+//
 
 
 
