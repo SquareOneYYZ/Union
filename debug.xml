@@ -78,6 +78,8 @@
 
     <entry key='tollRoute.roundingDecimals'>3</entry>
 
+    <entry key='media.enable'>true</entry>
+    <entry key='media.path'>/opt/traccar/media</entry>
 
 
 
