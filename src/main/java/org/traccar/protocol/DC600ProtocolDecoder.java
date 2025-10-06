@@ -112,9 +112,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     // TODO: add other message types
 
     public static final int RESULT_SUCCESS = 0;
-
     private int delimiter = 0x7e;
-
     public boolean isAlternative() {
         return delimiter == 0xe7;
     }
@@ -136,7 +134,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         buf.writeByte(delimiter);
         return buf;
     }
-
     private void sendGeneralResponse(
             Channel channel, SocketAddress remoteAddress, ByteBuf id, int type, int index) {
         if (channel != null) {
@@ -148,7 +145,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     formatMessage(delimiter, MSG_GENERAL_RESPONSE, id, false, response), remoteAddress));
         }
     }
-
     private void sendGeneralResponse2(
             Channel channel, SocketAddress remoteAddress, ByteBuf id, int type) {
         if (channel != null) {
@@ -159,7 +155,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     formatMessage(delimiter, MSG_GENERAL_RESPONSE_2, id, true, response), remoteAddress));
         }
     }
-
     private void decodeAlarm(Position position, String model, long value) {
         if (model != null && Set.of("G-360P", "G-508P").contains(model)) {
             if (BitUtil.check(value, 0) || BitUtil.check(value, 4)) {
@@ -205,12 +200,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
         }
     }
-
     private int readSignedWord(ByteBuf buf) {
         int value = buf.readUnsignedShort();
         return BitUtil.check(value, 15) ? -BitUtil.to(value, 15) : BitUtil.to(value, 15);
     }
-
     private Date readDate(ByteBuf buf, TimeZone timeZone) {
         DateBuilder dateBuilder = new DateBuilder(timeZone)
                 .setYear(BcdUtil.readInteger(buf, 2))
@@ -221,8 +214,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 .setSecond(BcdUtil.readInteger(buf, 2));
         return dateBuilder.getDate();
     }
-
-    private String decodeId(ByteBuf id) {
+    private String decodeId(ByteBuf id, Channel channel, SocketAddress remoteAddress) {
         // For JT/T 1078, device IDs are BCD encoded
         StringBuilder deviceId = new StringBuilder();
         for (int i = 0; i < id.readableBytes(); i++) {
@@ -233,17 +225,16 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
 
         String result = deviceId.toString();
-
         // Handle partial IMEI case - try to match with known devices
-        if (result.length() == 12) {
+        if (result.length() == 12 && channel != null) {
             // This could be a truncated IMEI, try to find full device ID
-            DeviceSession session = getDeviceSession(null, null, result);
+            DeviceSession session = getDeviceSession(channel, remoteAddress, result);
             if (session == null) {
                 // Try with common IMEI prefixes
                 String[] prefixes = {"866", "860", "862", "864", "863"};
                 for (String prefix : prefixes) {
                     String fullId = prefix + result;
-                    session = getDeviceSession(null, null, fullId);
+                    session = getDeviceSession(channel, remoteAddress, fullId);
                     if (session != null) {
                         return fullId;
                     }
@@ -277,6 +268,21 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
         ByteBuf buf = (ByteBuf) msg;
 
+        // Protocol detection - only process DC600 protocol messages
+        if (buf.readableBytes() < 3) {
+            return null;
+        }
+
+        byte firstByte = buf.getByte(buf.readerIndex());
+
+        // DC600 protocol starts with 0x7e (hex 7e) or '(' for BASE messages
+        // Reject messages that don't match these patterns
+        if (firstByte != 0x7e && firstByte != '(') {
+            // This is not a DC600 protocol message, ignore it
+            return null;
+        }
+
+        // Continue with your existing DC600 decoding...
         if (buf.getByte(buf.readerIndex()) == '(') {
             String sentence = buf.toString(StandardCharsets.US_ASCII);
             if (sentence.contains("BASE,2")) {
@@ -293,79 +299,75 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
         }
 
+        // Check if we have enough data for basic header (1 + 2 + 2 = 5 bytes)
+        if (buf.readableBytes() < 5) {
+            return null; // Not enough data for basic header
+        }
+
         delimiter = buf.readUnsignedByte();
         int type = buf.readUnsignedShort();
         int attribute = buf.readUnsignedShort();
-        ByteBuf id = buf.readSlice(isAlternative() ? 7 : 6);
+
+        // Check if we have enough data for ID
+        int idLength = isAlternative() ? 7 : 6;
+        if (buf.readableBytes() < idLength) {
+            return null;
+        }
+        ByteBuf id = buf.readSlice(idLength);
         int index;
         if (type == MSG_LOCATION_REPORT_2 || type == MSG_LOCATION_REPORT_BLIND) {
+            if (buf.readableBytes() < 1) return null;
             index = buf.readUnsignedByte();
         } else {
+            if (buf.readableBytes() < 2) return null;
             index = buf.readUnsignedShort();
         }
 
-        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, decodeId(id));
+        String deviceIdString = decodeId(id, channel, remoteAddress);
+        DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, deviceIdString);
         if (deviceSession == null) {
+            // Log and return null if no device session found
+            System.getLogger(DC600ProtocolDecoder.class.getName()).log(System.Logger.Level.DEBUG,
+                    "No device session found for ID: " + deviceIdString);
             return null;
         }
 
         if (!deviceSession.contains(DeviceSession.KEY_TIMEZONE)) {
             deviceSession.set(DeviceSession.KEY_TIMEZONE, getTimeZone(deviceSession.getDeviceId(), "GMT+8"));
         }
-
         if (type == MSG_TERMINAL_REGISTER) {
-
             if (channel != null) {
                 ByteBuf response = Unpooled.buffer();
                 response.writeShort(index);
                 response.writeByte(RESULT_SUCCESS);
-                response.writeBytes(decodeId(id).getBytes(StandardCharsets.US_ASCII));
+                response.writeBytes(decodeId(id, channel, remoteAddress).getBytes(StandardCharsets.US_ASCII));
                 channel.writeAndFlush(new NetworkMessage(
                         formatMessage(delimiter, MSG_TERMINAL_REGISTER_RESPONSE, id, false, response), remoteAddress));
             }
 
         } else if (type == MSG_REPORT_TEXT_MESSAGE) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
-
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
-
             getLastLocation(position, null);
-
             buf.readUnsignedByte(); // encoding
             Charset charset = Charset.isSupported("GBK") ? Charset.forName("GBK") : StandardCharsets.US_ASCII;
-
             position.set(Position.KEY_RESULT, buf.readCharSequence(buf.readableBytes() - 2, charset).toString());
-
             return position;
-
         } else if (type == MSG_TERMINAL_AUTH || type == MSG_HEARTBEAT || type == MSG_HEARTBEAT_2 || type == MSG_PHOTO) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
-
         } else if (type == MSG_LOCATION_REPORT) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
-
             return decodeLocation(deviceSession, buf);
-
         } else if (type == MSG_LOCATION_REPORT_2 || type == MSG_LOCATION_REPORT_BLIND) {
-
             if (BitUtil.check(attribute, 15)) {
                 sendGeneralResponse2(channel, remoteAddress, id, type);
             }
-
             return decodeLocation2(deviceSession, buf, type);
-
         } else if (type == MSG_LOCATION_BATCH || type == MSG_LOCATION_BATCH_2) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
-
             return decodeLocationBatch(deviceSession, buf, type);
-
         } else if (type == MSG_TIME_SYNC_REQUEST) {
-
             if (channel != null) {
                 Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
                 ByteBuf response = Unpooled.buffer();
@@ -378,12 +380,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 channel.writeAndFlush(new NetworkMessage(
                         formatMessage(delimiter, MSG_TERMINAL_REGISTER_RESPONSE, id, false, response), remoteAddress));
             }
-
         } else if (type == MSG_ACCELERATION) {
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
             getLastLocation(position, null);
-
             List<String> gSensorReadings = new ArrayList<>();
             while (buf.readableBytes() > 6) {
                 Date gSensorTime = readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE));
@@ -393,28 +393,19 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 gSensorReadings.add(String.format("{\"time\":%d,\"x\":%d,\"y\":%d,\"z\":%d}",
                         gSensorTime.getTime(), x, y, z));
             }
-
             position.set(Position.KEY_G_SENSOR, "[" + String.join(",", gSensorReadings) + "]");
             return position;
-
         } else if (type == MSG_TRANSPARENT) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
-
             return decodeTransparent(deviceSession, buf);
-
         } else if (type == MSG_VIDEO_ATTRIBUTES_QUERY) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             // Platform queries terminal video attributes
-
         } else if (type == MSG_VIDEO_ATTRIBUTES_UPLOAD) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
             getLastLocation(position, null);
-
             // Decode video attributes (Table 11)
             position.set("videoAudioEncoding", buf.readUnsignedByte());
             position.set("videoAudioChannels", buf.readUnsignedByte());
@@ -425,51 +416,38 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             position.set("videoVideoEncoding", buf.readUnsignedByte());
             position.set("videoMaxAudioChannels", buf.readUnsignedByte());
             position.set("videoMaxVideoChannels", buf.readUnsignedByte());
-
             return position;
-
         } else if (type == MSG_PASSENGER_TRAFFIC_UPLOAD) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
             getLastLocation(position, null);
-
             // Decode passenger traffic data (Table 16)
             position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE))); // Start time
             buf.skipBytes(6); // Skip end time BCD[6]
             position.set("passengersBoarded", buf.readUnsignedShort());
             position.set("passengersDeparted", buf.readUnsignedShort());
-
             return position;
-
         } else if (type == MSG_VIDEO_RESOURCE_LIST_QUERY) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             // Platform queries video resource list
-
         } else if (type == MSG_VIDEO_RESOURCE_LIST_UPLOAD) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             // Terminal responds with video resource list (would need complex decoding)
-
         } else if (type == MSG_PTZ_ROTATION
                 || type == MSG_PTZ_FOCUS
                 || type == MSG_PTZ_APERTURE
                 || type == MSG_PTZ_WIPER
                 || type == MSG_PTZ_INFRARED
                 || type == MSG_PTZ_ZOOM) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
             getLastLocation(position, null);
-
             // Basic PTZ control acknowledgment
             position.set("ptzControl", type);
             position.set("ptzChannel", buf.readUnsignedByte());
             position.set("ptzCommand", buf.readUnsignedByte());
-
             return position;
             } else if (type == MSG_IMAGE_CAPTURE_REQUEST) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
@@ -563,35 +541,23 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             position.set("audioStreamControl", buf.readUnsignedByte());
             return position;
         } else if (type == MSG_ALARM_ATTACHMENT_UPLOAD) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             return decodeAlarmAttachmentUpload(deviceSession, buf);
-
         } else if (type == MSG_ALARM_ATTACHMENT_INFO) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             return decodeAlarmAttachmentInfo(deviceSession, buf);
-
         } else if (type == MSG_FILE_UPLOAD_COMPLETE) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             return decodeFileUploadComplete(deviceSession, buf);
-
         } else if (type == MSG_PARAMETER_QUERY || type == MSG_PARAMETER_RESPONSE) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             return decodeParameterMessage(deviceSession, buf, type);
-
         } else if (type == MSG_FILE_DATA_UPLOAD) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             return decodeFileDataUpload(deviceSession, buf);
-
         } else if (type == MSG_FILE_UPLOAD_COMPLETE_RESPONSE) {
-
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             return decodeFileUploadCompleteResponse(deviceSession, buf);
-
         }
         return null;
     }
@@ -651,29 +617,22 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private void decodeCoordinates(Position position, DeviceSession deviceSession, ByteBuf buf) {
-
         int status = buf.readInt();
-
         String model = getDeviceModel(deviceSession);
-
         position.set(Position.KEY_IGNITION, BitUtil.check(status, 0));
         if ("G1C Pro".equals(model)) {
             position.set(Position.KEY_MOTION, BitUtil.check(status, 4));
         }
         position.set(Position.KEY_BLOCKED, BitUtil.check(status, 10));
         position.set(Position.KEY_CHARGE, BitUtil.check(status, 26));
-
         position.setValid(BitUtil.check(status, 1));
-
         double lat = buf.readUnsignedInt() * 0.000001;
         double lon = buf.readUnsignedInt() * 0.000001;
-
         if (BitUtil.check(status, 2)) {
             position.setLatitude(-lat);
         } else {
             position.setLatitude(lat);
         }
-
         if (BitUtil.check(status, 3)) {
             position.setLongitude(-lon);
         } else {
@@ -689,16 +648,11 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private Position decodeLocation(DeviceSession deviceSession, ByteBuf buf) {
-
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
-
         String model = getDeviceModel(deviceSession);
-
         decodeAlarm(position, model, buf.readUnsignedInt());
-
         decodeCoordinates(position, deviceSession, buf);
-
         position.setAltitude(buf.readShort());
         position.setSpeed(UnitsConverter.knotsFromKph(buf.readUnsignedShort() * 0.1));
         position.setCourse(buf.readUnsignedShort());
@@ -742,24 +696,20 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         long signalLoss = buf.readUnsignedInt();
                         position.set("videoSignalLossStatus", signalLoss);
                         break;
-
                     case 0x16: // Video signal occlusion alarm status
                         long signalOcclusion = buf.readUnsignedInt();
                         position.set("videoSignalOcclusionStatus", signalOcclusion);
                         break;
-
                     case 0x17: // Memory fault alarm status
                         int memoryFault = buf.readUnsignedShort();
                         position.set("memoryFaultStatus", memoryFault);
                         break;
-
                     case 0x18: // Abnormal driving behavior details
                         int behaviorType = buf.readUnsignedShort();
                         int fatigueLevel = buf.readUnsignedByte();
                         position.set("abnormalBehaviorType", behaviorType);
                         position.set("fatigueLevel", fatigueLevel);
                         break;
-
                     default:
                         buf.readerIndex(infoEndIndex);
                         break;
@@ -767,23 +717,17 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 buf.readerIndex(infoEndIndex);
             }
         }
-
         if (buf.readableBytes() == 20) {
-
             buf.skipBytes(4); // remaining battery and mileage
             position.set(Position.KEY_ODOMETER, buf.readUnsignedInt() * 1000);
             position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
             buf.readUnsignedInt(); // area id
             position.set(Position.KEY_RSSI, buf.readUnsignedByte());
             buf.skipBytes(3); // reserved
-
             return position;
-
         }
         Network network = new Network();
-
         while (buf.readableBytes() > 2) {
-
             int subtype = buf.readUnsignedByte();
             int length = buf.readUnsignedByte();
             int endIndex = buf.readerIndex() + length;
@@ -873,27 +817,21 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     position.set("adasAlarmId", buf.readUnsignedInt());
                     int adasFlagStatus = buf.readUnsignedByte();
                     position.set("adasFlagStatus", adasFlagStatus);
-
                     int adasAlarmType = buf.readUnsignedByte();
                     position.set("adasAlarmType", adasAlarmType);
                     decodeAdasAlarmType(position, adasAlarmType);
-
                     int adasAlarmLevel = buf.readUnsignedByte();
                     position.set("adasAlarmLevel", adasAlarmLevel);
-
                     position.set("precedingVehicleSpeed", buf.readUnsignedByte());
                     position.set("precedingVehicleDistance", buf.readUnsignedByte());
-
                     int deviationType = buf.readUnsignedByte();
                     if (deviationType > 0) {
                         position.set("deviationType", deviationType);
                     }
-
                     int roadSignType = buf.readUnsignedByte();
                     if (roadSignType > 0) {
                         position.set("roadSignType", roadSignType);
                     }
-
                     position.set("roadSignData", buf.readUnsignedByte());
                     position.set("vehicleSpeed", buf.readUnsignedByte());
                     position.setAltitude(buf.readUnsignedShort());
@@ -901,31 +839,25 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     position.setLongitude(buf.readUnsignedInt() * 0.000001);
                     position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
                     position.set(Position.KEY_STATUS, buf.readUnsignedShort());
-
                     // Read alarm identification number (Table 4-16)
                     byte[] alarmSign = new byte[16];
                     buf.readBytes(alarmSign);
                     position.set("alarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmSign)));
                     break;
-
                 case 0x65: // DSM Alarm Information (Table 4-17)
                     position.set("dsmAlarmId", buf.readUnsignedInt());
                     int dsmFlagStatus = buf.readUnsignedByte();
                     position.set("dsmFlagStatus", dsmFlagStatus);
-
                     int dsmAlarmType = buf.readUnsignedByte();
                     position.set("dsmAlarmType", dsmAlarmType);
                     decodeDsmAlarmType(position, dsmAlarmType);
-
                     int dsmAlarmLevel = buf.readUnsignedByte();
                     position.set("dsmAlarmLevel", dsmAlarmLevel);
-
                     if (dsmAlarmType == 0x01) { // Fatigue driving
                         position.set("fatigueLevel", buf.readUnsignedByte());
                     } else {
                         buf.skipBytes(1); // reserved
                     }
-
                     buf.skipBytes(4); // reserved bytes
                     position.set("vehicleSpeed", buf.readUnsignedByte());
                     position.setAltitude(buf.readUnsignedShort());
@@ -933,7 +865,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     position.setLongitude(buf.readUnsignedInt() * 0.000001);
                     position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
                     position.set(Position.KEY_STATUS, buf.readUnsignedShort());
-
                     // Read alarm identification number
                     byte[] dsmAlarmSign = new byte[16];
                     buf.readBytes(dsmAlarmSign);
@@ -1235,31 +1166,25 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
-
         Jt600ProtocolDecoder.decodeBinaryLocation(buf, position);
         position.setValid(type != MSG_LOCATION_REPORT_BLIND);
-
         position.set(Position.KEY_RSSI, buf.readUnsignedByte());
         position.set(Position.KEY_SATELLITES, buf.readUnsignedByte());
         position.set(Position.KEY_ODOMETER, buf.readUnsignedInt() * 1000L);
-
         int battery = buf.readUnsignedByte();
         if (battery <= 100) {
             position.set(Position.KEY_BATTERY_LEVEL, battery);
         } else if (battery == 0xAA || battery == 0xAB) {
             position.set(Position.KEY_CHARGE, true);
         }
-
         long cid = buf.readUnsignedInt();
         int lac = buf.readUnsignedShort();
         if (cid > 0 && lac > 0) {
             position.setNetwork(new Network(CellTower.fromCidLac(getConfig(), cid, lac)));
         }
-
         int product = buf.readUnsignedByte();
         int status = buf.readUnsignedShort();
         int alarm = buf.readUnsignedShort();
-
         if (product == 1 || product == 2) {
             if (BitUtil.check(alarm, 0)) {
                 position.addAlarm(Position.ALARM_LOW_POWER);
@@ -1285,9 +1210,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 position.addAlarm(Position.ALARM_GEOFENCE_EXIT);
             }
         }
-
         position.set(Position.KEY_STATUS, status);
-
         while (buf.readableBytes() > 2) {
             int id = buf.readUnsignedByte();
             int length = buf.readUnsignedByte();
@@ -1340,20 +1263,15 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     break;
             }
         }
-
         return position;
     }
-
     private List<Position> decodeLocationBatch(DeviceSession deviceSession, ByteBuf buf, int type) {
-
         List<Position> positions = new LinkedList<>();
-
         int locationType = 0;
         if (type == MSG_LOCATION_BATCH) {
             buf.readUnsignedShort(); // count
             locationType = buf.readUnsignedByte();
         }
-
         while (buf.readableBytes() > 2) {
             int length = type == MSG_LOCATION_BATCH_2 ? buf.readUnsignedByte() : buf.readUnsignedShort();
             ByteBuf fragment = buf.readSlice(length);
@@ -1363,25 +1281,18 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
             positions.add(position);
         }
-
         return positions;
     }
 
     private Position decodeTransparent(DeviceSession deviceSession, ByteBuf buf) {
-
         int type = buf.readUnsignedByte();
-
         if (type == 0x41) {
-
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
-
             getLastLocation(position, null);
-
             String data = buf.readCharSequence(buf.readableBytes() - 2, StandardCharsets.US_ASCII).toString().trim();
             String[] values = data.split(",");
             int index = 1; // skip header
-
             if (!values[index++].isEmpty()) {
                 position.set(Position.KEY_POWER, Double.parseDouble(values[index - 1]));
             }
@@ -1418,22 +1329,15 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             if (!values[index++].isEmpty()) {
                 position.set(Position.KEY_FUEL_USED, Double.parseDouble(values[index - 1]));
             }
-
             return position;
-
         } else if (type == 0xF0) {
-
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
-
             Date time = readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE));
-
             if (buf.readUnsignedByte() > 0) {
                 position.set(Position.KEY_ARCHIVE, true);
             }
-
             buf.readUnsignedByte(); // vehicle type
-
             int count;
             int subtype = buf.readUnsignedByte();
             switch (subtype) {
@@ -1570,7 +1474,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
-
             position.setValid(true);
             position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
             position.setLatitude(buf.readInt() * 0.000001);
@@ -1578,19 +1481,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             position.setAltitude(buf.readShort());
             position.setSpeed(UnitsConverter.knotsFromKph(buf.readUnsignedShort() * 0.1));
             position.setCourse(buf.readUnsignedShort());
-
             // TODO more positions and g sensor data
-
             return position;
-
         }
-
         return null;
     }
-
-
     // === ADD THESE NEW METHODS AT THE END OF THE CLASS ===
-
     private void decodeAdasAlarmType(Position position, int alarmType) {
         switch (alarmType) {
             case 0x01 -> position.addAlarm("forwardCollision");
@@ -1605,7 +1501,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             default -> position.set("adasEventType", alarmType);
         }
     }
-
     private void decodeDsmAlarmType(Position position, int alarmType) {
         switch (alarmType) {
             case 0x01 -> position.addAlarm(Position.ALARM_FATIGUE_DRIVING);
@@ -1618,7 +1513,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             default -> position.set("dsmEventType", alarmType);
         }
     }
-
     private Position decodeAlarmAttachmentUpload(DeviceSession deviceSession, ByteBuf buf) {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
@@ -1628,18 +1522,14 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         int ipLength = buf.readUnsignedByte();
         String serverIp = buf.readCharSequence(ipLength, StandardCharsets.US_ASCII).toString();
         position.set("attachmentServerIp", serverIp);
-
         position.set("attachmentTcpPort", buf.readUnsignedShort());
         position.set("attachmentUdpPort", buf.readUnsignedShort());
-
         byte[] alarmFlag = new byte[16];
         buf.readBytes(alarmFlag);
         position.set("alarmFlag", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmFlag)));
-
         byte[] alarmNumber = new byte[32];
         buf.readBytes(alarmNumber);
         position.set("alarmNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmNumber)));
-
         return position;
     }
 
@@ -1647,23 +1537,18 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         getLastLocation(position, null);
-
         // Decode alarm attachment info (Table 4-23)
         byte[] terminalId = new byte[7];
         buf.readBytes(terminalId);
         position.set("terminalId", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(terminalId)));
-
         byte[] alarmFlag = new byte[16];
         buf.readBytes(alarmFlag);
         position.set("alarmFlag", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmFlag)));
-
         byte[] alarmNumber = new byte[32];
         buf.readBytes(alarmNumber);
         position.set("alarmNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmNumber)));
-
         position.set("infoType", buf.readUnsignedByte());
         position.set("attachmentCount", buf.readUnsignedByte());
-
         // Decode attachment list (Table 4-24)
         List<String> attachments = new ArrayList<>();
         while (buf.readableBytes() > 0) {
@@ -1673,7 +1558,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             attachments.add(fileName + ":" + fileSize);
         }
         position.set("attachments", String.join(",", attachments));
-
         return position;
     }
 
@@ -1681,15 +1565,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         getLastLocation(position, null);
-
         // Decode file upload complete (Table 4-27)
         int nameLength = buf.readUnsignedByte();
         String fileName = buf.readCharSequence(nameLength, StandardCharsets.US_ASCII).toString();
         position.set("fileName", fileName);
-
         position.set("fileType", buf.readUnsignedByte());
         position.set("fileSize", buf.readUnsignedInt());
-
         return position;
     }
 
@@ -1697,15 +1578,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         getLastLocation(position, null);
-
         // Decode parameter query/response
         int paramCount = buf.readUnsignedByte();
         List<String> parameters = new ArrayList<>();
-
         for (int i = 0; i < paramCount; i++) {
             int paramId = buf.readUnsignedShort();
             int paramLength = buf.readUnsignedByte();
-
             switch (paramId) {
                 case 0xF364 -> {
                     // ADAS parameters (Table 4-10)
@@ -1727,7 +1605,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 default -> buf.skipBytes(paramLength);
             }
         }
-
         return position;
     }
     // === ADD THESE FINAL METHODS AT THE END ===
@@ -1736,23 +1613,18 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         getLastLocation(position, null);
-
         // Decode file data upload (Table 4-26)
         long frameHeader = buf.readUnsignedInt();
         position.set("frameHeader", String.format("0x%08X", frameHeader));
-
         byte[] fileNameBytes = new byte[50];
         buf.readBytes(fileNameBytes);
         String fileName = new String(fileNameBytes, StandardCharsets.US_ASCII).trim();
         position.set("fileName", fileName);
-
         position.set("dataOffset", buf.readUnsignedInt());
         position.set("dataLength", buf.readUnsignedInt());
-
         // Store the actual file data
         ByteBuf fileData = buf.readSlice(buf.readableBytes());
         position.set("fileDataLength", fileData.readableBytes());
-
         return position;
     }
 
@@ -1760,16 +1632,13 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         getLastLocation(position, null);
-
         // Decode file upload complete response (Table 4-28)
         int nameLength = buf.readUnsignedByte();
         String fileName = buf.readCharSequence(nameLength, StandardCharsets.US_ASCII).toString();
         position.set("fileName", fileName);
-
         position.set("fileType", buf.readUnsignedByte());
         position.set("uploadResult", buf.readUnsignedByte());
         position.set("supplementaryPackets", buf.readUnsignedByte());
-
         // Decode supplementary packet list if present
         if (buf.readableBytes() > 0) {
             List<String> supplementaryPackets = new ArrayList<>();
@@ -1780,7 +1649,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
             position.set("supplementaryPacketList", String.join(",", supplementaryPackets));
         }
-
         return position;
     }
 
@@ -1795,38 +1663,28 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.setLongitude(buf.readUnsignedInt() * 0.000001);
         position.setAltitude(buf.readUnsignedShort());
         position.setSpeed(buf.readUnsignedShort() * 0.1); // 1/10km/h
-
         position.setCourse(buf.readUnsignedShort());
         position.setTime(readDate(buf, TimeZone.getTimeZone("GMT+8")));
-
         // Acceleration data
         position.set("xAcceleration", buf.readShort() * 0.01); // in g
         position.set("yAcceleration", buf.readShort() * 0.01); // in g
         position.set("zAcceleration", buf.readShort() * 0.01); // in g
-
         // Angular velocity
         position.set("xAngularVelocity", buf.readShort() * 0.01); // deg/s
         position.set("yAngularVelocity", buf.readShort() * 0.01); // deg/s
         position.set("zAngularVelocity", buf.readShort() * 0.01); // deg/s
-
         position.set("pulseSpeed", buf.readUnsignedShort() * 0.1); // 1/10km/h
         position.set("obdSpeed", buf.readUnsignedShort() * 0.1); // 1/10km/h
-
         int gearStatus = buf.readUnsignedByte();
         position.set("gearStatus", gearStatus);
-
         position.set("acceleratorPedal", buf.readUnsignedByte()); // %
         position.set("brakePedal", buf.readUnsignedByte()); // %
         position.set("brakeStatus", buf.readUnsignedByte());
         position.set("engineRpm", buf.readUnsignedShort());
         position.set("steeringWheelAngle", readSignedWord(buf));
         position.set("turnSignalStatus", buf.readUnsignedByte());
-
         // Skip reserved bytes
         buf.skipBytes(2);
-
-        // Calculate and verify checksum
-        // Note: You might need to implement checksum verification based on the protocol
     }
 
 }
