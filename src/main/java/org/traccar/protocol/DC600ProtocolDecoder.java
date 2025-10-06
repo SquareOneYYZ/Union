@@ -316,10 +316,14 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         ByteBuf id = buf.readSlice(idLength);
         int index;
         if (type == MSG_LOCATION_REPORT_2 || type == MSG_LOCATION_REPORT_BLIND) {
-            if (buf.readableBytes() < 1) return null;
+            if (buf.readableBytes() < 1) {
+                return null;
+            }
             index = buf.readUnsignedByte();
         } else {
-            if (buf.readableBytes() < 2) return null;
+            if (buf.readableBytes() < 2) {
+                return null;
+            }
             index = buf.readUnsignedShort();
         }
 
