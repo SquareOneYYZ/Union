@@ -279,8 +279,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         // Additional filter: Check if this looks like HTTP/RTSP (text protocols)
         if (buf.readableBytes() >= 5) {
             String potentialText = buf.toString(0, Math.min(buf.readableBytes(), 20), StandardCharsets.US_ASCII);
-            if (potentialText.startsWith("OPTIONS") || potentialText.startsWith("GET") ||
-                    potentialText.startsWith("POST") || potentialText.startsWith("HTTP")) {
+            if (potentialText.startsWith("OPTIONS")
+                    || potentialText.startsWith("GET")
+                    || potentialText.startsWith("POST")
+                    || potentialText.startsWith("HTTP")) {
                 return null; // Filter out HTTP/RTSP traffic
             }
         }
