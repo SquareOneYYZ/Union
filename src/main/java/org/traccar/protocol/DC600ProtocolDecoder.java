@@ -261,27 +261,29 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.set(mediaType, fileName);
         return position;
     }
-
     @Override
     protected Object decode(
             Channel channel, SocketAddress remoteAddress, Object msg) throws Exception {
-
         ByteBuf buf = (ByteBuf) msg;
-
         // Protocol detection - only process DC600 protocol messages
         if (buf.readableBytes() < 3) {
             return null;
         }
-
         byte firstByte = buf.getByte(buf.readerIndex());
-
         // DC600 protocol starts with 0x7e (hex 7e) or '(' for BASE messages
         // Reject messages that don't match these patterns
         if (firstByte != 0x7e && firstByte != '(') {
             // This is not a DC600 protocol message, ignore it
             return null;
         }
-
+        // Additional filter: Check if this looks like HTTP/RTSP (text protocols)
+        if (buf.readableBytes() >= 5) {
+            String potentialText = buf.toString(0, Math.min(buf.readableBytes(), 20), StandardCharsets.US_ASCII);
+            if (potentialText.startsWith("OPTIONS") || potentialText.startsWith("GET") ||
+                    potentialText.startsWith("POST") || potentialText.startsWith("HTTP")) {
+                return null; // Filter out HTTP/RTSP traffic
+            }
+        }
         // Continue with your existing DC600 decoding...
         if (buf.getByte(buf.readerIndex()) == '(') {
             String sentence = buf.toString(StandardCharsets.US_ASCII);
@@ -298,16 +300,13 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 return decodeResult(channel, remoteAddress, sentence);
             }
         }
-
         // Check if we have enough data for basic header (1 + 2 + 2 = 5 bytes)
         if (buf.readableBytes() < 5) {
             return null; // Not enough data for basic header
         }
-
         delimiter = buf.readUnsignedByte();
         int type = buf.readUnsignedShort();
         int attribute = buf.readUnsignedShort();
-
         // Check if we have enough data for ID
         int idLength = isAlternative() ? 7 : 6;
         if (buf.readableBytes() < idLength) {
@@ -340,6 +339,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             deviceSession.set(DeviceSession.KEY_TIMEZONE, getTimeZone(deviceSession.getDeviceId(), "GMT+8"));
         }
         if (type == MSG_TERMINAL_REGISTER) {
+
             if (channel != null) {
                 ByteBuf response = Unpooled.buffer();
                 response.writeShort(index);
@@ -652,6 +652,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private Position decodeLocation(DeviceSession deviceSession, ByteBuf buf) {
+        if (buf.readableBytes() < 20) {
+            return null;
+        }
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         String model = getDeviceModel(deviceSession);
@@ -661,13 +664,15 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.setSpeed(UnitsConverter.knotsFromKph(buf.readUnsignedShort() * 0.1));
         position.setCourse(buf.readUnsignedShort());
         position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
-
         // JT/T 1078 Video Alarm Extensions (Additional Information IDs 0x14-0x18)
         if (buf.readableBytes() > 2) {
             int endIndex = buf.writerIndex();
-            while (buf.readerIndex() < endIndex - 1) {
+            while (buf.readerIndex() < endIndex - 1 && buf.readableBytes() >= 2) {
                 int infoId = buf.readUnsignedByte();
                 int infoLength = buf.readUnsignedByte();
+                if (buf.readableBytes() < infoLength) {
+                    break;
+                }
                 int infoEndIndex = buf.readerIndex() + infoLength;
 
                 switch (infoId) {
@@ -721,7 +726,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 buf.readerIndex(infoEndIndex);
             }
         }
-        if (buf.readableBytes() == 20) {
+        if (buf.readableBytes() >= 20) {
             buf.skipBytes(4); // remaining battery and mileage
             position.set(Position.KEY_ODOMETER, buf.readUnsignedInt() * 1000);
             position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
@@ -734,8 +739,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         while (buf.readableBytes() > 2) {
             int subtype = buf.readUnsignedByte();
             int length = buf.readUnsignedByte();
+            if (buf.readableBytes() < length) {
+                break;
+            }
             int endIndex = buf.readerIndex() + length;
             String stringValue;
+            try {
             switch (subtype) {
                 case 0x01:
                     position.set(Position.KEY_ODOMETER, buf.readUnsignedInt() * 100);
@@ -818,61 +827,65 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     }
                     break;
                 case 0x64: // ADAS Alarm Information (Table 4-15)
-                    position.set("adasAlarmId", buf.readUnsignedInt());
-                    int adasFlagStatus = buf.readUnsignedByte();
-                    position.set("adasFlagStatus", adasFlagStatus);
-                    int adasAlarmType = buf.readUnsignedByte();
-                    position.set("adasAlarmType", adasAlarmType);
-                    decodeAdasAlarmType(position, adasAlarmType);
-                    int adasAlarmLevel = buf.readUnsignedByte();
-                    position.set("adasAlarmLevel", adasAlarmLevel);
-                    position.set("precedingVehicleSpeed", buf.readUnsignedByte());
-                    position.set("precedingVehicleDistance", buf.readUnsignedByte());
-                    int deviationType = buf.readUnsignedByte();
-                    if (deviationType > 0) {
-                        position.set("deviationType", deviationType);
+                    if (length >= 40) {
+                        position.set("adasAlarmId", buf.readUnsignedInt());
+                        int adasFlagStatus = buf.readUnsignedByte();
+                        position.set("adasFlagStatus", adasFlagStatus);
+                        int adasAlarmType = buf.readUnsignedByte();
+                        position.set("adasAlarmType", adasAlarmType);
+                        decodeAdasAlarmType(position, adasAlarmType);
+                        int adasAlarmLevel = buf.readUnsignedByte();
+                        position.set("adasAlarmLevel", adasAlarmLevel);
+                        position.set("precedingVehicleSpeed", buf.readUnsignedByte());
+                        position.set("precedingVehicleDistance", buf.readUnsignedByte());
+                        int deviationType = buf.readUnsignedByte();
+                        if (deviationType > 0) {
+                            position.set("deviationType", deviationType);
+                        }
+                        int roadSignType = buf.readUnsignedByte();
+                        if (roadSignType > 0) {
+                            position.set("roadSignType", roadSignType);
+                        }
+                        position.set("roadSignData", buf.readUnsignedByte());
+                        position.set("vehicleSpeed", buf.readUnsignedByte());
+                        position.setAltitude(buf.readUnsignedShort());
+                        position.setLatitude(buf.readUnsignedInt() * 0.000001);
+                        position.setLongitude(buf.readUnsignedInt() * 0.000001);
+                        position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
+                        position.set(Position.KEY_STATUS, buf.readUnsignedShort());
+                        // Read alarm identification number (Table 4-16)
+                        byte[] alarmSign = new byte[16];
+                        buf.readBytes(alarmSign);
+                        position.set("alarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmSign)));
                     }
-                    int roadSignType = buf.readUnsignedByte();
-                    if (roadSignType > 0) {
-                        position.set("roadSignType", roadSignType);
-                    }
-                    position.set("roadSignData", buf.readUnsignedByte());
-                    position.set("vehicleSpeed", buf.readUnsignedByte());
-                    position.setAltitude(buf.readUnsignedShort());
-                    position.setLatitude(buf.readUnsignedInt() * 0.000001);
-                    position.setLongitude(buf.readUnsignedInt() * 0.000001);
-                    position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
-                    position.set(Position.KEY_STATUS, buf.readUnsignedShort());
-                    // Read alarm identification number (Table 4-16)
-                    byte[] alarmSign = new byte[16];
-                    buf.readBytes(alarmSign);
-                    position.set("alarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmSign)));
                     break;
                 case 0x65: // DSM Alarm Information (Table 4-17)
-                    position.set("dsmAlarmId", buf.readUnsignedInt());
-                    int dsmFlagStatus = buf.readUnsignedByte();
-                    position.set("dsmFlagStatus", dsmFlagStatus);
-                    int dsmAlarmType = buf.readUnsignedByte();
-                    position.set("dsmAlarmType", dsmAlarmType);
-                    decodeDsmAlarmType(position, dsmAlarmType);
-                    int dsmAlarmLevel = buf.readUnsignedByte();
-                    position.set("dsmAlarmLevel", dsmAlarmLevel);
-                    if (dsmAlarmType == 0x01) { // Fatigue driving
-                        position.set("fatigueLevel", buf.readUnsignedByte());
-                    } else {
-                        buf.skipBytes(1); // reserved
+                    if (length >= 40) {
+                        position.set("dsmAlarmId", buf.readUnsignedInt());
+                        int dsmFlagStatus = buf.readUnsignedByte();
+                        position.set("dsmFlagStatus", dsmFlagStatus);
+                        int dsmAlarmType = buf.readUnsignedByte();
+                        position.set("dsmAlarmType", dsmAlarmType);
+                        decodeDsmAlarmType(position, dsmAlarmType);
+                        int dsmAlarmLevel = buf.readUnsignedByte();
+                        position.set("dsmAlarmLevel", dsmAlarmLevel);
+                        if (dsmAlarmType == 0x01) { // Fatigue driving
+                            position.set("fatigueLevel", buf.readUnsignedByte());
+                        } else {
+                            buf.skipBytes(1); // reserved
+                        }
+                        buf.skipBytes(4); // reserved bytes
+                        position.set("vehicleSpeed", buf.readUnsignedByte());
+                        position.setAltitude(buf.readUnsignedShort());
+                        position.setLatitude(buf.readUnsignedInt() * 0.000001);
+                        position.setLongitude(buf.readUnsignedInt() * 0.000001);
+                        position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
+                        position.set(Position.KEY_STATUS, buf.readUnsignedShort());
+                        // Read alarm identification number
+                        byte[] dsmAlarmSign = new byte[16];
+                        buf.readBytes(dsmAlarmSign);
+                        position.set("dsmAlarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(dsmAlarmSign)));
                     }
-                    buf.skipBytes(4); // reserved bytes
-                    position.set("vehicleSpeed", buf.readUnsignedByte());
-                    position.setAltitude(buf.readUnsignedShort());
-                    position.setLatitude(buf.readUnsignedInt() * 0.000001);
-                    position.setLongitude(buf.readUnsignedInt() * 0.000001);
-                    position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
-                    position.set(Position.KEY_STATUS, buf.readUnsignedShort());
-                    // Read alarm identification number
-                    byte[] dsmAlarmSign = new byte[16];
-                    buf.readBytes(dsmAlarmSign);
-                    position.set("dsmAlarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(dsmAlarmSign)));
                     break;
                 case 0x67:
                     stringValue = buf.readCharSequence(8, StandardCharsets.US_ASCII).toString();
@@ -1157,6 +1170,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 default:
                     break;
             }
+            } catch (Exception e) {
+                System.getLogger(DC600ProtocolDecoder.class.getName()).log(System.Logger.Level.DEBUG,
+                        "Error parsing extension 0x" + Integer.toHexString(subtype) + ": " + e.getMessage());
+            }
             buf.readerIndex(endIndex);
         }
 
@@ -1344,6 +1361,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             buf.readUnsignedByte(); // vehicle type
             int count;
             int subtype = buf.readUnsignedByte();
+            try {
             switch (subtype) {
                 case 0x01:
                     count = buf.readUnsignedByte();
@@ -1470,6 +1488,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     break;
                 default:
                     return null;
+            }
+            } catch (Exception e) {
+                System.getLogger(DC600ProtocolDecoder.class.getName()).log(System.Logger.Level.DEBUG,
+                        "Error parsing extension 0x" + Integer.toHexString(subtype) + ": " + e.getMessage());
             }
 
             return position;
