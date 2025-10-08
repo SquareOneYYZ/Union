@@ -384,7 +384,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 response.writeByte(calendar.get(Calendar.MINUTE));
                 response.writeByte(calendar.get(Calendar.SECOND));
                 channel.writeAndFlush(new NetworkMessage(
-                        formatMessage(delimiter, MSG_TERMINAL_REGISTER_RESPONSE, id, false, response), remoteAddress));
+                        formatMessage(delimiter, MSG_TERMINAL_REGISTER_RESPONSE, id, false, response),
+                        remoteAddress));
             }
         } else if (type == MSG_ACCELERATION) {
             Position position = new Position(getProtocolName());
@@ -677,7 +678,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 response.writeBytes(new byte[16]); // alarm flag
                 response.writeBytes(new byte[32]); // alarm number
                 channel.writeAndFlush(new NetworkMessage(
-                        formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response), remoteAddress));
+                        formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response),
+                        remoteAddress));
             }
         }
         decodeCoordinates(position, deviceSession, buf);
@@ -907,7 +909,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             response.writeBytes(alarmSign);
                             response.writeBytes(new byte[32]);
                             channel.writeAndFlush(new NetworkMessage(
-                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response), remoteAddress));
+                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
+                                            response), remoteAddress));
                         }
                     }
                     break;
@@ -950,7 +953,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             response.writeBytes(dsmAlarmSign);
                             response.writeBytes(new byte[32]);
                             channel.writeAndFlush(new NetworkMessage(
-                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response), remoteAddress));
+                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
+                                            response), remoteAddress));
                         }
                     }
                     break;
