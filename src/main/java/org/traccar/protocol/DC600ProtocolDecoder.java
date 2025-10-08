@@ -669,11 +669,11 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             // Send video request
             if (channel != null) {
                 ByteBuf response = Unpooled.buffer();
-                String serverIp = "192.168.1.100"; // Change to your server IP
-                response.writeByte(serverIp.length());
-                response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
-                response.writeShort(8080); // TCP port
-                response.writeShort(8081); // UDP port
+//                String serverIp = "192.168.1.100"; // Change to your server IP
+//                response.writeByte(serverIp.length());
+//                response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+//                response.writeShort(8080); // TCP port
+//                response.writeShort(8081); // UDP port
                 response.writeBytes(new byte[16]); // alarm flag
                 response.writeBytes(new byte[32]); // alarm number
                 channel.writeAndFlush(new NetworkMessage(
@@ -899,11 +899,11 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                      // Request video for high-risk ADAS alarms
                         if (adasAlarmLevel >= 2 && channel != null) {
                             ByteBuf response = Unpooled.buffer();
-                            String serverIp = "192.168.1.100";
-                            response.writeByte(serverIp.length());
-                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
-                            response.writeShort(8080);
-                            response.writeShort(8081);
+//                            String serverIp = "192.168.1.100";
+//                            response.writeByte(serverIp.length());
+//                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+//                            response.writeShort(8080);
+//                            response.writeShort(8081);
                             response.writeBytes(alarmSign);
                             response.writeBytes(new byte[32]);
                             channel.writeAndFlush(new NetworkMessage(
@@ -942,11 +942,11 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                        // Request video for high-risk DSM alarms
                         if (dsmAlarmLevel >= 2 && channel != null) {
                             ByteBuf response = Unpooled.buffer();
-                            String serverIp = "192.168.1.100";
-                            response.writeByte(serverIp.length());
-                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
-                            response.writeShort(8080);
-                            response.writeShort(8081);
+//                            String serverIp = "192.168.1.100";
+//                            response.writeByte(serverIp.length());
+//                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+//                            response.writeShort(8080);
+//                            response.writeShort(8081);
                             response.writeBytes(dsmAlarmSign);
                             response.writeBytes(new byte[32]);
                             channel.writeAndFlush(new NetworkMessage(
