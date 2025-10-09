@@ -103,27 +103,15 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     return DC600ProtocolDecoder.formatMessage(
                             0x7e, DC600ProtocolDecoder.MSG_IMAGE_CAPTURE_REQUEST, id, false, data);
 
-                case Command.TYPE_LIVE_STREAM:
-                    Integer channelVal = command.getInteger(Command.KEY_CHANNEL);
-                    int channel = channelVal != null ? channelVal : 1;
-                    Integer streamTypeVal = command.getInteger(Command.KEY_STREAM_TYPE);
-                    int streamType = streamTypeVal != null ? streamTypeVal : 1; // 0=sub, 1=main
-                    Integer storageTypeVal = command.getInteger(Command.KEY_STORAGE_TYPE);
-                    int storageType = storageTypeVal != null ? storageTypeVal : 0;
-                    // Start/end times optional, default to current
-                    String startStr = command.getString(Command.KEY_START_TIME);
-                    String endStr = command.getString(Command.KEY_END_TIME);
-                    byte[] start = startStr != null ? DataConverter.parseHex(startStr) : time;
-                    byte[] end = endStr != null ? DataConverter.parseHex(endStr) : time;
-                    data.writeByte(channel);
-                    data.writeByte(0x00);
-                    data.writeByte(streamType);
-                    data.writeByte(storageType);
-                    data.writeBytes(start);
-                    data.writeBytes(end);
+                case Command.TYPE_REQUEST_VIDEO:
+                    data.writeByte(0x01); // channel number
+                    data.writeByte(0x00); // video type (0=live, 1=playback)
+                    data.writeByte(0x01); // stream type (main)
+                    data.writeByte(0x00); // storage type
+                    data.writeBytes(time); // start time
+                    data.writeBytes(time); // end time
                     return DC600ProtocolDecoder.formatMessage(
                             0x7e, DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_REQUEST, id, false, data);
-
 
                 case Command.TYPE_VIDEO_PLAYBACK:
                     data.writeByte(command.getInteger(Command.KEY_CHANNEL));

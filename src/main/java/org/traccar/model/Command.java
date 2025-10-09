@@ -36,6 +36,7 @@ public class Command extends BaseCommand {
     public static final String TYPE_ALARM_DISMISS = "alarmDismiss";
     public static final String TYPE_SET_TIMEZONE = "setTimezone";
     public static final String TYPE_REQUEST_PHOTO = "requestPhoto";
+    public static final String TYPE_REQUEST_VIDEO = "requestVideo";
     public static final String TYPE_VIDEO_PLAYBACK = "videoPlayback";
     public static final String TYPE_VIDEO_DOWNLOAD = "videoDownload";
     public static final String TYPE_AUDIO_STREAM = "audioStream";
@@ -98,8 +99,6 @@ public class Command extends BaseCommand {
     public static final String KEY_SERVER = "server";
     public static final String KEY_PORT = "port";
     public static final String KEY_NO_QUEUE = "noQueue";
-    public static final String TYPE_LIVE_STREAM = "liveStream";
-
 
     @QueryIgnore
     @Override
