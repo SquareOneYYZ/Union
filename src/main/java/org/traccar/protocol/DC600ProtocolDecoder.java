@@ -364,7 +364,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
         } else if (type == MSG_LOCATION_REPORT) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
-            return decodeLocation(deviceSession, buf);
+            return decodeLocation(deviceSession, buf, channel, remoteAddress, id);
         } else if (type == MSG_LOCATION_REPORT_2 || type == MSG_LOCATION_REPORT_BLIND) {
             if (BitUtil.check(attribute, 15)) {
                 sendGeneralResponse2(channel, remoteAddress, id, type);
@@ -384,7 +384,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 response.writeByte(calendar.get(Calendar.MINUTE));
                 response.writeByte(calendar.get(Calendar.SECOND));
                 channel.writeAndFlush(new NetworkMessage(
-                        formatMessage(delimiter, MSG_TERMINAL_REGISTER_RESPONSE, id, false, response), remoteAddress));
+                        formatMessage(delimiter, MSG_TERMINAL_REGISTER_RESPONSE, id, false, response),
+                        remoteAddress));
             }
         } else if (type == MSG_ACCELERATION) {
             Position position = new Position(getProtocolName());
@@ -653,20 +654,53 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         return sign * (Math.abs(b1) + b2 / 255.0);
     }
 
-    private Position decodeLocation(DeviceSession deviceSession, ByteBuf buf) {
+    private Position decodeLocation(DeviceSession deviceSession, ByteBuf buf, Channel channel,
+                                    SocketAddress remoteAddress, ByteBuf id) {
         if (buf.readableBytes() < 20) {
             return null;
         }
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         String model = getDeviceModel(deviceSession);
-        decodeAlarm(position, model, buf.readUnsignedInt());
+        long alarmValue = buf.readUnsignedInt();
+        decodeAlarm(position, model, alarmValue);
+        // Check for risk warning (0x00000008)
+        if (BitUtil.check(alarmValue, 3)) {
+            position.addAlarm("riskWarning");
+            // Send video request
+            if (channel != null) {
+                ByteBuf response = Unpooled.buffer();
+//                String serverIp = "192.168.1.100"; // Change to your server IP
+//                response.writeByte(serverIp.length());
+//                response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+//                response.writeShort(8080); // TCP port
+//                response.writeShort(8081); // UDP port
+                response.writeBytes(new byte[16]); // alarm flag
+                response.writeBytes(new byte[32]); // alarm number
+                channel.writeAndFlush(new NetworkMessage(
+                        formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response),
+                        remoteAddress));
+            }
+        }
         decodeCoordinates(position, deviceSession, buf);
         position.setAltitude(buf.readShort());
         position.setSpeed(UnitsConverter.knotsFromKph(buf.readUnsignedShort() * 0.1));
         position.setCourse(buf.readUnsignedShort());
         position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
         // JT/T 1078 Video Alarm Extensions (Additional Information IDs 0x14-0x18)
+        if (buf.readableBytes() >= 20) {
+            buf.skipBytes(4);
+            long rawOdometer = buf.readUnsignedInt();
+            position.set(Position.KEY_ODOMETER, rawOdometer * 1000);
+            position.set("mileageKm", rawOdometer * 0.1);
+            position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
+            buf.readUnsignedInt();
+            int gsmSignal = buf.readUnsignedByte();
+            position.set(Position.KEY_RSSI, gsmSignal);
+            position.set("gsmSignal", gsmSignal);
+            buf.skipBytes(3);
+            return position;
+        }
         if (buf.readableBytes() > 2) {
             int endIndex = buf.writerIndex();
             while (buf.readerIndex() < endIndex - 1 && buf.readableBytes() >= 2) {
@@ -676,7 +710,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     break;
                 }
                 int infoEndIndex = buf.readerIndex() + infoLength;
-
                 switch (infoId) {
                     case 0x14: // Video related alarm (Table 13)
                         long videoAlarm = buf.readUnsignedInt();
@@ -769,9 +802,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     break;
                 case 0x30:
                     position.set(Position.KEY_RSSI, buf.readUnsignedByte());
+                    position.set("gsmSignal", buf.getUnsignedByte(buf.readerIndex() - 1));
                     break;
                 case 0x31:
-                    position.set(Position.KEY_SATELLITES, buf.readUnsignedByte());
+                    int satellites = buf.readUnsignedByte();
+                    position.set(Position.KEY_SATELLITES, satellites);
+                    position.set("satellitesCount", satellites);
                     break;
                 case 0x33:
                     if (length == 1) {
@@ -859,6 +895,23 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         byte[] alarmSign = new byte[16];
                         buf.readBytes(alarmSign);
                         position.set("alarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmSign)));
+
+                        position.set("alarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmSign)));
+
+                     // Request video for high-risk ADAS alarms
+                        if (adasAlarmLevel >= 2 && channel != null) {
+                            ByteBuf response = Unpooled.buffer();
+//                            String serverIp = "192.168.1.100";
+//                            response.writeByte(serverIp.length());
+//                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+//                            response.writeShort(8080);
+//                            response.writeShort(8081);
+                            response.writeBytes(alarmSign);
+                            response.writeBytes(new byte[32]);
+                            channel.writeAndFlush(new NetworkMessage(
+                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
+                                            response), remoteAddress));
+                        }
                     }
                     break;
                 case 0x65: // DSM Alarm Information (Table 4-17)
@@ -887,6 +940,22 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         byte[] dsmAlarmSign = new byte[16];
                         buf.readBytes(dsmAlarmSign);
                         position.set("dsmAlarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(dsmAlarmSign)));
+                        position.set("dsmAlarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(dsmAlarmSign)));
+
+                       // Request video for high-risk DSM alarms
+                        if (dsmAlarmLevel >= 2 && channel != null) {
+                            ByteBuf response = Unpooled.buffer();
+//                            String serverIp = "192.168.1.100";
+//                            response.writeByte(serverIp.length());
+//                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+//                            response.writeShort(8080);
+//                            response.writeShort(8081);
+                            response.writeBytes(dsmAlarmSign);
+                            response.writeBytes(new byte[32]);
+                            channel.writeAndFlush(new NetworkMessage(
+                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
+                                            response), remoteAddress));
+                        }
                     }
                     break;
                 case 0x67:
@@ -1298,7 +1367,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         while (buf.readableBytes() > 2) {
             int length = type == MSG_LOCATION_BATCH_2 ? buf.readUnsignedByte() : buf.readUnsignedShort();
             ByteBuf fragment = buf.readSlice(length);
-            Position position = decodeLocation(deviceSession, fragment);
+            Position position = decodeLocation(deviceSession, fragment, null, null, null);
             if (locationType > 0) {
                 position.set(Position.KEY_ARCHIVE, true);
             }
