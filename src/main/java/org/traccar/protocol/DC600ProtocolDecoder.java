@@ -665,42 +665,42 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         long alarmValue = buf.readUnsignedInt();
         decodeAlarm(position, model, alarmValue);
         // Check for risk warning (0x00000008)
-        if (BitUtil.check(alarmValue, 3)) {
-            position.addAlarm("riskWarning");
-            // Send video request
-            if (channel != null) {
-                ByteBuf response = Unpooled.buffer();
-//                String serverIp = "192.168.1.100"; // Change to your server IP
-//                response.writeByte(serverIp.length());
-//                response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
-//                response.writeShort(8080); // TCP port
-//                response.writeShort(8081); // UDP port
-                response.writeBytes(new byte[16]); // alarm flag
-                response.writeBytes(new byte[32]); // alarm number
-                channel.writeAndFlush(new NetworkMessage(
-                        formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response),
-                        remoteAddress));
-            }
-        }
+//        if (BitUtil.check(alarmValue, 3)) {
+//            position.addAlarm("riskWarning");
+//            // Send video request
+//            if (channel != null) {
+//                ByteBuf response = Unpooled.buffer();
+////                String serverIp = "192.168.1.100"; // Change to your server IP
+////                response.writeByte(serverIp.length());
+////                response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+////                response.writeShort(8080); // TCP port
+////                response.writeShort(8081); // UDP port
+//                response.writeBytes(new byte[16]); // alarm flag
+//                response.writeBytes(new byte[32]); // alarm number
+//                channel.writeAndFlush(new NetworkMessage(
+//                        formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response),
+//                        remoteAddress));
+//            }
+//        }
         decodeCoordinates(position, deviceSession, buf);
         position.setAltitude(buf.readShort());
         position.setSpeed(UnitsConverter.knotsFromKph(buf.readUnsignedShort() * 0.1));
         position.setCourse(buf.readUnsignedShort());
         position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
         // JT/T 1078 Video Alarm Extensions (Additional Information IDs 0x14-0x18)
-        if (buf.readableBytes() >= 20) {
-            buf.skipBytes(4);
-            long rawOdometer = buf.readUnsignedInt();
-            position.set(Position.KEY_ODOMETER, rawOdometer * 1000);
-            position.set("mileageKm", rawOdometer * 0.1);
-            position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
-            buf.readUnsignedInt();
-            int gsmSignal = buf.readUnsignedByte();
-            position.set(Position.KEY_RSSI, gsmSignal);
-            position.set("gsmSignal", gsmSignal);
-            buf.skipBytes(3);
-            return position;
-        }
+//        if (buf.readableBytes() >= 20) {
+//            buf.skipBytes(4);
+//            long rawOdometer = buf.readUnsignedInt();
+//            position.set(Position.KEY_ODOMETER, rawOdometer * 1000);
+//            position.set("mileageKm", rawOdometer * 0.1);
+//            position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
+//            buf.readUnsignedInt();
+//            int gsmSignal = buf.readUnsignedByte();
+//            position.set(Position.KEY_RSSI, gsmSignal);
+//            position.set("gsmSignal", gsmSignal);
+//            buf.skipBytes(3);
+//            return position;
+//        }
         if (buf.readableBytes() > 2) {
             int endIndex = buf.writerIndex();
             while (buf.readerIndex() < endIndex - 1 && buf.readableBytes() >= 2) {
@@ -761,14 +761,26 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 buf.readerIndex(infoEndIndex);
             }
         }
+//        if (buf.readableBytes() >= 20) {
+//            buf.skipBytes(4); // remaining battery and mileage
+//            position.set(Position.KEY_ODOMETER, buf.readUnsignedInt() * 1000);
+//            position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
+//            buf.readUnsignedInt(); // area id
+//            position.set(Position.KEY_RSSI, buf.readUnsignedByte());
+//            buf.skipBytes(3); // reserved
+//            return position;
+//        }
         if (buf.readableBytes() >= 20) {
-            buf.skipBytes(4); // remaining battery and mileage
-            position.set(Position.KEY_ODOMETER, buf.readUnsignedInt() * 1000);
+            buf.skipBytes(4);
+            long rawOdometer = buf.readUnsignedInt();
+            position.set(Position.KEY_ODOMETER, rawOdometer * 1000);
+            position.set("mileageKm", rawOdometer * 0.1);
             position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
-            buf.readUnsignedInt(); // area id
-            position.set(Position.KEY_RSSI, buf.readUnsignedByte());
-            buf.skipBytes(3); // reserved
-            return position;
+            buf.readUnsignedInt();
+            int gsmSignal = buf.readUnsignedByte();
+            position.set(Position.KEY_RSSI, gsmSignal);
+            position.set("gsmSignal", gsmSignal);
+            buf.skipBytes(3);
         }
         Network network = new Network();
         while (buf.readableBytes() > 2) {
