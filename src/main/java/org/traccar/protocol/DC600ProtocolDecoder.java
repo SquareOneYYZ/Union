@@ -19,6 +19,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.BaseProtocolDecoder;
 import org.traccar.NetworkMessage;
 import org.traccar.Protocol;
@@ -36,6 +38,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class DC600ProtocolDecoder extends BaseProtocolDecoder {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DC600ProtocolDecoder.class);
 
     public DC600ProtocolDecoder(Protocol protocol) {
         super(protocol);
@@ -64,7 +67,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     public static final int MSG_PARAMETER_SETTING = 0x0310;
     public static final int MSG_SEND_TEXT_MESSAGE = 0x8300;
     public static final int MSG_REPORT_TEXT_MESSAGE = 0x6006;
-
     // new added
     public static final int MSG_VIDEO_ATTRIBUTES_QUERY = 0x9003;
     public static final int MSG_VIDEO_ATTRIBUTES_UPLOAD = 0x1003;
@@ -77,7 +79,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     public static final int MSG_PTZ_WIPER = 0x9304;
     public static final int MSG_PTZ_INFRARED = 0x9305;
     public static final int MSG_PTZ_ZOOM = 0x9306;
-
     public static final int MSG_VIDEO_LIVE_STREAM_REQUEST = 0x9101;
     public static final int MSG_VIDEO_LIVE_STREAM_RESPONSE = 0x1101;
     public static final int MSG_VIDEO_LIVE_STREAM_CONTROL = 0x9102;
@@ -93,30 +94,22 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     public static final int MSG_AUDIO_LIVE_STREAM_REQUEST = 0x9103;
     public static final int MSG_AUDIO_LIVE_STREAM_RESPONSE = 0x1103;
     public static final int MSG_AUDIO_LIVE_STREAM_CONTROL = 0x9104;
-    // === ADD THESE MISSING MESSAGE TYPES ===
-// Alarm Attachment Upload (Section 4.5-4.6)
     public static final int MSG_ALARM_ATTACHMENT_UPLOAD = 0x9208;
     public static final int MSG_ALARM_ATTACHMENT_INFO = 0x1210;
     public static final int MSG_FILE_UPLOAD_COMPLETE = 0x1212;
     public static final int MSG_FILE_UPLOAD_COMPLETE_RESPONSE = 0x9212;
-
-    // ADAS/DSM Parameter Setting (Section 4.2)
     public static final int MSG_PARAMETER_QUERY = 0x8103;
     public static final int MSG_PARAMETER_RESPONSE = 0x0104;
     public static final int MSG_PARAMETER_SETTING_ADAS = 0xF364;
     public static final int MSG_PARAMETER_SETTING_DSM = 0xF365;
-    // Add these channel definitions
     public static final int VIDEO_CHANNEL_ADAS = 64;
     public static final int VIDEO_CHANNEL_DSM = 65;
     public static final int MSG_FILE_DATA_UPLOAD = 0x1211;
-    // TODO: add other message types
-
     public static final int RESULT_SUCCESS = 0;
     private int delimiter = 0x7e;
     public boolean isAlternative() {
         return delimiter == 0xe7;
     }
-
     public static ByteBuf formatMessage(int delimiter, int type, ByteBuf id, boolean shortIndex, ByteBuf data) {
         ByteBuf buf = Unpooled.buffer();
         buf.writeByte(delimiter);
@@ -223,7 +216,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             int low = b & 0x0F;
             deviceId.append(high).append(low);
         }
-
         String result = deviceId.toString();
         // Handle partial IMEI case - try to match with known devices
         if (result.length() == 12 && channel != null) {
@@ -241,10 +233,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 }
             }
         }
-
         return result;
     }
-
     private String saveMediaFile(DeviceSession deviceSession, ByteBuf data, String extension) {
         return deviceSession.getUniqueId() + "_" + System.currentTimeMillis() + "." + extension;
     }
@@ -253,7 +243,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         return String.format("%02d_%02d_%02d_%s_%s.%s",
                 fileType, channel, alarmType, serialNumber, alarmNumber, suffix);
     }
-
     private Position createMediaPosition(DeviceSession deviceSession, String mediaType, String fileName) {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
@@ -265,7 +254,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     protected Object decode(
             Channel channel, SocketAddress remoteAddress, Object msg) throws Exception {
         ByteBuf buf = (ByteBuf) msg;
-        // Protocol detection - only process DC600 protocol messages
         if (buf.readableBytes() < 3) {
             return null;
         }
@@ -273,7 +261,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         // DC600 protocol starts with 0x7e (hex 7e) or '(' for BASE messages
         // Reject messages that don't match these patterns
         if (firstByte != 0x7e && firstByte != '(') {
-            // This is not a DC600 protocol message, ignore it
             return null;
         }
         // Additional filter: Check if this looks like HTTP/RTSP (text protocols)
@@ -327,7 +314,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
             index = buf.readUnsignedShort();
         }
-
         String deviceIdString = decodeId(id, channel, remoteAddress);
         DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, deviceIdString);
         if (deviceSession == null) {
@@ -336,12 +322,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     "No device session found for ID: " + deviceIdString);
             return null;
         }
-
         if (!deviceSession.contains(DeviceSession.KEY_TIMEZONE)) {
             deviceSession.set(DeviceSession.KEY_TIMEZONE, getTimeZone(deviceSession.getDeviceId(), "GMT+8"));
         }
         if (type == MSG_TERMINAL_REGISTER) {
-
             if (channel != null) {
                 ByteBuf response = Unpooled.buffer();
                 response.writeShort(index);
@@ -350,7 +334,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 channel.writeAndFlush(new NetworkMessage(
                         formatMessage(delimiter, MSG_TERMINAL_REGISTER_RESPONSE, id, false, response), remoteAddress));
             }
-
         } else if (type == MSG_REPORT_TEXT_MESSAGE) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             Position position = new Position(getProtocolName());
@@ -364,7 +347,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
         } else if (type == MSG_LOCATION_REPORT) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
-            return decodeLocation(deviceSession, buf, channel, remoteAddress, id);
+            LOGGER.debug("Processing MSG_LOCATION_REPORT (0x0200) - buffer size: {}", buf.readableBytes());
+            Position position = decodeLocation(deviceSession, buf, channel, remoteAddress, id);
+            if (position != null && position.getString(Position.KEY_ALARM) != null) {
+                LOGGER.debug("Position created with alarms: {}", position.getString(Position.KEY_ALARM));
+            }
+            return position;
         } else if (type == MSG_LOCATION_REPORT_2 || type == MSG_LOCATION_REPORT_BLIND) {
             if (BitUtil.check(attribute, 15)) {
                 sendGeneralResponse2(channel, remoteAddress, id, type);
@@ -568,7 +556,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
         return null;
     }
-
     private Position decodeResult(Channel channel, SocketAddress remoteAddress, String sentence) {
         DeviceSession deviceSession = getDeviceSession(channel, remoteAddress);
         if (deviceSession != null) {
@@ -580,7 +567,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
         return null;
     }
-
     private void decodeExtension(Position position, ByteBuf buf, int endIndex) {
         while (buf.readerIndex() < endIndex) {
             int type = buf.readUnsignedByte();
@@ -622,7 +608,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
         }
     }
-
     private void decodeCoordinates(Position position, DeviceSession deviceSession, ByteBuf buf) {
         int status = buf.readInt();
         String model = getDeviceModel(deviceSession);
@@ -646,14 +631,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             position.setLongitude(lon);
         }
     }
-
     private double decodeCustomDouble(ByteBuf buf) {
         int b1 = buf.readByte();
         int b2 = buf.readUnsignedByte();
         int sign = b1 != 0 ? b1 / Math.abs(b1) : 1;
         return sign * (Math.abs(b1) + b2 / 255.0);
     }
-
     private Position decodeLocation(DeviceSession deviceSession, ByteBuf buf, Channel channel,
                                     SocketAddress remoteAddress, ByteBuf id) {
         if (buf.readableBytes() < 20) {
@@ -661,136 +644,33 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
+        LOGGER.debug("Starting decodeLocation - readable bytes: {}", buf.readableBytes());
         String model = getDeviceModel(deviceSession);
         long alarmValue = buf.readUnsignedInt();
         decodeAlarm(position, model, alarmValue);
-        // Check for risk warning (0x00000008)
-//        if (BitUtil.check(alarmValue, 3)) {
-//            position.addAlarm("riskWarning");
-//            // Send video request
-//            if (channel != null) {
-//                ByteBuf response = Unpooled.buffer();
-////                String serverIp = "192.168.1.100"; // Change to your server IP
-////                response.writeByte(serverIp.length());
-////                response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
-////                response.writeShort(8080); // TCP port
-////                response.writeShort(8081); // UDP port
-//                response.writeBytes(new byte[16]); // alarm flag
-//                response.writeBytes(new byte[32]); // alarm number
-//                channel.writeAndFlush(new NetworkMessage(
-//                        formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response),
-//                        remoteAddress));
-//            }
-//        }
+        LOGGER.debug("After alarm read - readable bytes: {}, alarmValue: {}", buf.readableBytes(), alarmValue);
         decodeCoordinates(position, deviceSession, buf);
         position.setAltitude(buf.readShort());
         position.setSpeed(UnitsConverter.knotsFromKph(buf.readUnsignedShort() * 0.1));
         position.setCourse(buf.readUnsignedShort());
         position.setTime(readDate(buf, deviceSession.get(DeviceSession.KEY_TIMEZONE)));
-        // JT/T 1078 Video Alarm Extensions (Additional Information IDs 0x14-0x18)
-//        if (buf.readableBytes() >= 20) {
-//            buf.skipBytes(4);
-//            long rawOdometer = buf.readUnsignedInt();
-//            position.set(Position.KEY_ODOMETER, rawOdometer * 1000);
-//            position.set("mileageKm", rawOdometer * 0.1);
-//            position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
-//            buf.readUnsignedInt();
-//            int gsmSignal = buf.readUnsignedByte();
-//            position.set(Position.KEY_RSSI, gsmSignal);
-//            position.set("gsmSignal", gsmSignal);
-//            buf.skipBytes(3);
-//            return position;
-//        }
-        if (buf.readableBytes() > 2) {
-            int endIndex = buf.writerIndex();
-            while (buf.readerIndex() < endIndex - 1 && buf.readableBytes() >= 2) {
-                int infoId = buf.readUnsignedByte();
-                int infoLength = buf.readUnsignedByte();
-                if (buf.readableBytes() < infoLength) {
-                    break;
-                }
-                int infoEndIndex = buf.readerIndex() + infoLength;
-                switch (infoId) {
-                    case 0x14: // Video related alarm (Table 13)
-                        long videoAlarm = buf.readUnsignedInt();
-                        if (BitUtil.check(videoAlarm, 0)) {
-                            position.addAlarm("videoSignalLoss");
-                        }
-                        if (BitUtil.check(videoAlarm, 1)) {
-                            position.addAlarm("videoSignalBlocked");
-                        }
-                        if (BitUtil.check(videoAlarm, 2)) {
-                            position.addAlarm("storageUnitFailure");
-                        }
-                        if (BitUtil.check(videoAlarm, 3)) {
-                            position.addAlarm("videoDeviceFailure");
-                        }
-                        if (BitUtil.check(videoAlarm, 4)) {
-                            position.addAlarm("passengerOvercrowding");
-                        }
-                        if (BitUtil.check(videoAlarm, 5)) {
-                            position.addAlarm("abnormalDrivingBehavior");
-                        }
-                        if (BitUtil.check(videoAlarm, 6)) {
-                            position.addAlarm("specialAlarmStorageThreshold");
-                        }
-                        break;
-
-                    case 0x15: // Video signal loss alarm status
-                        long signalLoss = buf.readUnsignedInt();
-                        position.set("videoSignalLossStatus", signalLoss);
-                        break;
-                    case 0x16: // Video signal occlusion alarm status
-                        long signalOcclusion = buf.readUnsignedInt();
-                        position.set("videoSignalOcclusionStatus", signalOcclusion);
-                        break;
-                    case 0x17: // Memory fault alarm status
-                        int memoryFault = buf.readUnsignedShort();
-                        position.set("memoryFaultStatus", memoryFault);
-                        break;
-                    case 0x18: // Abnormal driving behavior details
-                        int behaviorType = buf.readUnsignedShort();
-                        int fatigueLevel = buf.readUnsignedByte();
-                        position.set("abnormalBehaviorType", behaviorType);
-                        position.set("fatigueLevel", fatigueLevel);
-                        break;
-                    default:
-                        buf.readerIndex(infoEndIndex);
-                        break;
-                }
-                buf.readerIndex(infoEndIndex);
-            }
-        }
-//        if (buf.readableBytes() >= 20) {
-//            buf.skipBytes(4); // remaining battery and mileage
-//            position.set(Position.KEY_ODOMETER, buf.readUnsignedInt() * 1000);
-//            position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
-//            buf.readUnsignedInt(); // area id
-//            position.set(Position.KEY_RSSI, buf.readUnsignedByte());
-//            buf.skipBytes(3); // reserved
-//            return position;
-//        }
-        if (buf.readableBytes() >= 20) {
-            buf.skipBytes(4);
-            long rawOdometer = buf.readUnsignedInt();
-            position.set(Position.KEY_ODOMETER, rawOdometer * 1000);
-            position.set("mileageKm", rawOdometer * 0.1);
-            position.set(Position.KEY_BATTERY, buf.readUnsignedShort() * 0.1);
-            buf.readUnsignedInt();
-            int gsmSignal = buf.readUnsignedByte();
-            position.set(Position.KEY_RSSI, gsmSignal);
-            position.set("gsmSignal", gsmSignal);
-            buf.skipBytes(3);
-        }
+        LOGGER.debug("After basic location - readable bytes: {}", buf.readableBytes());
         Network network = new Network();
+        LOGGER.debug("Before extension parsing - readerIndex: {}, readableBytes: {}",
+                buf.readerIndex(), buf.readableBytes());
         while (buf.readableBytes() > 2) {
             int subtype = buf.readUnsignedByte();
             int length = buf.readUnsignedByte();
+            LOGGER.debug("Processing extension in main switch - ID: 0x{}, length: {}",
+                    Integer.toHexString(subtype), length);
             if (buf.readableBytes() < length) {
                 break;
             }
             int endIndex = buf.readerIndex() + length;
             String stringValue;
+            if (subtype == 0x64) {
+                LOGGER.debug("ADAS ALARM 0x64 WILL BE PROCESSED IN MAIN SWITCH!");
+            }
             try {
             switch (subtype) {
                 case 0x01:
@@ -877,6 +757,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     }
                     break;
                 case 0x64: // ADAS Alarm Information (Table 4-15)
+                    LOGGER.debug("ENTERED ADAS ALARM CASE 0x64!");
                     if (length >= 40) {
                         position.set("adasAlarmId", buf.readUnsignedInt());
                         int adasFlagStatus = buf.readUnsignedByte();
@@ -907,23 +788,21 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         byte[] alarmSign = new byte[16];
                         buf.readBytes(alarmSign);
                         position.set("alarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmSign)));
-
-                        position.set("alarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmSign)));
-
+                        LOGGER.debug("CHECKING VIDEO REQUEST - ADAS Level: {}, Channel: {}",
+                                adasAlarmLevel, (channel != null));
                      // Request video for high-risk ADAS alarms
                         if (adasAlarmLevel >= 2 && channel != null) {
+                            LOGGER.debug("SENDING VIDEO REQUEST - ADAS Level: {}", adasAlarmLevel);
                             ByteBuf response = Unpooled.buffer();
-//                            String serverIp = "192.168.1.100";
-//                            response.writeByte(serverIp.length());
-//                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
-//                            response.writeShort(8080);
-//                            response.writeShort(8081);
                             response.writeBytes(alarmSign);
                             response.writeBytes(new byte[32]);
                             channel.writeAndFlush(new NetworkMessage(
                                     formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
                                             response), remoteAddress));
                         }
+                        LOGGER.debug("ADAS alarm processed - type: {}", adasAlarmType);
+                    } else {
+                        LOGGER.debug("ADAS alarm too short - length: {}", length);
                     }
                     break;
                 case 0x65: // DSM Alarm Information (Table 4-17)
@@ -954,14 +833,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         position.set("dsmAlarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(dsmAlarmSign)));
                         position.set("dsmAlarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(dsmAlarmSign)));
 
+                        LOGGER.debug("CHECKING VIDEO REQUEST - DSM Level: {}, Channel: {}",
+                                dsmAlarmLevel, (channel != null));
                        // Request video for high-risk DSM alarms
                         if (dsmAlarmLevel >= 2 && channel != null) {
+                            LOGGER.debug("SENDING VIDEO REQUEST - DSM Level: {}", dsmAlarmLevel);
                             ByteBuf response = Unpooled.buffer();
-//                            String serverIp = "192.168.1.100";
-//                            response.writeByte(serverIp.length());
-//                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
-//                            response.writeShort(8080);
-//                            response.writeShort(8081);
                             response.writeBytes(dsmAlarmSign);
                             response.writeBytes(new byte[32]);
                             channel.writeAndFlush(new NetworkMessage(
@@ -1265,9 +1142,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
         return position;
     }
-
     private Position decodeLocation2(DeviceSession deviceSession, ByteBuf buf, int type) {
-
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         Jt600ProtocolDecoder.decodeBinaryLocation(buf, position);
@@ -1387,7 +1262,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
         return positions;
     }
-
     private Position decodeTransparent(DeviceSession deviceSession, ByteBuf buf) {
         int type = buf.readUnsignedByte();
         if (type == 0x41) {
@@ -1576,11 +1450,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 System.getLogger(DC600ProtocolDecoder.class.getName()).log(System.Logger.Level.DEBUG,
                         "Error parsing extension 0x" + Integer.toHexString(subtype) + ": " + e.getMessage());
             }
-
             return position;
-
         } else if (type == 0xFF) {
-
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
             position.setValid(true);
@@ -1590,7 +1461,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             position.setAltitude(buf.readShort());
             position.setSpeed(UnitsConverter.knotsFromKph(buf.readUnsignedShort() * 0.1));
             position.setCourse(buf.readUnsignedShort());
-            // TODO more positions and g sensor data
             return position;
         }
         return null;
@@ -1626,7 +1496,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         getLastLocation(position, null);
-
         // Decode attachment upload instruction (Table 4-21)
         int ipLength = buf.readUnsignedByte();
         String serverIp = buf.readCharSequence(ipLength, StandardCharsets.US_ASCII).toString();
@@ -1641,7 +1510,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.set("alarmNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(alarmNumber)));
         return position;
     }
-
     private Position decodeAlarmAttachmentInfo(DeviceSession deviceSession, ByteBuf buf) {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
@@ -1669,7 +1537,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.set("attachments", String.join(",", attachments));
         return position;
     }
-
     private Position decodeFileUploadComplete(DeviceSession deviceSession, ByteBuf buf) {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
@@ -1717,7 +1584,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         return position;
     }
     // === ADD THESE FINAL METHODS AT THE END ===
-
     private Position decodeFileDataUpload(DeviceSession deviceSession, ByteBuf buf) {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
@@ -1736,7 +1602,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.set("fileDataLength", fileData.readableBytes());
         return position;
     }
-
     private Position decodeFileUploadCompleteResponse(DeviceSession deviceSession, ByteBuf buf) {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
@@ -1760,7 +1625,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
         return position;
     }
-
     private void decodeVehicleStatusData(Position position, ByteBuf buf) {
         // Decode vehicle status data record file (Table 4-22)
         position.set("totalDataBlocks", buf.readUnsignedInt());
@@ -1795,5 +1659,4 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         // Skip reserved bytes
         buf.skipBytes(2);
     }
-
 }
