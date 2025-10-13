@@ -148,13 +148,9 @@ public class TollRouteState {
         }
 
         this.tollWindow.add(isToll);
-        LOGGER.info("TollWindow added value: {}, current size: {}, values: {}", isToll,
-                this.tollWindow.size(), this.tollWindow);
 
         if (this.tollWindow.size() > duration) {
             Boolean removed = this.tollWindow.remove(0);
-            LOGGER.info("TollWindow removed oldest value: {}, new size: {}, values: {}", removed,
-                    this.tollWindow.size(), this.tollWindow);
         }
 
         if (this.tollWindow.size() == duration) {
@@ -168,7 +164,6 @@ public class TollRouteState {
         Set<Boolean> tollWindowSet = null;
         if (this.tollWindow != null) {
             tollWindowSet = new HashSet<>(this.tollWindow);
-            LOGGER.info("TollWindow current size: {}, values: {}", this.tollWindow.size(), this.tollWindow);
         }
         if (tollWindowSet != null && tollWindowSet.size() == 1) {
             if (this.tollWindow.size() == (int) duration) {

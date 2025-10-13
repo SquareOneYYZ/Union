@@ -160,7 +160,8 @@ public class Position extends Message {
     public static final String ALARM_FUEL_LEAK = "fuelLeak";
     public static final String ALARM_TAMPERING = "tampering";
     public static final String ALARM_REMOVING = "removing";
-
+    public static final String ALARM_PHONE_CALL = "phoneCall";
+    public static final String ALARM_SEAT_BELT = "seatBelt";
     public Position() {
     }
 

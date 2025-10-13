@@ -35,29 +35,21 @@ public class SurfaceState {
             surfaceWindow = new ArrayList<>();
         }
         surfaceWindow.add(surface);
-        LOGGER.debug("SurfaceWindow added value: {}, current size: {}, values: {}", surface,
-                surfaceWindow.size(), surfaceWindow);
         if (surfaceWindow.size() > duration) {
             String removed = surfaceWindow.remove(0);
-            LOGGER.debug("SurfaceWindow removed oldest value: {}, new size: {}, values: {}",
-                    removed, surfaceWindow.size(), surfaceWindow);
         }
 
         if (surfaceWindow.size() == duration) {
-            LOGGER.debug("SurfaceWindow reached required size {} with values: {}", duration, surfaceWindow);
             Set<String> unique = new HashSet<>(surfaceWindow);
             if (unique.size() == 1) {
                 String confirmedSurface = unique.iterator().next();
 
                 // Emit event only if the surface changed from the last emitted one
                 if (lastEmittedSurface == null || !confirmedSurface.equals(lastEmittedSurface)) {
-                    LOGGER.debug("Confirmed new surface '{}' different from last emitted '{}'",
-                            confirmedSurface, lastEmittedSurface);
                     event = new Event(Event.TYPE_SURFACE_TYPE, position);
                     event.set(Position.KEY_SURFACE, confirmedSurface);
                     lastEmittedSurface = confirmedSurface;
                 } else {
-                    LOGGER.debug("Surface '{}' already emitted last time, skipping duplicate event", confirmedSurface);
                     event = null;
                 }
             }
