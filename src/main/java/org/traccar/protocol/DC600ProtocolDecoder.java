@@ -30,6 +30,9 @@ import org.traccar.model.Network;
 import org.traccar.model.Position;
 import org.traccar.model.WifiAccessPoint;
 import org.traccar.session.DeviceSession;
+
+import java.io.File;
+import java.io.FileOutputStream;
 import java.net.SocketAddress;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -236,7 +239,24 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         return result;
     }
     private String saveMediaFile(DeviceSession deviceSession, ByteBuf data, String extension) {
-        return deviceSession.getUniqueId() + "_" + System.currentTimeMillis() + "." + extension;
+        String fileName = deviceSession.getUniqueId() + "_" + System.currentTimeMillis() + "." + extension;
+        try {
+            // Create media directory if it doesn't exist
+            File mediaDir = new File("media");
+            if (!mediaDir.exists()) {
+                mediaDir.mkdirs();
+            }
+            // Write the actual video data to file
+            File videoFile = new File(mediaDir, fileName);
+            try (FileOutputStream fos = new FileOutputStream(videoFile)) {
+                data.getBytes(data.readerIndex(), fos, data.readableBytes());
+            }
+            LOGGER.info("VIDEO FILE WRITTEN: {} ({} bytes)", videoFile.getAbsolutePath(), data.readableBytes());
+            return fileName;
+        } catch (Exception e) {
+            LOGGER.error("FAILED TO WRITE VIDEO FILE: {}", e.getMessage());
+            return fileName; // Still return filename even if write fails
+        }
     }
     private String generateProtocolFileName(int fileType, int channel, int alarmType, String serialNumber,
                                             String alarmNumber, String suffix) {
@@ -537,6 +557,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             return position;
         } else if (type == MSG_ALARM_ATTACHMENT_UPLOAD) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
+//            return handleVideoUpload(deviceSession, buf);
             return decodeAlarmAttachmentUpload(deviceSession, buf);
         } else if (type == MSG_ALARM_ATTACHMENT_INFO) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
@@ -549,7 +570,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             return decodeParameterMessage(deviceSession, buf, type);
         } else if (type == MSG_FILE_DATA_UPLOAD) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
-            return decodeFileDataUpload(deviceSession, buf);
+            if (buf.readableBytes() > 0) {
+                return handleVideoUpload(deviceSession, buf);
+            }
+//            return decodeFileDataUpload(deviceSession, buf);
         } else if (type == MSG_FILE_UPLOAD_COMPLETE_RESPONSE) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
             return decodeFileUploadCompleteResponse(deviceSession, buf);
@@ -806,15 +830,19 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     }
                     break;
                 case 0x65: // DSM Alarm Information (Table 4-17)
+                    LOGGER.debug("ENTERED DSM ALARM CASE 0x65!");
                     if (length >= 40) {
                         position.set("dsmAlarmId", buf.readUnsignedInt());
                         int dsmFlagStatus = buf.readUnsignedByte();
                         position.set("dsmFlagStatus", dsmFlagStatus);
                         int dsmAlarmType = buf.readUnsignedByte();
                         position.set("dsmAlarmType", dsmAlarmType);
+                        LOGGER.debug("DSM ALARM DETAILS - Type: 0x{}, Flag: {}, ID: {}",
+                                Integer.toHexString(dsmAlarmType), dsmFlagStatus, position.getLong("dsmAlarmId"));
                         decodeDsmAlarmType(position, dsmAlarmType);
                         int dsmAlarmLevel = buf.readUnsignedByte();
                         position.set("dsmAlarmLevel", dsmAlarmLevel);
+                        LOGGER.debug("DSM ALARM LEVEL: {}", dsmAlarmLevel);
                         if (dsmAlarmType == 0x01) { // Fatigue driving
                             position.set("fatigueLevel", buf.readUnsignedByte());
                         } else {
@@ -1481,12 +1509,20 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
     }
     private void decodeDsmAlarmType(Position position, int alarmType) {
+        LOGGER.debug("PROCESSING DSM ALARM TYPE: 0x{}", Integer.toHexString(alarmType));
         switch (alarmType) {
             case 0x01 -> position.addAlarm(Position.ALARM_FATIGUE_DRIVING);
-            case 0x02 -> position.addAlarm("calling");
+            case 0x02 -> {
+                position.addAlarm(Position.ALARM_PHONE_CALL);
+                LOGGER.debug("Cellphone use alarm triggered");
+            }
             case 0x03 -> position.addAlarm("smoking");
             case 0x04 -> position.addAlarm("distractedDriving");
             case 0x05 -> position.addAlarm("driverAbnormal");
+            case 0x06 -> {
+                position.addAlarm(Position.ALARM_SEAT_BELT);
+                LOGGER.debug("Seatbelt alarm triggered");
+            }
             case 0x10 -> position.set("autoCapture", true);
             case 0x11 -> position.set("driverChanged", true);
             default -> position.set("dsmEventType", alarmType);
@@ -1658,5 +1694,25 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.set("turnSignalStatus", buf.readUnsignedByte());
         // Skip reserved bytes
         buf.skipBytes(2);
+    }
+
+    private Position handleVideoUpload(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+        getLastLocation(position, null);
+        // Read video data from the buffer
+        int dataLength = buf.readableBytes();
+        ByteBuf videoData = buf.readSlice(dataLength);
+        try {
+            // Save the video file using your existing method
+            String fileName = saveMediaFile(deviceSession, videoData, "mp4");
+            position.set(Position.KEY_VIDEO, fileName);
+            LOGGER.info("VIDEO STORED: {} ({} bytes)", fileName, dataLength);
+        } catch (Exception e) {
+            LOGGER.error("FAILED TO STORE VIDEO: {}", e.getMessage());
+            position.set("videoStorageError", true);
+        }
+
+        return position;
     }
 }

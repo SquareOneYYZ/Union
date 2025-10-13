@@ -86,10 +86,8 @@ public class TollEventHandler extends BaseEventHandler {
                 String json = objectMapper.writeValueAsString(tollState);
                 if (redisCache.isAvailable()) {
                     redisCache.set(cacheKey, json);
-                    LOGGER.debug("Redis updated for deviceId={}", deviceId);
                 } else {
                     localCache.put(cacheKey, json);
-                    LOGGER.debug("Local cache updated for deviceId={}", deviceId);
                 }
 
             } catch (Exception e) {
