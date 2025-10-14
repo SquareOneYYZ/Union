@@ -815,7 +815,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         LOGGER.debug("CHECKING VIDEO REQUEST - ADAS Level: {}, Channel: {}",
                                 adasAlarmLevel, (channel != null));
                      // Request video for high-risk ADAS alarms
-                        if (adasAlarmLevel >= 2 && channel != null) {
+                        if (channel != null) {
                             LOGGER.debug("SENDING VIDEO REQUEST - ADAS Level: {}", adasAlarmLevel);
                             ByteBuf response = Unpooled.buffer();
                             response.writeBytes(alarmSign);
@@ -864,7 +864,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         LOGGER.debug("CHECKING VIDEO REQUEST - DSM Level: {}, Channel: {}",
                                 dsmAlarmLevel, (channel != null));
                        // Request video for high-risk DSM alarms
-                        if (dsmAlarmLevel >= 2 && channel != null) {
+                        if (channel != null) {
                             LOGGER.debug("SENDING VIDEO REQUEST - DSM Level: {}", dsmAlarmLevel);
                             ByteBuf response = Unpooled.buffer();
                             response.writeBytes(dsmAlarmSign);
