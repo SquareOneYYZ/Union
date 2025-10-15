@@ -30,9 +30,6 @@ import org.traccar.model.Network;
 import org.traccar.model.Position;
 import org.traccar.model.WifiAccessPoint;
 import org.traccar.session.DeviceSession;
-
-import java.io.File;
-import java.io.FileOutputStream;
 import java.net.SocketAddress;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -813,7 +810,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 //                            channel.writeAndFlush(new NetworkMessage(
 //                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
 //                                            response), remoteAddress));
-                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response);
+                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id,
+                                    false, response);
 
                             // Log the video request message
                             byte[] videoRequestBytes = new byte[videoRequestMsg.readableBytes()];
@@ -873,7 +871,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 //                            channel.writeAndFlush(new NetworkMessage(
 //                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
 //                                            response), remoteAddress));
-                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false, response);
+                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id,
+                                    false, response);
 
                             // Log the video request message
                             byte[] videoRequestBytes = new byte[videoRequestMsg.readableBytes()];
