@@ -81,6 +81,9 @@
     <entry key='media.enable'>true</entry>
     <entry key='media.path'>/opt/traccar/media</entry>
 
+    <entry key='dc600.livestream.ip'>143.198.33.215</entry>
+    <entry key='dc600.livestream.port'>9101</entry>
+
 
 
 </properties>
