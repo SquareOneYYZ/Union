@@ -30,9 +30,6 @@ import org.traccar.model.Network;
 import org.traccar.model.Position;
 import org.traccar.model.WifiAccessPoint;
 import org.traccar.session.DeviceSession;
-
-import java.io.File;
-import java.io.FileOutputStream;
 import java.net.SocketAddress;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -237,26 +234,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
         }
         return result;
-    }
-    private String saveMediaFile(DeviceSession deviceSession, ByteBuf data, String extension) {
-        String fileName = deviceSession.getUniqueId() + "_" + System.currentTimeMillis() + "." + extension;
-        try {
-            // Create media directory if it doesn't exist
-            File mediaDir = new File("media");
-            if (!mediaDir.exists()) {
-                mediaDir.mkdirs();
-            }
-            // Write the actual video data to file
-            File videoFile = new File(mediaDir, fileName);
-            try (FileOutputStream fos = new FileOutputStream(videoFile)) {
-                data.getBytes(data.readerIndex(), fos, data.readableBytes());
-            }
-            LOGGER.info("VIDEO FILE WRITTEN: {} ({} bytes)", videoFile.getAbsolutePath(), data.readableBytes());
-            return fileName;
-        } catch (Exception e) {
-            LOGGER.error("FAILED TO WRITE VIDEO FILE: {}", e.getMessage());
-            return fileName; // Still return filename even if write fails
-        }
     }
     private String generateProtocolFileName(int fileType, int channel, int alarmType, String serialNumber,
                                             String alarmNumber, String suffix) {
@@ -481,7 +458,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             if (result == 0x00 && buf.readableBytes() > 0) {
                 int imageLength = buf.readUnsignedShort();
                 ByteBuf imageData = buf.readSlice(imageLength);
-                String fileName = saveMediaFile(deviceSession, imageData, "jpg");
+                String fileName =  writeMediaFile(deviceSession.getUniqueId(), imageData, "jpg");
                 return createMediaPosition(deviceSession, Position.KEY_IMAGE, fileName);
             }
             Position position = new Position(getProtocolName());
@@ -496,9 +473,19 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
             getLastLocation(position, null);
+            int result = buf.readUnsignedByte();
             position.set("liveStreamResult", buf.readUnsignedByte());
-            position.set("liveStreamServerIp", buf.readCharSequence(16, StandardCharsets.US_ASCII).toString().trim());
-            position.set("liveStreamServerPort", buf.readUnsignedShort());
+            String serverIp = buf.readCharSequence(16, StandardCharsets.US_ASCII).toString().trim();
+            int serverPort = buf.readUnsignedShort();
+            position.set("liveStreamServerIp", serverIp);
+            position.set("liveStreamServerPort", serverPort);
+            if (result == 0x00) {
+                LOGGER.info("LIVE STREAM RESPONSE SUCCESS - Device: {}, Server: {}:{}, Result: {}",
+                        deviceSession.getDeviceId(), serverIp, serverPort, result);
+            } else {
+                LOGGER.warn("LIVE STREAM RESPONSE FAILED - Device: {}, Error Code: 0x{}, Server: {}:{}",
+                        deviceSession.getDeviceId(), Integer.toHexString(result), serverIp, serverPort);
+            }
             return position;
         } else if (type == MSG_VIDEO_LIVE_STREAM_CONTROL) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
@@ -531,7 +518,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             if (result == 0x00 && buf.readableBytes() > 0) {
                 int videoLength = buf.readUnsignedShort();
                 ByteBuf videoData = buf.readSlice(videoLength);
-                String fileName = saveMediaFile(deviceSession, videoData, "h264");
+                String fileName = writeMediaFile(deviceSession.getUniqueId(), videoData, "mp4");
                 return createMediaPosition(deviceSession, Position.KEY_VIDEO, fileName);
             }
             Position position = new Position(getProtocolName());
@@ -820,9 +807,21 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             ByteBuf response = Unpooled.buffer();
                             response.writeBytes(alarmSign);
                             response.writeBytes(new byte[32]);
-                            channel.writeAndFlush(new NetworkMessage(
-                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
-                                            response), remoteAddress));
+//                            channel.writeAndFlush(new NetworkMessage(
+//                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
+//                                            response), remoteAddress));
+                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id,
+                                    false, response);
+
+                            // Log the video request message
+                            byte[] videoRequestBytes = new byte[videoRequestMsg.readableBytes()];
+                            videoRequestMsg.getBytes(videoRequestMsg.readerIndex(), videoRequestBytes);
+                            String videoRequestHex = DataConverter.printHex(videoRequestBytes);
+                            LOGGER.info("ALARM VIDEO REQUEST ADAS - MsgID: 0x{}, Raw: {}",
+                                    Integer.toHexString(MSG_ALARM_ATTACHMENT_UPLOAD).toUpperCase(),
+                                    videoRequestHex);
+
+                            channel.writeAndFlush(new NetworkMessage(videoRequestMsg, remoteAddress));
                         }
                         LOGGER.debug("ADAS alarm processed - type: {}", adasAlarmType);
                     } else {
@@ -869,9 +868,21 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             ByteBuf response = Unpooled.buffer();
                             response.writeBytes(dsmAlarmSign);
                             response.writeBytes(new byte[32]);
-                            channel.writeAndFlush(new NetworkMessage(
-                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
-                                            response), remoteAddress));
+//                            channel.writeAndFlush(new NetworkMessage(
+//                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
+//                                            response), remoteAddress));
+                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id,
+                                    false, response);
+
+                            // Log the video request message
+                            byte[] videoRequestBytes = new byte[videoRequestMsg.readableBytes()];
+                            videoRequestMsg.getBytes(videoRequestMsg.readerIndex(), videoRequestBytes);
+                            String videoRequestHex = DataConverter.printHex(videoRequestBytes);
+                            LOGGER.info("ALARM VIDEO REQUEST DSM - MsgID: 0x{}, Raw: {}",
+                                    Integer.toHexString(MSG_ALARM_ATTACHMENT_UPLOAD).toUpperCase(),
+                                    videoRequestHex);
+
+                            channel.writeAndFlush(new NetworkMessage(videoRequestMsg, remoteAddress));
                         }
                     }
                     break;
@@ -1705,7 +1716,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         ByteBuf videoData = buf.readSlice(dataLength);
         try {
             // Save the video file using your existing method
-            String fileName = saveMediaFile(deviceSession, videoData, "mp4");
+            String fileName = writeMediaFile(deviceSession.getUniqueId(), videoData, "mp4");
             position.set(Position.KEY_VIDEO, fileName);
             LOGGER.info("VIDEO STORED: {} ({} bytes)", fileName, dataLength);
         } catch (Exception e) {
