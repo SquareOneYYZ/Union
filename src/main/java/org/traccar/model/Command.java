@@ -100,6 +100,7 @@ public class Command extends BaseCommand {
     public static final String KEY_NO_QUEUE = "noQueue";
     public static final String TYPE_LIVE_STREAM = "liveStream";
     public static final String TYPE_STOP_LIVE_STREAM = "stopLiveStream";
+    public static final String KEY_DATA_TYPE = "dataType";
 
 
     @QueryIgnore
