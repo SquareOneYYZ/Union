@@ -112,7 +112,7 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     int serverPort = 9101;
                     int udpPort = 0;
                     LOGGER.info("LIVE STREAM START REQUEST - Device: {}, Channel: {}, Server: {}:{}(TCP)/{}(UDP)",
-                            command.getDeviceId(), channel, serverIp, serverPort,udpPort);
+                            command.getDeviceId(), channel, serverIp, serverPort, udpPort);
                     data.writeByte(serverIp.length()); // Server IP address length
                     data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII)); // Server IP address
                     data.writeShort(serverPort); // Server video channel listening port (TCP)
@@ -128,8 +128,8 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                         streamType = command.getInteger(Command.KEY_STREAM_TYPE);
                     }
                     data.writeByte(streamType);
-                    LOGGER.debug("Live stream request created - Channel: {}, DataType: {}, StreamType: {}," +
-                                    " Data length: {}", channel, dataType, streamType, data.readableBytes());
+                    LOGGER.debug("Live stream request created - Channel: {}, DataType: {}, StreamType: {},"
+                            + " Data length: {}", channel, dataType, streamType, data.readableBytes());
                     ByteBuf message = DC600ProtocolDecoder.formatMessage(
                             0x7e, DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_REQUEST, id, false, data);
                     // Log the raw message for debugging
