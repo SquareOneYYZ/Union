@@ -108,36 +108,37 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
 
                 case Command.TYPE_LIVE_STREAM:
                     int channel = command.getInteger(Command.KEY_CHANNEL);
-
-                    // Get your RTSP server details
                     String serverIp = "143.198.33.215";
                     int serverPort = 9101;
-                    LOGGER.info("LIVE STREAM START REQUEST - Device: {}, Channel: {}, Server: {}:{}",
-                            command.getDeviceId(), channel, serverIp, serverPort);
-
+                    int udpPort = 0;
+                    LOGGER.info("LIVE STREAM START REQUEST - Device: {}, Channel: {}, Server: {}:{}(TCP)/{}(UDP)",
+                            command.getDeviceId(), channel, serverIp, serverPort, udpPort);
+                    data.writeByte(serverIp.length()); // Server IP address length
+                    data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII)); // Server IP address
+                    data.writeShort(serverPort); // Server video channel listening port (TCP)
+                    data.writeShort(udpPort); // Server video channel monitoring port (UDP)
                     data.writeByte(channel);
-                    data.writeByte(0x00);
-                    data.writeByte(0x01);
-                    data.writeByte(0x00);
-                    data.writeByte(0x00);
-
-                    byte[] ipBytes = serverIp.getBytes(StandardCharsets.US_ASCII);
-                    data.writeBytes(ipBytes);
-                    for (int i = ipBytes.length; i < 16; i++) {
-                        data.writeByte(0x00); // Pad with zeros
+                    int dataType = 0; // Audio and video
+                    if (command.hasAttribute(Command.KEY_DATA_TYPE)) {
+                        dataType = command.getInteger(Command.KEY_DATA_TYPE);
                     }
-                    data.writeShort(serverPort);      // Server port
-                    LOGGER.debug("Live stream request packet created - Channel: {}, Data length: {}",
-                            channel, data.readableBytes());
+                    data.writeByte(dataType);
+                    int streamType = 0;
+                    if (command.hasAttribute(Command.KEY_STREAM_TYPE)) {
+                        streamType = command.getInteger(Command.KEY_STREAM_TYPE);
+                    }
+                    data.writeByte(streamType);
+                    LOGGER.debug("Live stream request created - Channel: {}, DataType: {}, StreamType: {},"
+                            + " Data length: {}", channel, dataType, streamType, data.readableBytes());
                     ByteBuf message = DC600ProtocolDecoder.formatMessage(
                             0x7e, DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_REQUEST, id, false, data);
+                    // Log the raw message for debugging
                     byte[] rawBytes = new byte[message.readableBytes()];
                     message.getBytes(message.readerIndex(), rawBytes);
                     String hexDump = DataConverter.printHex(rawBytes);
-                    LOGGER.info("LIVE STREAM - MsgID: 0x{}, Raw: {}",
+                    LOGGER.info("LIVE STREAM REQUEST - MsgID: 0x{}, Channel: {}, Raw: {}",
                             Integer.toHexString(DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_REQUEST).toUpperCase(),
-                            hexDump);
-
+                            channel, hexDump);
                     return message;
 
 
@@ -145,19 +146,16 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     int stopChannel = command.getInteger(Command.KEY_CHANNEL);
                     LOGGER.info("LIVE STREAM STOP REQUEST - Device: {}, Channel: {}",
                             command.getDeviceId(), stopChannel);
-
-                    data.writeByte(stopChannel);
-                    data.writeByte(0x01);
-                    data.writeByte(0x01);
-                    data.writeByte(0x00);
-                    data.writeByte(0x00);
-                    data.writeBytes(new byte[16]);
-                    data.writeShort(0);
-                    LOGGER.debug("Live stream stop packet created - Channel: {}, Data length: {}",
-                            stopChannel, data.readableBytes());
-
+                    ByteBuf stopData = Unpooled.buffer();
+                    stopData.writeByte(stopChannel);
+                    stopData.writeByte(0);
+                    stopData.writeByte(0);
+                    stopData.writeByte(0);
+                    LOGGER.debug("Live stream stop control created - Channel: {}, Data length: {}",
+                            stopChannel, stopData.readableBytes());
                     return DC600ProtocolDecoder.formatMessage(
-                            0x7e, DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_REQUEST, id, false, data);
+                            0x7e, DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_CONTROL, id,
+                            false, stopData);
 
 
                 case Command.TYPE_VIDEO_PLAYBACK:
@@ -168,12 +166,10 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     // Use provided times or default to current time
                     String startTimeStr = command.getString(Command.KEY_START_TIME);
                     String endTimeStr = command.getString(Command.KEY_END_TIME);
-
                     byte[] startTimeBytes = startTimeStr != null
                             ? DataConverter.parseHex(startTimeStr) : time;
                     byte[] endTimeBytes = endTimeStr != null
                             ? DataConverter.parseHex(endTimeStr) : time;
-
                     data.writeBytes(startTimeBytes);
                     data.writeBytes(endTimeBytes);
                     return DC600ProtocolDecoder.formatMessage(
