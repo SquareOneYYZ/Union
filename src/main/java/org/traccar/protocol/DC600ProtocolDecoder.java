@@ -805,14 +805,16 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         if (channel != null) {
                             LOGGER.debug("SENDING VIDEO REQUEST - ADAS Level: {}", adasAlarmLevel);
                             ByteBuf response = Unpooled.buffer();
+                            String serverIp = "165.22.228.97";
+                            response.writeByte(serverIp.length());
+                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+                            response.writeShort(5999); // TCP port
+                            response.writeShort(0);    // UDP port
+                            response.writeByte(VIDEO_CHANNEL_ADAS);
                             response.writeBytes(alarmSign);
                             response.writeBytes(new byte[32]);
-//                            channel.writeAndFlush(new NetworkMessage(
-//                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
-//                                            response), remoteAddress));
                             ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id,
                                     false, response);
-
                             // Log the video request message
                             byte[] videoRequestBytes = new byte[videoRequestMsg.readableBytes()];
                             videoRequestMsg.getBytes(videoRequestMsg.readerIndex(), videoRequestBytes);
@@ -866,14 +868,16 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         if (channel != null) {
                             LOGGER.debug("SENDING VIDEO REQUEST - DSM Level: {}", dsmAlarmLevel);
                             ByteBuf response = Unpooled.buffer();
+                            String serverIp = "165.22.228.97";
+                            response.writeByte(serverIp.length());
+                            response.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+                            response.writeShort(5999); // TCP port
+                            response.writeShort(0);    // UDP port
+                            response.writeByte(VIDEO_CHANNEL_DSM);
                             response.writeBytes(dsmAlarmSign);
                             response.writeBytes(new byte[32]);
-//                            channel.writeAndFlush(new NetworkMessage(
-//                                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id, false,
-//                                            response), remoteAddress));
                             ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id,
                                     false, response);
-
                             // Log the video request message
                             byte[] videoRequestBytes = new byte[videoRequestMsg.readableBytes()];
                             videoRequestMsg.getBytes(videoRequestMsg.readerIndex(), videoRequestBytes);
@@ -1708,11 +1712,14 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private Position handleVideoUpload(DeviceSession deviceSession, ByteBuf buf) {
+        LOGGER.debug("ENTERED handleVideoUpload - readable bytes: {}", buf.readableBytes());
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
         getLastLocation(position, null);
         // Read video data from the buffer
         int dataLength = buf.readableBytes();
+        LOGGER.debug("Video data length: {} bytes", dataLength);
+        if (dataLength > 0) {
         ByteBuf videoData = buf.readSlice(dataLength);
         try {
             // Save the video file using your existing method
@@ -1722,6 +1729,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         } catch (Exception e) {
             LOGGER.error("FAILED TO STORE VIDEO: {}", e.getMessage());
             position.set("videoStorageError", true);
+        }
+        } else {
+            LOGGER.warn("No video data received - empty buffer");
         }
 
         return position;
