@@ -451,7 +451,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             buf.skipBytes(length - 4);
                         }
                         LOGGER.info("Triggering alarm attachment request for DSM alarm - Device: {}, AlarmId: {},"
-                                        +" Type: 0x{}", position.getDeviceId(), alarmId,
+                                        + " Type: 0x{}", position.getDeviceId(), alarmId,
                                                Integer.toHexString(alarmType).toUpperCase());
 
                         // Trigger automatic alarm attachment request
