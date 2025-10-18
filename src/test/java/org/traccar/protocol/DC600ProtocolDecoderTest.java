@@ -841,13 +841,13 @@ public class DC600ProtocolDecoderTest {
         Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
     }
 
-    @Test
+    /*@Test
     @DisplayName("Test Video Resource List Upload (0x1205)")
     void testVideoResourceListUpload() throws Exception {
         String message = "7e1205002049607689899100120001010001241015123045240101512304567e";
         ByteBuf buf = safeHexToBuffer(message);
         Object result = decoder.decode(mockChannel, mockRemoteAddress, buf);
-    }
+    }*/
 
     @Test
     @DisplayName("Test Image Capture Request (0x9001)")

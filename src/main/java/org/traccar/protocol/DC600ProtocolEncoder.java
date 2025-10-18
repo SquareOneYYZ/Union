@@ -157,19 +157,20 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                             0x7e, DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_CONTROL, id,
                             false, stopData);
 
-
                 case Command.TYPE_VIDEO_PLAYBACK:
+                    String playbackServerIp  = "165.22.228.97";
+                    data.writeByte(playbackServerIp .length());
+                    data.writeBytes(playbackServerIp .getBytes(StandardCharsets.US_ASCII));
+                    data.writeShort(5999); // TCP port
+                    data.writeShort(0);    // UDP port
                     data.writeByte(command.getInteger(Command.KEY_CHANNEL));
-                    data.writeByte(command.getInteger(Command.KEY_VIDEO_TYPE)); // Playback type
-                    data.writeByte(command.getInteger(Command.KEY_STREAM_TYPE));
-                    data.writeByte(command.getInteger(Command.KEY_STORAGE_TYPE));
-                    // Use provided times or default to current time
-                    String startTimeStr = command.getString(Command.KEY_START_TIME);
-                    String endTimeStr = command.getString(Command.KEY_END_TIME);
-                    byte[] startTimeBytes = startTimeStr != null
-                            ? DataConverter.parseHex(startTimeStr) : time;
-                    byte[] endTimeBytes = endTimeStr != null
-                            ? DataConverter.parseHex(endTimeStr) : time;
+                    data.writeByte(0x00);
+                    data.writeByte(0x01);
+                    data.writeByte(0x01);
+                    byte[] startTimeBytes = command.hasAttribute(Command.KEY_START_TIME)
+                            ? DataConverter.parseHex(command.getString(Command.KEY_START_TIME)) : time;
+                    byte[] endTimeBytes = command.hasAttribute(Command.KEY_END_TIME)
+                            ? DataConverter.parseHex(command.getString(Command.KEY_END_TIME)) : time;
                     data.writeBytes(startTimeBytes);
                     data.writeBytes(endTimeBytes);
                     return DC600ProtocolDecoder.formatMessage(
@@ -226,6 +227,19 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                 case Command.TYPE_VIDEO_ATTRIBUTES_QUERY:
                     return DC600ProtocolDecoder.formatMessage(
                             0x7e, DC600ProtocolDecoder.MSG_VIDEO_ATTRIBUTES_QUERY, id, false, data);
+
+                case Command.TYPE_VIDEO_QUERY_LIST:
+                    int queryChannel = command.getInteger(Command.KEY_CHANNEL);
+                    data.writeByte(queryChannel); // Logical channel
+                    data.writeBytes(time); // start time
+                    data.writeBytes(time); // end time
+                    data.writeLong(0x0000000000000000L); // Alarm flag (all zeros = no filter)
+                    data.writeByte(0x00); // Audio/video type: 0=both
+                    data.writeByte(0x00); // Stream type: 0=all
+                    data.writeByte(0x00); // Storage type: 0=all
+
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_VIDEO_RESOURCE_LIST_QUERY, id, false, data);
 
                 case Command.TYPE_VIDEO_RESOURCE_LIST_QUERY:
                     data.writeByte(0x00); // list type

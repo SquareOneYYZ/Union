@@ -425,7 +425,33 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             // Platform queries video resource list
         } else if (type == MSG_VIDEO_RESOURCE_LIST_UPLOAD) {
             sendGeneralResponse(channel, remoteAddress, id, type, index);
-            // Terminal responds with video resource list (would need complex decoding)
+            int serial = buf.readUnsignedShort();
+            long total = buf.readUnsignedInt();
+            if (total > 0 && channel != null) {
+                int channelNum = buf.readUnsignedByte();
+                byte[] startTimeBytes = new byte[6];
+                byte[] endTimeBytes = new byte[6];
+                buf.readBytes(startTimeBytes);
+                buf.readBytes(endTimeBytes);
+                buf.skipBytes(16);
+                ByteBuf playback = Unpooled.buffer();
+                String serverIp = "165.22.228.97";
+                playback.writeByte(serverIp.length());
+                playback.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+                playback.writeShort(5999);
+                playback.writeShort(0);
+                playback.writeByte(channelNum);
+                playback.writeByte(0x00);
+                playback.writeByte(0x01);
+                playback.writeByte(0x01);
+                playback.writeByte(0x00);
+                playback.writeByte(0x00);
+                playback.writeBytes(startTimeBytes);
+                playback.writeBytes(endTimeBytes);
+                ByteBuf playbackMsg = formatMessage(delimiter, MSG_VIDEO_PLAYBACK_REQUEST, id, false, playback);
+                channel.writeAndFlush(new NetworkMessage(playbackMsg, remoteAddress));
+                LOGGER.info("Video playback sent for channel {} with correct protocol structure", channelNum);
+            }
         } else if (type == MSG_PTZ_ROTATION
                 || type == MSG_PTZ_FOCUS
                 || type == MSG_PTZ_APERTURE
@@ -811,16 +837,22 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             response.writeShort(5999); // TCP port
                             response.writeShort(0);    // UDP port
                             response.writeByte(VIDEO_CHANNEL_ADAS);
-                            response.writeBytes(alarmSign);
-                            response.writeBytes(new byte[32]);
-                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id,
+                            response.writeByte(0x00);
+                            response.writeByte(0x01);
+                            response.writeByte(0x01);
+                            // Playback time = alarm time
+                            byte[] alarmTimeBytes = new byte[6];
+                            buf.getBytes(buf.readerIndex() - 14, alarmTimeBytes); // Get time from earlier read
+                            response.writeBytes(alarmTimeBytes); // Start time
+                            response.writeBytes(alarmTimeBytes); // End time (same for now)
+                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_VIDEO_PLAYBACK_REQUEST, id,
                                     false, response);
                             // Log the video request message
                             byte[] videoRequestBytes = new byte[videoRequestMsg.readableBytes()];
                             videoRequestMsg.getBytes(videoRequestMsg.readerIndex(), videoRequestBytes);
                             String videoRequestHex = DataConverter.printHex(videoRequestBytes);
                             LOGGER.info("ALARM VIDEO REQUEST ADAS - MsgID: 0x{}, Raw: {}",
-                                    Integer.toHexString(MSG_ALARM_ATTACHMENT_UPLOAD).toUpperCase(),
+                                    Integer.toHexString(MSG_VIDEO_PLAYBACK_REQUEST).toUpperCase(),
                                     videoRequestHex);
 
                             channel.writeAndFlush(new NetworkMessage(videoRequestMsg, remoteAddress));
@@ -861,7 +893,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         buf.readBytes(dsmAlarmSign);
                         position.set("dsmAlarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(dsmAlarmSign)));
                         position.set("dsmAlarmSignNumber", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(dsmAlarmSign)));
-
                         LOGGER.debug("CHECKING VIDEO REQUEST - DSM Level: {}, Channel: {}",
                                 dsmAlarmLevel, (channel != null));
                        // Request video for high-risk DSM alarms
@@ -874,16 +905,21 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             response.writeShort(5999); // TCP port
                             response.writeShort(0);    // UDP port
                             response.writeByte(VIDEO_CHANNEL_DSM);
-                            response.writeBytes(dsmAlarmSign);
-                            response.writeBytes(new byte[32]);
-                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD, id,
+                            response.writeByte(0x00);
+                            response.writeByte(0x01);
+                            response.writeByte(0x01);
+                            byte[] alarmTimeBytes = new byte[6];
+                            buf.getBytes(buf.readerIndex() - 14, alarmTimeBytes);
+                            response.writeBytes(alarmTimeBytes);
+                            response.writeBytes(alarmTimeBytes);
+                            ByteBuf videoRequestMsg = formatMessage(delimiter, MSG_VIDEO_PLAYBACK_REQUEST, id,
                                     false, response);
                             // Log the video request message
                             byte[] videoRequestBytes = new byte[videoRequestMsg.readableBytes()];
                             videoRequestMsg.getBytes(videoRequestMsg.readerIndex(), videoRequestBytes);
                             String videoRequestHex = DataConverter.printHex(videoRequestBytes);
                             LOGGER.info("ALARM VIDEO REQUEST DSM - MsgID: 0x{}, Raw: {}",
-                                    Integer.toHexString(MSG_ALARM_ATTACHMENT_UPLOAD).toUpperCase(),
+                                    Integer.toHexString(MSG_VIDEO_PLAYBACK_REQUEST).toUpperCase(),
                                     videoRequestHex);
 
                             channel.writeAndFlush(new NetworkMessage(videoRequestMsg, remoteAddress));
