@@ -105,7 +105,9 @@ public class TollEventHandler extends BaseEventHandler {
             tollState.fromDevice(device);
         }
         tollState.addOnToll(positionIsToll, minimalDuration);
-        TollRouteProcessor.updateState(tollState, position, positionTollRef, positionTollName, minimalDuration);
+//        TollRouteProcessor.updateState(tollState, position, positionTollRef, positionTollName, minimalDuration);
+        TollRouteProcessor.updateState(tollState, position, minimalDuration);
+
 
         LOGGER.debug("Position tollName={}, Group customToll={}, Device customToll={}", positionTollName,
                 groupCustomToll, deviceCustomToll);
