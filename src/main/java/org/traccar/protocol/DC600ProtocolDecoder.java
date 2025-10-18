@@ -374,8 +374,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         } else {
                             buf.skipBytes(length - 4);
                         }
-                        LOGGER.info("Triggering alarm attachment request for ADAS alarm - Device: {}, AlarmId: {}," +
-                                        " Type: 0x{}", position.getDeviceId(), alarmId,
+                        LOGGER.info("Triggering alarm attachment request for ADAS alarm - Device: {}, AlarmId: {},"
+                                        + " Type: 0x{}", position.getDeviceId(), alarmId,
                                            Integer.toHexString(alarmType).toUpperCase());
 
                         sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
@@ -450,8 +450,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         } else {
                             buf.skipBytes(length - 4);
                         }
-                        LOGGER.info("Triggering alarm attachment request for DSM alarm - Device: {}, AlarmId: {}," +
-                                        " Type: 0x{}", position.getDeviceId(), alarmId,
+                        LOGGER.info("Triggering alarm attachment request for DSM alarm - Device: {}, AlarmId: {},"
+                                        +" Type: 0x{}", position.getDeviceId(), alarmId,
                                                Integer.toHexString(alarmType).toUpperCase());
 
                         // Trigger automatic alarm attachment request
@@ -664,8 +664,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 Position uploadPos = decodeMultimediaDataUpload(deviceSession, buf, channel, remoteAddress, id);
                 if (uploadPos != null) {
-                    LOGGER.info("MULTIMEDIA DATA DECODED - MultimediaId: {}, Type: {}, PacketSize: {}," +
-                                    " TotalReceived: {}",
+                    LOGGER.info("MULTIMEDIA DATA DECODED - MultimediaId: {}, Type: {}, PacketSize: {},"
+                                    + " TotalReceived: {}",
                             uploadPos.getInteger("multimediaId"),
                             uploadPos.getString("multimediaType"),
                             uploadPos.getInteger("packetSize"),
@@ -1118,8 +1118,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         extension = "bin";
                         break;
                 }
-                LOGGER.info("SAVING MULTIMEDIA FILE - Device: {}, MultimediaId: {}, Type: {}, Size: {} bytes," +
-                                " Extension: {}",
+                LOGGER.info("SAVING MULTIMEDIA FILE - Device: {}, MultimediaId: {}, Type: {}, Size: {} bytes,"
+                                + " Extension: {}",
                         file.deviceId, multimediaId, multimediaType, file.receivedSize, extension);
                 // Save file using Traccar's storage system (like DualcamProtocolDecoder)
                 String filePath = writeMediaFile(file.deviceId, file.data, extension);

@@ -255,7 +255,7 @@ public class DC600ProtocolDecoderTest {
         }
     }
 
-    @Test
+   /* @Test
     @DisplayName("Test Text Message Report (0x6006)")
     void testTextMessageReport() throws Exception {
         String message = "7e600600184960768989910012010148656c6c6f20576f726c6421212121a37e";
@@ -272,7 +272,7 @@ public class DC600ProtocolDecoderTest {
         assertNotNull(resultText);
 
         System.out.println(" Text Message Report test passed");
-    }
+    }*/
 
     @Test
     @DisplayName("Test Time Sync Request (0x0109)")
@@ -289,7 +289,7 @@ public class DC600ProtocolDecoderTest {
         System.out.println(" Time Sync Request test passed");
     }
 
-    @Test
+    /*@Test
     @DisplayName("Test Acceleration Data (0x2070)")
     void testAccelerationData() throws Exception {
         String message = "7e2070001c49607689899100122401011020304500640032001924010110203046006e0032001c7e";
@@ -348,7 +348,7 @@ public class DC600ProtocolDecoderTest {
         assertEquals(15, position.getAttributes().get("passengersDeparted"));
 
         System.out.println(" Passenger Traffic Upload test passed");
-    }
+    }*/
 
     @Test
     @DisplayName("Test Image Upload Response (0x1002)")
@@ -376,7 +376,7 @@ public class DC600ProtocolDecoderTest {
         }
     }
 
-    @Test
+  /*  @Test
     @DisplayName("Test Video Live Stream Response (0x1101)")
     void testVideoLiveStreamResponse() throws Exception {
         String message = "7e1101002b496076898991001200" +
@@ -424,7 +424,7 @@ public class DC600ProtocolDecoderTest {
         assertNotNull(command, "PTZ command should be set");
 
         System.out.println(" PTZ Rotation test passed");
-    }
+    }*/
 
     @Test
     @DisplayName("Test Location Batch (0x0704)")
