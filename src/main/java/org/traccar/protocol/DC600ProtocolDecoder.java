@@ -83,6 +83,27 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     public static final int MSG_RETRIEVE_MULTIMEDIA_RESPONSE = 0x0802; // 8.33
     public static final int MSG_STORE_MULTIMEDIA_UPLOAD = 0x8803;    // 8.34
     public static final int MSG_SINGLE_MULTIMEDIA_UPLOAD = 0x8805;   // 8.35
+    public static final int MSG_SEND_TEXT_MESSAGE = 0x8300;          // 8.15 (duplicate for BSJ devices)
+    public static final int MSG_OIL_CONTROL = 0x8500;                // Oil/fuel control
+    public static final int MSG_TERMINAL_CONTROL = 0x8105;           // Terminal control
+
+    // JT/T 1078-2016: Video protocol message IDs
+    public static final int MSG_VIDEO_LIVE_STREAM_REQUEST = 0x9101;      // Platform → Terminal
+    public static final int MSG_VIDEO_LIVE_STREAM_RESPONSE = 0x1001;     // Terminal → Platform
+    public static final int MSG_VIDEO_LIVE_STREAM_CONTROL = 0x9102;      // Platform → Terminal
+    public static final int MSG_VIDEO_PLAYBACK_REQUEST = 0x9201;         // Platform → Terminal
+    public static final int MSG_VIDEO_PLAYBACK_RESPONSE = 0x1201;        // Terminal → Platform
+    public static final int MSG_VIDEO_PLAYBACK_CONTROL = 0x9202;         // Platform → Terminal
+    public static final int MSG_VIDEO_RESOURCE_LIST_RESPONSE = 0x1205;   // Terminal → Platform
+    public static final int MSG_VIDEO_DOWNLOAD_REQUEST = 0x9206;         // Platform → Terminal
+    public static final int MSG_IMAGE_CAPTURE_REQUEST = 0x8801;          // Platform → Terminal (JT/T 808)
+    public static final int MSG_IMAGE_CAPTURE_RESPONSE = 0x0805;         // Terminal → Platform
+
+    // T/JSATL12-2017: ADAS/DSM alarm attachment protocol
+    public static final int MSG_ALARM_ATTACHMENT_UPLOAD_REQUEST = 0x9208; // Platform → Terminal
+    public static final int MSG_ALARM_ATTACHMENT_INFO = 0x1210;           // Terminal → Platform
+    public static final int MSG_FILE_INFO_UPLOAD = 0x1211;                // Terminal → Platform
+    public static final int MSG_FILE_UPLOAD_COMPLETE = 0x1212;            // Terminal → Platform
 
     private static final int RESULT_SUCCESS = 0;
     private static final int RESULT_FAILURE = 1;
@@ -124,6 +145,50 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             response.writeByte(RESULT_SUCCESS);
             channel.writeAndFlush(new NetworkMessage(
                     formatMessage(delimiter, MSG_PLATFORM_GENERAL_RESPONSE, id, false, response), remoteAddress));
+        }
+    }
+
+    /**
+     * T/JSATL12-2017 Section 4.5: Send alarm attachment upload request (0x9208)
+     * Automatically triggered when ADAS or DSM alarm is detected
+     */
+    private void sendAlarmAttachmentRequest(Channel channel, SocketAddress remoteAddress,
+                                             ByteBuf id, int alarmId, int alarmType) {
+        if (channel != null) {
+            ByteBuf data = Unpooled.buffer();
+            data.writeByte(alarmId);           // Alarm serial number
+            data.writeByte(alarmType);         // Alarm type (ADAS or DSM)
+            data.writeByte(0x00);              // Alarm terminal ID length (0 = all terminals)
+            data.writeByte(0x00);              // Reserved
+
+            channel.writeAndFlush(new NetworkMessage(
+                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD_REQUEST, id, false, data),
+                    remoteAddress));
+        }
+    }
+
+    /**
+     * Section 8.30: Send image capture request (0x8801)
+     * Automatically triggered when any alarm is detected to capture event video/image
+     */
+    private void sendImageCaptureRequest(Channel channel, SocketAddress remoteAddress, ByteBuf id) {
+        if (channel != null) {
+            ByteBuf data = Unpooled.buffer();
+            data.writeByte(0x01);              // Channel number (channel 1)
+            data.writeByte(0x00);              // Capture command (0 = capture immediately)
+            data.writeByte(0x00);              // Timing enabled (0 = disabled)
+            data.writeShort(0x0000);           // Timing interval (0 = not applicable)
+            data.writeByte(0x01);              // Save flag (1 = save to storage)
+            data.writeByte(0x01);              // Resolution (1 = standard)
+            data.writeByte(0x01);              // Image quality (1 = standard)
+            data.writeByte(0x55);              // Brightness (default)
+            data.writeByte(0x55);              // Contrast (default)
+            data.writeByte(0x55);              // Saturation (default)
+            data.writeByte(0x55);              // Chroma (default)
+
+            channel.writeAndFlush(new NetworkMessage(
+                    formatMessage(delimiter, MSG_IMAGE_CAPTURE_REQUEST, id, false, data),
+                    remoteAddress));
         }
     }
 
@@ -242,17 +307,19 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
     /**
      * Section 8.13: Decode location additional information (Table 26, 27)
+     * T/JSATL12-2017: ADAS (0x64) and DSM (0x65) alarm information
      */
-    private void decodeLocationAdditionalInfo(Position position, ByteBuf buf) {
+    private void decodeLocationAdditionalInfo(Position position, ByteBuf buf, Channel channel,
+                                               SocketAddress remoteAddress, ByteBuf id) {
         while (buf.readableBytes() > 2) {
-            int id = buf.readUnsignedByte();
+            int infoId = buf.readUnsignedByte();
             int length = buf.readUnsignedByte();
 
             if (buf.readableBytes() < length) {
                 break;
             }
 
-            switch (id) {
+            switch (infoId) {
                 case 0x01: // Mileage (DWORD, 1/10km)
                     position.set(Position.KEY_ODOMETER, buf.readUnsignedInt() * 100);
                     break;
@@ -262,6 +329,140 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 case 0x31: // Satellite count
                     position.set(Position.KEY_SATELLITES, buf.readUnsignedByte());
                     break;
+
+                case 0x64: // T/JSATL12-2017 Table 4-15: ADAS alarm information
+                    if (length >= 4) {
+                        int alarmId = buf.readUnsignedByte();
+                        int alarmStatus = buf.readUnsignedByte();
+                        int alarmType = buf.readUnsignedByte();
+                        int alarmLevel = buf.readUnsignedByte();
+
+                        position.set("adasAlarmId", alarmId);
+                        position.set("adasStatus", alarmStatus);
+                        position.set("adasType", alarmType);
+                        position.set("adasLevel", alarmLevel);
+
+                        // Map ADAS alarm types to Traccar alarm constants
+                        switch (alarmType) {
+                            case 0x01: // Forward collision warning
+                                position.set(Position.KEY_ALARM, Position.ALARM_ACCIDENT);
+                                position.set("adasAlarmName", "forwardCollision");
+                                break;
+                            case 0x02: // Lane departure warning
+                                position.set(Position.KEY_ALARM, Position.ALARM_LANE_CHANGE);
+                                position.set("adasAlarmName", "laneDeparture");
+                                break;
+                            case 0x03: // Vehicle distance monitoring warning
+                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.set("adasAlarmName", "vehicleTooClose");
+                                break;
+                            case 0x04: // Pedestrian collision warning
+                                position.set(Position.KEY_ALARM, Position.ALARM_ACCIDENT);
+                                position.set("adasAlarmName", "pedestrianCollision");
+                                break;
+                            case 0x05: // Frequent lane change warning
+                                position.set(Position.KEY_ALARM, Position.ALARM_LANE_CHANGE);
+                                position.set("adasAlarmName", "frequentLaneChange");
+                                break;
+                            case 0x06: // Road sign out of limit warning
+                                position.set(Position.KEY_ALARM, Position.ALARM_OVERSPEED);
+                                position.set("adasAlarmName", "roadSignViolation");
+                                break;
+                            case 0x07: // Obstacle warning
+                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.set("adasAlarmName", "obstacleDetection");
+                                break;
+                            default:
+                                position.set("adasAlarmName", "unknown_" + alarmType);
+                                break;
+                        }
+
+                        // Read extended ADAS data if available (speed, altitude, lat/lon, timestamp)
+                        if (length >= 32) {
+                            position.set("adasSpeed", buf.readUnsignedByte()); // Vehicle speed (1 km/h)
+                            position.set("adasAltitude", buf.readUnsignedShort() / 10.0); // Altitude (1/10 m)
+                            position.set("adasLatitude", buf.readInt() / 1000000.0); // Latitude (degree * 10^6)
+                            position.set("adasLongitude", buf.readInt() / 1000000.0); // Longitude (degree * 10^6)
+                            // BCD timestamp (6 bytes): YY-MM-DD-hh-mm-ss
+                            buf.skipBytes(6);
+                            // Vehicle status (2 bytes)
+                            buf.skipBytes(2);
+                            // Alarm identification (16 bytes)
+                            buf.skipBytes(Math.min(16, buf.readableBytes()));
+                        } else {
+                            buf.skipBytes(length - 4);
+                        }
+
+                        // Trigger automatic alarm attachment request
+                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
+                    } else {
+                        buf.skipBytes(length);
+                    }
+                    break;
+
+                case 0x65: // T/JSATL12-2017 Table 4-17: DSM alarm information
+                    if (length >= 4) {
+                        int alarmId = buf.readUnsignedByte();
+                        int alarmStatus = buf.readUnsignedByte();
+                        int alarmType = buf.readUnsignedByte();
+                        int alarmLevel = buf.readUnsignedByte();
+
+                        position.set("dsmAlarmId", alarmId);
+                        position.set("dsmStatus", alarmStatus);
+                        position.set("dsmType", alarmType);
+                        position.set("dsmLevel", alarmLevel);
+
+                        // Map DSM alarm types to Traccar alarm constants
+                        switch (alarmType) {
+                            case 0x01: // Fatigue driving alarm
+                                position.set(Position.KEY_ALARM, Position.ALARM_FATIGUE_DRIVING);
+                                position.set("dsmAlarmName", "fatigueDriving");
+                                break;
+                            case 0x02: // Calling/phone use alarm - CRITICAL FOR REQUIREMENT
+                                position.set(Position.KEY_ALARM, Position.ALARM_PHONE_CALL);
+                                position.set("dsmAlarmName", "phoneUse");
+                                position.set("phoneUseDetected", true);
+                                break;
+                            case 0x03: // Smoking alarm
+                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.set("dsmAlarmName", "smoking");
+                                break;
+                            case 0x04: // Distracted driving alarm
+                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.set("dsmAlarmName", "distractedDriving");
+                                break;
+                            case 0x05: // Driver abnormal alarm
+                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.set("dsmAlarmName", "driverAbnormal");
+                                break;
+                            default:
+                                position.set("dsmAlarmName", "unknown_" + alarmType);
+                                break;
+                        }
+
+                        // Read extended DSM data if available
+                        if (length >= 32) {
+                            position.set("dsmSpeed", buf.readUnsignedByte()); // Vehicle speed (1 km/h)
+                            position.set("dsmAltitude", buf.readUnsignedShort() / 10.0); // Altitude (1/10 m)
+                            position.set("dsmLatitude", buf.readInt() / 1000000.0); // Latitude (degree * 10^6)
+                            position.set("dsmLongitude", buf.readInt() / 1000000.0); // Longitude (degree * 10^6)
+                            // BCD timestamp (6 bytes)
+                            buf.skipBytes(6);
+                            // Vehicle status (2 bytes)
+                            buf.skipBytes(2);
+                            // Alarm identification (16 bytes)
+                            buf.skipBytes(Math.min(16, buf.readableBytes()));
+                        } else {
+                            buf.skipBytes(length - 4);
+                        }
+
+                        // Trigger automatic alarm attachment request
+                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
+                    } else {
+                        buf.skipBytes(length);
+                    }
+                    break;
+
                 default:
                     buf.skipBytes(length);
                     break;
@@ -272,16 +473,24 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     /**
      * Section 8.13: Location information report (0x0200)
      */
-    private Position decodeLocationReport(DeviceSession deviceSession, ByteBuf buf, TimeZone timeZone) {
+    private Position decodeLocationReport(DeviceSession deviceSession, ByteBuf buf, TimeZone timeZone,
+                                           Channel channel, SocketAddress remoteAddress, ByteBuf id, int index) {
         Position position = decodeLocationBasicInfo(deviceSession, buf, timeZone);
-        decodeLocationAdditionalInfo(position, buf);
+        decodeLocationAdditionalInfo(position, buf, channel, remoteAddress, id);
+
+        // Automatically trigger image capture for any alarm event
+        if (position.hasAttribute(Position.KEY_ALARM)) {
+            sendImageCaptureRequest(channel, remoteAddress, id);
+        }
+
         return position;
     }
 
     /**
      * Section 8.26: Positioning data batch upload (0x0704)
      */
-    private List<Position> decodeLocationBatch(DeviceSession deviceSession, ByteBuf buf, TimeZone timeZone) {
+    private List<Position> decodeLocationBatch(DeviceSession deviceSession, ByteBuf buf, TimeZone timeZone,
+                                                Channel channel, SocketAddress remoteAddress, ByteBuf id, int index) {
         List<Position> positions = new ArrayList<>();
 
         int count = buf.readUnsignedShort();
@@ -291,7 +500,13 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             int length = buf.readUnsignedShort();
             ByteBuf locationBuf = buf.readSlice(length);
             Position position = decodeLocationBasicInfo(deviceSession, locationBuf, timeZone);
-            decodeLocationAdditionalInfo(position, locationBuf);
+            decodeLocationAdditionalInfo(position, locationBuf, channel, remoteAddress, id);
+
+            // Automatically trigger image capture for any alarm event in batch
+            if (position.hasAttribute(Position.KEY_ALARM)) {
+                sendImageCaptureRequest(channel, remoteAddress, id);
+            }
+
             positions.add(position);
         }
 
@@ -360,6 +575,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         if (encryption != 0) {
             // Handle RSA encryption if encryption == 1 (bit 10 set)
             // For now, reject encrypted messages
+            return null;
         }
 
         // Terminal phone number (BCD[6])
@@ -412,22 +628,252 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             case MSG_LOCATION_REPORT:
                 // Section 8.13: Location information report
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
-                return decodeLocationReport(deviceSession, buf, timeZone);
+                return decodeLocationReport(deviceSession, buf, timeZone, channel, remoteAddress, id, index);
 
             case MSG_LOCATION_BATCH_UPLOAD:
                 // Section 8.26: Positioning data batch upload
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
-                return decodeLocationBatch(deviceSession, buf, timeZone);
+                return decodeLocationBatch(deviceSession, buf, timeZone, channel, remoteAddress, id, index);
 
             case MSG_TERMINAL_GENERAL_RESPONSE:
                 // Section 8.1: Terminal general response - acknowledgment from device
                 return null;
+
+            case MSG_ALARM_ATTACHMENT_INFO:
+                // T/JSATL12-2017 Section 4.6.2: Alarm attachment information message (0x1210)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeAlarmAttachmentInfo(deviceSession, buf);
+
+            case MSG_VIDEO_LIVE_STREAM_RESPONSE:
+                // JT/T 1078-2016 Section 5.1: Video live stream response (0x1001)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeVideoLiveStreamResponse(deviceSession, buf);
+
+            case MSG_VIDEO_PLAYBACK_RESPONSE:
+                // JT/T 1078-2016: Video playback response (0x1201)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeVideoPlaybackResponse(deviceSession, buf);
+
+            case MSG_VIDEO_RESOURCE_LIST_RESPONSE:
+                // JT/T 1078-2016: Video resource list response (0x1205)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeVideoResourceListResponse(deviceSession, buf);
+
+            case MSG_IMAGE_CAPTURE_RESPONSE:
+                // Section 8.31: Image/video capture response (0x0805)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeImageCaptureResponse(deviceSession, buf);
 
             default:
                 // Unsupported message type
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return null;
         }
+    }
+
+    /**
+     * T/JSATL12-2017 Section 4.6.2: Decode alarm attachment information message (0x1210)
+     */
+    private Position decodeAlarmAttachmentInfo(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        int alarmId = buf.readUnsignedByte();           // Alarm serial number
+        int alarmType = buf.readUnsignedByte();         // Alarm type
+        int attachmentCount = buf.readUnsignedByte();   // Number of attachments
+
+        position.set("alarmId", alarmId);
+        position.set("alarmType", alarmType);
+        position.set("attachmentCount", attachmentCount);
+        position.set("event", "alarmAttachmentInfo");
+
+        // Parse attachment list
+        StringBuilder attachmentList = new StringBuilder();
+        for (int i = 0; i < attachmentCount && buf.readableBytes() >= 3; i++) {
+            int fileType = buf.readUnsignedByte();      // 0=image, 1=audio, 2=video, 3=text
+            int fileSize = buf.readInt();                // File size in bytes
+            int fileNameLength = buf.readUnsignedByte(); // File name length
+
+            if (buf.readableBytes() >= fileNameLength) {
+                String fileName = buf.readCharSequence(fileNameLength, StandardCharsets.UTF_8).toString();
+
+                String fileTypeStr;
+                switch (fileType) {
+                    case 0: fileTypeStr = "image"; break;
+                    case 1: fileTypeStr = "audio"; break;
+                    case 2: fileTypeStr = "video"; break;
+                    case 3: fileTypeStr = "text"; break;
+                    default: fileTypeStr = "unknown"; break;
+                }
+
+                if (attachmentList.length() > 0) {
+                    attachmentList.append(";");
+                }
+                attachmentList.append(fileTypeStr).append(":").append(fileName).append(":").append(fileSize);
+
+                position.set("attachment" + i + "Type", fileTypeStr);
+                position.set("attachment" + i + "Name", fileName);
+                position.set("attachment" + i + "Size", fileSize);
+            }
+        }
+
+        position.set("attachmentList", attachmentList.toString());
+        position.setValid(false); // This is an event, not a location update
+        position.setTime(new Date());
+
+        return position;
+    }
+
+    /**
+     * JT/T 1078-2016 Section 5.1: Decode video live stream response (0x1001)
+     */
+    private Position decodeVideoLiveStreamResponse(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() >= 1) {
+            int result = buf.readUnsignedByte(); // 0=success, 1=failure, 2=channel not supported
+            position.set("liveStreamResult", result);
+
+            String resultStr;
+            switch (result) {
+                case 0:
+                    resultStr = "success";
+                    position.set("event", "liveStreamStarted");
+                    break;
+                case 1:
+                    resultStr = "failure";
+                    position.set("event", "liveStreamFailed");
+                    break;
+                case 2:
+                    resultStr = "channelNotSupported";
+                    position.set("event", "liveStreamFailed");
+                    break;
+                default:
+                    resultStr = "unknown";
+                    position.set("event", "liveStreamUnknown");
+                    break;
+            }
+
+            position.set("liveStreamStatus", resultStr);
+        }
+
+        position.setValid(false); // This is an event, not a location update
+        position.setTime(new Date());
+
+        return position;
+    }
+
+    /**
+     * JT/T 1078-2016: Decode video playback response (0x1201)
+     */
+    private Position decodeVideoPlaybackResponse(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() >= 1) {
+            int result = buf.readUnsignedByte();
+            position.set("playbackResult", result);
+            position.set("event", result == 0 ? "playbackStarted" : "playbackFailed");
+        }
+
+        position.setValid(false);
+        position.setTime(new Date());
+
+        return position;
+    }
+
+    /**
+     * JT/T 1078-2016: Decode video resource list response (0x1205)
+     */
+    private Position decodeVideoResourceListResponse(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() >= 3) {
+            int sequenceNumber = buf.readUnsignedShort();
+            int itemCount = buf.readUnsignedByte();
+
+            position.set("sequenceNumber", sequenceNumber);
+            position.set("videoResourceCount", itemCount);
+            position.set("event", "videoResourceList");
+
+            // Parse video resource items
+            for (int i = 0; i < itemCount && buf.readableBytes() >= 28; i++) {
+                position.set("video" + i + "Channel", buf.readUnsignedByte());
+                // Start time (BCD[6])
+                buf.skipBytes(6);
+                // End time (BCD[6])
+                buf.skipBytes(6);
+                position.set("video" + i + "AlarmType", buf.readLong());
+                position.set("video" + i + "MediaType", buf.readUnsignedByte());
+                position.set("video" + i + "StreamType", buf.readUnsignedByte());
+                position.set("video" + i + "StorageType", buf.readUnsignedByte());
+                position.set("video" + i + "Size", buf.readInt());
+            }
+        }
+
+        position.setValid(false);
+        position.setTime(new Date());
+
+        return position;
+    }
+
+    /**
+     * Section 8.31: Decode image/video capture response (0x0805)
+     */
+    private Position decodeImageCaptureResponse(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() >= 2) {
+            int result = buf.readUnsignedByte();     // 0=success, 1=failure, 2=channel not supported
+            int mediaIdCount = buf.readUnsignedByte(); // Number of media IDs
+
+            position.set("imageCaptureResult", result);
+            position.set("mediaIdCount", mediaIdCount);
+
+            String resultStr;
+            switch (result) {
+                case 0:
+                    resultStr = "success";
+                    position.set("event", "imageCaptureSuccess");
+                    break;
+                case 1:
+                    resultStr = "failure";
+                    position.set("event", "imageCaptureFailed");
+                    break;
+                case 2:
+                    resultStr = "channelNotSupported";
+                    position.set("event", "imageCaptureFailed");
+                    break;
+                default:
+                    resultStr = "unknown";
+                    position.set("event", "imageCaptureUnknown");
+                    break;
+            }
+
+            position.set("imageCaptureStatus", resultStr);
+
+            // Parse media IDs if available
+            StringBuilder mediaIds = new StringBuilder();
+            for (int i = 0; i < mediaIdCount && buf.readableBytes() >= 4; i++) {
+                int mediaId = buf.readInt();
+                if (mediaIds.length() > 0) {
+                    mediaIds.append(",");
+                }
+                mediaIds.append(mediaId);
+                position.set("mediaId" + i, mediaId);
+            }
+            if (mediaIds.length() > 0) {
+                position.set("mediaIds", mediaIds.toString());
+            }
+        }
+
+        position.setValid(false); // This is an event, not a location update
+        position.setTime(new Date());
+
+        return position;
     }
 
 }
