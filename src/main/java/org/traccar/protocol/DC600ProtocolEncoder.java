@@ -187,6 +187,87 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     return DC600ProtocolDecoder.formatMessage(
                             0x7e, DC600ProtocolDecoder.MSG_VIDEO_DOWNLOAD_REQUEST, id, false, data);
 
+                case Command.TYPE_GET_DEVICE_STATUS:
+                    // Section 8.11: Query terminal hardware/software attributes (0x8107)
+                    // Message body is null per spec
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_CHECK_TERMINAL_ATTRIBUTE, id, false,
+                            Unpooled.buffer(0));
+
+                case "getTerminalParameters":
+                    // Section 8.8: Query terminal parameters (0x8104)
+                    // Can query all parameters or specific ones
+                    if (command.hasAttribute("parameterIds")) {
+                        // Section 8.9: Query specific parameters (0x8106)
+                        String[] ids = command.getString("parameterIds").split(",");
+                        data.writeByte(ids.length);
+                        for (String paramId : ids) {
+                            data.writeInt(Integer.parseInt(paramId.trim(), 16));
+                        }
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_CHECK_SPECIFIED_PARAMETERS, id, false, data);
+                    } else {
+                        // Query all parameters - message body is null per spec
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_CHECK_TERMINAL_PARAMETER, id, false,
+                                Unpooled.buffer(0));
+                    }
+
+                case "retrieveMultimedia":
+                    // Section 8.32: Query multimedia files stored on terminal (0x8802)
+                    data.writeByte(command.getInteger("multimediaType")); // 0=Image, 1=Audio, 2=Video
+                    data.writeByte(command.getInteger("channelId"));      // 0 = all channels
+                    data.writeByte(command.getInteger("eventCode"));      // Event code
+                    // Start time (BCD[6] - yyMMddHHmmss)
+                    String startTime = command.getString("startTime");
+                    data.writeBytes(DataConverter.parseHex(startTime));
+                    // End time (BCD[6] - yyMMddHHmmss)
+                    String endTime = command.getString("endTime");
+                    data.writeBytes(DataConverter.parseHex(endTime));
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_RETRIEVE_MULTIMEDIA, id, false, data);
+
+                case "uploadMultimediaByTime":
+                    // Section 8.34: Command terminal to upload multimedia files by time range (0x8803)
+                    data.writeByte(command.getInteger("multimediaType")); // 0=Image, 1=Audio, 2=Video
+                    data.writeByte(command.getInteger("channelId"));      // Channel ID
+                    data.writeByte(command.getInteger("eventCode"));      // Event code
+                    // Start time (BCD[6])
+                    String uploadStartTime = command.getString("startTime");
+                    data.writeBytes(DataConverter.parseHex(uploadStartTime));
+                    // End time (BCD[6])
+                    String uploadEndTime = command.getString("endTime");
+                    data.writeBytes(DataConverter.parseHex(uploadEndTime));
+                    data.writeByte(command.getInteger("deleteAfter")); // 0=reserve, 1=delete after upload
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_STORE_MULTIMEDIA_UPLOAD, id, false, data);
+
+                case "uploadMultimediaById":
+                    // Section 8.35: Request single multimedia file by ID (0x8805)
+                    data.writeInt(command.getInteger("multimediaId"));
+                    data.writeByte(command.getInteger("deleteAfter")); // 0=reserve, 1=delete after upload
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_SINGLE_MULTIMEDIA_UPLOAD, id, false, data);
+
+                case "confirmAlarm":
+                    // Section 8.14: Manually confirm alarm (0x8203)
+                    data.writeShort(command.getInteger("alarmSerial")); // Alarm message serial number
+                    data.writeInt(command.getInteger("alarmType"));     // Alarm type bits (Table 36)
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_MANUALLY_CONFIRM_ALARM, id, false, data);
+
+                case "videoPlaybackControl":
+                    // JT/T 1078-2016: Video playback control (0x9202)
+                    int playbackChannel = command.getInteger(Command.KEY_CHANNEL);
+                    int controlCode = command.getInteger("controlCode");
+                    // 0=start, 1=pause, 2=resume, 3=stop, 4=fast forward, 5=slow playback
+                    data.writeByte(playbackChannel);
+                    data.writeByte(controlCode);
+                    data.writeByte(command.getInteger("playbackSpeed")); // Fast forward/slow speed
+                    data.writeByte(command.getInteger("playbackMultiplier")); // Speed multiplier
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_VIDEO_PLAYBACK_CONTROL, id, false, data);
+
                 default:
                     return null;
             }

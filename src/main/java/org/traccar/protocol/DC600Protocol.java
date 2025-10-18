@@ -38,7 +38,14 @@ public class DC600Protocol extends BaseProtocol {
                 Command.TYPE_STOP_LIVE_STREAM,
                 Command.TYPE_REQUEST_PHOTO,
                 Command.TYPE_VIDEO_PLAYBACK,
-                Command.TYPE_VIDEO_DOWNLOAD);
+                Command.TYPE_VIDEO_DOWNLOAD,
+                Command.TYPE_GET_DEVICE_STATUS,
+                "getTerminalParameters",
+                "retrieveMultimedia",
+                "uploadMultimediaByTime",
+                "uploadMultimediaById",
+                "confirmAlarm",
+                "videoPlaybackControl");
         addServer(new TrackerServer(config, getName(), false) {
             @Override
             protected void addProtocolHandlers(PipelineBuilder pipeline, Config config) {

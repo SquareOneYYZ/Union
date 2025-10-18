@@ -16,6 +16,7 @@
 package org.traccar.protocol;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import org.traccar.BaseProtocolDecoder;
@@ -33,7 +34,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 
 /**
@@ -664,6 +667,41 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeImageCaptureResponse(deviceSession, buf);
 
+            case MSG_CHECK_TERMINAL_PARAMETER_RESPONSE:
+                // Section 8.10: Check terminal parameter response (0x0104)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeTerminalParameterResponse(deviceSession, buf);
+
+            case MSG_CHECK_TERMINAL_ATTRIBUTE_RESPONSE:
+                // Section 8.12: Check terminal attribute response (0x0107)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeTerminalAttributeResponse(deviceSession, buf);
+
+            case MSG_MULTIMEDIA_EVENT_INFO:
+                // Section 8.27: Multimedia event information uploading (0x0800)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeMultimediaEventInfo(deviceSession, buf);
+
+            case MSG_MULTIMEDIA_DATA_UPLOAD:
+                // Section 8.28: Multimedia data upload (0x0801)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeMultimediaDataUpload(deviceSession, buf, channel, remoteAddress, id);
+
+            case MSG_RETRIEVE_MULTIMEDIA_RESPONSE:
+                // Section 8.33: Response of store multimedia data retrieves (0x0802)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeMultimediaRetrieveResponse(deviceSession, buf);
+
+            case MSG_FILE_INFO_UPLOAD:
+                // T/JSATL12-2017: File info upload (0x1211)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeFileInfoUpload(deviceSession, buf);
+
+            case MSG_FILE_UPLOAD_COMPLETE:
+                // T/JSATL12-2017: File upload complete (0x1212)
+                sendGeneralResponse(channel, remoteAddress, id, type, index);
+                return decodeFileUploadComplete(deviceSession, buf);
+
             default:
                 // Unsupported message type
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
@@ -873,6 +911,447 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.setValid(false); // This is an event, not a location update
         position.setTime(new Date());
 
+        return position;
+    }
+
+    /**
+     * Section 8.10: Decode check terminal parameter response (0x0104)
+     * Table 16: Check terminal parameter response message body data format
+     */
+    private Position decodeTerminalParameterResponse(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        int responseSerial = buf.readUnsignedShort();
+        int paramCount = buf.readUnsignedByte();
+
+        position.set("responseSerial", responseSerial);
+        position.set("parameterCount", paramCount);
+
+        // Parse parameter items per Table 12
+        for (int i = 0; i < paramCount && buf.readableBytes() >= 5; i++) {
+            int paramId = buf.readInt();           // DWORD
+            int paramLength = buf.readUnsignedByte();
+
+            if (buf.readableBytes() < paramLength) {
+                break;
+            }
+
+            // Read parameter value based on Table 12
+            switch (paramId) {
+                case 0x0001: // Heartbeat interval (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_heartbeat", buf.readInt());
+                    }
+                    break;
+                case 0x0027: // Dormancy report interval (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_dormancyInterval", buf.readInt());
+                    }
+                    break;
+                case 0x0029: // Default report interval (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_defaultInterval", buf.readInt());
+                    }
+                    break;
+                case 0x0030: // Angle of inflection point (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_inflectionAngle", buf.readInt());
+                    }
+                    break;
+                case 0x0050: // Alarm blocked field (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_alarmBlocked", buf.readInt());
+                    }
+                    break;
+                case 0x0055: // Maximum speed (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_maxSpeed", buf.readInt());
+                    }
+                    break;
+                case 0x0056: // Overspeed duration (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_overspeedDuration", buf.readInt());
+                    }
+                    break;
+                case 0x0057: // Continuous driving time limit (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_continuousDrivingLimit", buf.readInt());
+                    }
+                    break;
+                case 0x0058: // Accumulated driving time (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_accumulatedDrivingTime", buf.readInt());
+                    }
+                    break;
+                case 0x0059: // Minimum rest time (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_minRestTime", buf.readInt());
+                    }
+                    break;
+                case 0x005A: // Maximum parking time (DWORD)
+                    if (paramLength == 4) {
+                        position.set("param_maxParkingTime", buf.readInt());
+                    }
+                    break;
+                case 0x005B: // Overspeed alarm difference (WORD)
+                    if (paramLength == 2) {
+                        position.set("param_overspeedDifference", buf.readUnsignedShort());
+                    }
+                    break;
+                case 0x005C: // Fatigue driving difference (WORD)
+                    if (paramLength == 2) {
+                        position.set("param_fatigueDifference", buf.readUnsignedShort());
+                    }
+                    break;
+                default:
+                    buf.skipBytes(paramLength); // Unknown parameter
+                    break;
+            }
+        }
+
+        position.set("event", "parameterResponse");
+        position.setValid(false);
+        position.setTime(new Date());
+        return position;
+    }
+
+    /**
+     * Section 8.12: Decode check terminal attribute response (0x0107)
+     * Table 20: Check terminal attribute response message body data format
+     */
+    private Position decodeTerminalAttributeResponse(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() < 55) {
+            return null;
+        }
+
+        int terminalType = buf.readUnsignedShort();
+        byte[] manufacturerId = new byte[5];
+        buf.readBytes(manufacturerId);
+
+        byte[] terminalModel = new byte[20];
+        buf.readBytes(terminalModel);
+
+        byte[] terminalId = new byte[7];
+        buf.readBytes(terminalId);
+
+        byte[] iccid = new byte[10];
+        buf.readBytes(iccid);
+
+        int hwVersionLen = buf.readUnsignedByte();
+        String hwVersion = buf.readCharSequence(hwVersionLen, StandardCharsets.UTF_8).toString();
+
+        int fwVersionLen = buf.readUnsignedByte();
+        String fwVersion = buf.readCharSequence(fwVersionLen, StandardCharsets.UTF_8).toString();
+
+        int gnssAttr = buf.readUnsignedByte();
+        int commAttr = buf.readUnsignedByte();
+
+        position.set("terminalType", terminalType);
+        position.set("manufacturer", new String(manufacturerId, StandardCharsets.UTF_8).trim());
+        position.set("terminalModel", new String(terminalModel, StandardCharsets.UTF_8).trim());
+        position.set("terminalId", new String(terminalId, StandardCharsets.UTF_8).trim());
+        position.set(Position.KEY_ICCID, ByteBufUtil.hexDump(iccid).replaceAll("f", ""));
+        position.set("hwVersion", hwVersion);
+        position.set("fwVersion", fwVersion);
+        position.set("gnssModules", gnssAttr);
+        position.set("commModules", commAttr);
+        position.set("event", "terminalAttributes");
+
+        position.setValid(false);
+        position.setTime(new Date());
+        return position;
+    }
+
+    /**
+     * Section 8.27: Decode multimedia event information uploading (0x0800)
+     * Table 80: Multimedia event information uploading data format
+     */
+    private Position decodeMultimediaEventInfo(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() < 8) {
+            return null;
+        }
+
+        int multimediaId = buf.readInt();
+        int multimediaType = buf.readUnsignedByte(); // 0=Image, 1=Audio, 2=Video
+        int formatCode = buf.readUnsignedByte();     // 0=JPEG, 1=TIF, 2=MP3, 3=WAV, 4=WMV
+        int eventCode = buf.readUnsignedByte();      // 0-7 per Table 80
+        int channelId = buf.readUnsignedByte();
+
+        position.set("multimediaId", multimediaId);
+        position.set("multimediaType", multimediaType == 0 ? "image" : (multimediaType == 1 ? "audio" : "video"));
+        position.set("multimediaFormat", formatCode);
+        position.set("eventCode", eventCode);
+        position.set("channelId", channelId);
+
+        // Event code description
+        String eventDesc;
+        switch (eventCode) {
+            case 0:
+                eventDesc = "platformCommand";
+                break;
+            case 1:
+                eventDesc = "timedAction";
+                break;
+            case 2:
+                eventDesc = "robberyAlarm";
+                break;
+            case 3:
+                eventDesc = "collisionAlarm";
+                break;
+            case 4:
+                eventDesc = "doorOpen";
+                break;
+            case 5:
+                eventDesc = "doorClose";
+                break;
+            case 6:
+                eventDesc = "speedIncrease";
+                break;
+            case 7:
+                eventDesc = "fixedDistance";
+                break;
+            default:
+                eventDesc = "unknown";
+                break;
+        }
+        position.set("eventDescription", eventDesc);
+        position.set("event", "multimediaEvent");
+
+        position.setValid(false);
+        position.setTime(new Date());
+        return position;
+    }
+
+    // Multimedia file reassembly storage
+    private static final class MultimediaFile {
+        private int multimediaId;
+        private int totalSize;
+        private int receivedSize;
+        private ByteBuf data;
+        private int multimediaType;
+        private int formatCode;
+        private String deviceId;
+    }
+
+    private final Map<String, MultimediaFile> multimediaFiles = new HashMap<>();
+
+    /**
+     * Section 8.28: Decode multimedia data upload (0x0801)
+     * Table 81: Multimedia data upload message body data format
+     */
+    private Position decodeMultimediaDataUpload(DeviceSession deviceSession, ByteBuf buf,
+                                                Channel channel, SocketAddress remoteAddress, ByteBuf id) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() < 36) {
+            return null;
+        }
+
+        int multimediaId = buf.readInt();
+        int multimediaType = buf.readUnsignedByte(); // 0=Image, 1=Audio, 2=Video
+        int formatCode = buf.readUnsignedByte();     // 0=JPEG, 1=TIF, 2=MP3, 3=WAV, 4=WMV
+        int eventCode = buf.readUnsignedByte();
+        int channelId = buf.readUnsignedByte();
+
+        // Location basic info (28 bytes) - skip for now
+        buf.skipBytes(28);
+
+        // Read multimedia packet data
+        byte[] packetData = new byte[buf.readableBytes()];
+        buf.readBytes(packetData);
+
+        String fileKey = deviceSession.getUniqueId() + "_" + multimediaId;
+        MultimediaFile file = multimediaFiles.get(fileKey);
+
+        if (file == null) {
+            // First packet - create new file entry
+            file = new MultimediaFile();
+            file.multimediaId = multimediaId;
+            file.deviceId = deviceSession.getUniqueId();
+            file.multimediaType = multimediaType;
+            file.formatCode = formatCode;
+            file.data = Unpooled.buffer();
+            file.receivedSize = 0;
+            multimediaFiles.put(fileKey, file);
+        }
+
+        // Append data
+        file.data.writeBytes(packetData);
+        file.receivedSize += packetData.length;
+
+        position.set("multimediaId", multimediaId);
+        position.set("multimediaType", multimediaType);
+        position.set("packetSize", packetData.length);
+        position.set("totalReceived", file.receivedSize);
+        position.set("event", "multimediaDataReceived");
+
+        // For now, assume single-packet upload is complete
+        // In production, you'd check packet sequence or use a completion signal
+        if (buf.readableBytes() == 0) {
+            try {
+                // Determine file extension
+                String extension;
+                switch (formatCode) {
+                    case 0:
+                        extension = "jpg";
+                        break;
+                    case 1:
+                        extension = "tif";
+                        break;
+                    case 2:
+                        extension = "mp3";
+                        break;
+                    case 3:
+                        extension = "wav";
+                        break;
+                    case 4:
+                        extension = "wmv";
+                        break;
+                    default:
+                        extension = "bin";
+                        break;
+                }
+
+                // Save file using Traccar's storage system (like DualcamProtocolDecoder)
+                String filePath = writeMediaFile(file.deviceId, file.data, extension);
+
+                if (multimediaType == 0) {
+                    position.set(Position.KEY_IMAGE, filePath);
+                } else if (multimediaType == 1) {
+                    position.set(Position.KEY_AUDIO, filePath);
+                } else if (multimediaType == 2) {
+                    position.set(Position.KEY_VIDEO, filePath);
+                }
+
+                position.set("multimediaFile", filePath);
+                position.set("event", "multimediaUploadComplete");
+            } finally {
+                file.data.release();
+                multimediaFiles.remove(fileKey);
+            }
+
+            // Send upload response (all packets received)
+            if (channel != null) {
+                ByteBuf response = Unpooled.buffer();
+                response.writeInt(multimediaId);
+                // No additional fields = all packets received
+                channel.writeAndFlush(new NetworkMessage(
+                        formatMessage(delimiter, MSG_MULTIMEDIA_UPLOAD_RESPONSE, id, false, response),
+                        remoteAddress));
+            }
+        }
+
+        position.setValid(false);
+        position.setTime(new Date());
+        return position;
+    }
+
+    /**
+     * Section 8.33: Decode response of store multimedia data retrieves (0x0802)
+     * Table 86, 87: Response of store multimedia data retrieves message body data format
+     */
+    private Position decodeMultimediaRetrieveResponse(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() < 4) {
+            return null;
+        }
+
+        int responseSerial = buf.readUnsignedShort();
+        int totalCount = buf.readUnsignedShort();
+
+        position.set("responseSerial", responseSerial);
+        position.set("multimediaCount", totalCount);
+
+        // Parse retrieve items (Table 87)
+        int itemCount = 0;
+        while (buf.readableBytes() >= 35) { // Minimum item size: 4+1+1+1+28
+            int multimediaId = buf.readInt();
+            int multimediaType = buf.readUnsignedByte(); // 0=Image, 1=Audio, 2=Video
+            int channelId = buf.readUnsignedByte();
+            int eventCode = buf.readUnsignedByte();
+
+            // Skip location info (28 bytes)
+            buf.skipBytes(28);
+
+            position.set("media" + itemCount + "Id", multimediaId);
+            position.set("media" + itemCount + "Type", multimediaType == 0 ? "image"
+                    : (multimediaType == 1 ? "audio" : "video"));
+            position.set("media" + itemCount + "Channel", channelId);
+            position.set("media" + itemCount + "Event", eventCode);
+
+            itemCount++;
+        }
+
+        position.set("retrievedItems", itemCount);
+        position.set("event", "multimediaRetrieveResponse");
+
+        position.setValid(false);
+        position.setTime(new Date());
+        return position;
+    }
+
+    /**
+     * T/JSATL12-2017: Decode file info upload (0x1211)
+     */
+    private Position decodeFileInfoUpload(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() < 2) {
+            return null;
+        }
+
+        // File name
+        int fileNameLen = buf.readUnsignedByte();
+        if (buf.readableBytes() < fileNameLen + 5) {
+            return null;
+        }
+
+        String fileName = buf.readCharSequence(fileNameLen, StandardCharsets.UTF_8).toString();
+
+        // File type
+        int fileType = buf.readUnsignedByte(); // 0=image, 1=audio, 2=video, 3=text
+
+        // File size
+        int fileSize = buf.readInt();
+
+        position.set("fileName", fileName);
+        position.set("fileType", fileType == 0 ? "image" : (fileType == 1 ? "audio"
+                : (fileType == 2 ? "video" : "text")));
+        position.set("fileSize", fileSize);
+        position.set("event", "fileInfoUpload");
+
+        position.setValid(false);
+        position.setTime(new Date());
+        return position;
+    }
+
+    /**
+     * T/JSATL12-2017: Decode file upload complete (0x1212)
+     */
+    private Position decodeFileUploadComplete(DeviceSession deviceSession, ByteBuf buf) {
+        Position position = new Position(getProtocolName());
+        position.setDeviceId(deviceSession.getDeviceId());
+
+        if (buf.readableBytes() >= 1) {
+            int result = buf.readUnsignedByte(); // 0=success, 1=failure
+
+            position.set("uploadResult", result);
+            position.set("event", result == 0 ? "fileUploadSuccess" : "fileUploadFailed");
+        }
+
+        position.setValid(false);
+        position.setTime(new Date());
         return position;
     }
 
