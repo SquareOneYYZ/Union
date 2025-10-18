@@ -56,8 +56,8 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                         data.writeByte(1); // flag
                         var charset = Charset.isSupported("GBK") ? Charset.forName("GBK") : StandardCharsets.US_ASCII;
                         data.writeCharSequence(command.getString(Command.KEY_DATA), charset);
-                        return HuabaoProtocolDecoder.formatMessage(
-                                0x7e, HuabaoProtocolDecoder.MSG_SEND_TEXT_MESSAGE, id, false, data);
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_SEND_TEXT_MESSAGE, id, false, data);
                     } else {
                         return Unpooled.wrappedBuffer(DataConverter.parseHex(command.getString(Command.KEY_DATA)));
                     }
@@ -66,15 +66,15 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     data.writeByte(0x23); // parameter id
                     data.writeByte(1); // parameter value length
                     data.writeByte(0x03); // restart
-                    return HuabaoProtocolDecoder.formatMessage(
-                            0x7e, HuabaoProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
                 case Command.TYPE_POSITION_PERIODIC:
                     data.writeByte(1); // number of parameters
                     data.writeByte(0x06); // parameter id
                     data.writeByte(4); // parameter value length
                     data.writeInt(command.getInteger(Command.KEY_FREQUENCY));
-                    return HuabaoProtocolDecoder.formatMessage(
-                            0x7e, HuabaoProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
                 case Command.TYPE_ALARM_ARM:
                 case Command.TYPE_ALARM_DISARM:
                     data.writeByte(1); // number of parameters
@@ -83,19 +83,19 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     data.writeByte(1 + username.length()); // parameter value length
                     data.writeByte(command.getType().equals(Command.TYPE_ALARM_ARM) ? 0x01 : 0x00);
                     data.writeCharSequence(username, StandardCharsets.US_ASCII);
-                    return HuabaoProtocolDecoder.formatMessage(
-                            0x7e, HuabaoProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
                 case Command.TYPE_ENGINE_STOP:
                 case Command.TYPE_ENGINE_RESUME:
                     if (alternative) {
                         data.writeByte(command.getType().equals(Command.TYPE_ENGINE_STOP) ? 0x01 : 0x00);
                         data.writeBytes(time);
-                        return HuabaoProtocolDecoder.formatMessage(
-                                0x7e, HuabaoProtocolDecoder.MSG_OIL_CONTROL, id, false, data);
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_OIL_CONTROL, id, false, data);
                     } else {
                         data.writeByte(command.getType().equals(Command.TYPE_ENGINE_STOP) ? 0xf0 : 0xf1);
-                        return HuabaoProtocolDecoder.formatMessage(
-                                0x7e, HuabaoProtocolDecoder.MSG_TERMINAL_CONTROL, id, false, data);
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_TERMINAL_CONTROL, id, false, data);
                     }
 
                 case Command.TYPE_REQUEST_PHOTO:
