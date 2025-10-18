@@ -56,8 +56,8 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                         data.writeByte(1); // flag
                         var charset = Charset.isSupported("GBK") ? Charset.forName("GBK") : StandardCharsets.US_ASCII;
                         data.writeCharSequence(command.getString(Command.KEY_DATA), charset);
-                        return HuabaoProtocolDecoder.formatMessage(
-                                0x7e, HuabaoProtocolDecoder.MSG_SEND_TEXT_MESSAGE, id, false, data);
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_SEND_TEXT_MESSAGE, id, false, data);
                     } else {
                         return Unpooled.wrappedBuffer(DataConverter.parseHex(command.getString(Command.KEY_DATA)));
                     }
@@ -66,15 +66,15 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     data.writeByte(0x23); // parameter id
                     data.writeByte(1); // parameter value length
                     data.writeByte(0x03); // restart
-                    return HuabaoProtocolDecoder.formatMessage(
-                            0x7e, HuabaoProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
                 case Command.TYPE_POSITION_PERIODIC:
                     data.writeByte(1); // number of parameters
                     data.writeByte(0x06); // parameter id
                     data.writeByte(4); // parameter value length
                     data.writeInt(command.getInteger(Command.KEY_FREQUENCY));
-                    return HuabaoProtocolDecoder.formatMessage(
-                            0x7e, HuabaoProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
                 case Command.TYPE_ALARM_ARM:
                 case Command.TYPE_ALARM_DISARM:
                     data.writeByte(1); // number of parameters
@@ -83,19 +83,19 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     data.writeByte(1 + username.length()); // parameter value length
                     data.writeByte(command.getType().equals(Command.TYPE_ALARM_ARM) ? 0x01 : 0x00);
                     data.writeCharSequence(username, StandardCharsets.US_ASCII);
-                    return HuabaoProtocolDecoder.formatMessage(
-                            0x7e, HuabaoProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_PARAMETER_SETTING, id, false, data);
                 case Command.TYPE_ENGINE_STOP:
                 case Command.TYPE_ENGINE_RESUME:
                     if (alternative) {
                         data.writeByte(command.getType().equals(Command.TYPE_ENGINE_STOP) ? 0x01 : 0x00);
                         data.writeBytes(time);
-                        return HuabaoProtocolDecoder.formatMessage(
-                                0x7e, HuabaoProtocolDecoder.MSG_OIL_CONTROL, id, false, data);
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_OIL_CONTROL, id, false, data);
                     } else {
                         data.writeByte(command.getType().equals(Command.TYPE_ENGINE_STOP) ? 0xf0 : 0xf1);
-                        return HuabaoProtocolDecoder.formatMessage(
-                                0x7e, HuabaoProtocolDecoder.MSG_TERMINAL_CONTROL, id, false, data);
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_TERMINAL_CONTROL, id, false, data);
                     }
 
                 case Command.TYPE_REQUEST_PHOTO:
@@ -187,71 +187,87 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     return DC600ProtocolDecoder.formatMessage(
                             0x7e, DC600ProtocolDecoder.MSG_VIDEO_DOWNLOAD_REQUEST, id, false, data);
 
-                case Command.TYPE_AUDIO_STREAM:
-                    data.writeByte(0x01); // channel number
-                    data.writeByte(0x00); // audio command (start)
+                case Command.TYPE_GET_DEVICE_STATUS:
+                    // Section 8.11: Query terminal hardware/software attributes (0x8107)
+                    // Message body is null per spec
                     return DC600ProtocolDecoder.formatMessage(
-                            0x7e, DC600ProtocolDecoder.MSG_AUDIO_LIVE_STREAM_REQUEST, id, false, data);
+                            0x7e, DC600ProtocolDecoder.MSG_CHECK_TERMINAL_ATTRIBUTE, id, false,
+                            Unpooled.buffer(0));
 
-                case Command.TYPE_PTZ_CONTROL:
-                    int ptzCommand = command.getInteger(Command.KEY_COMMAND); // Get command parameter
-                    data.writeByte(command.getInteger(Command.KEY_CHANNEL)); // Get channel, default to 1
-                    data.writeByte(ptzCommand);
-                    data.writeByte(command.getInteger(Command.KEY_PARAMETER)); // Get parameter, default to
-
-                    int messageType;
-                    switch (ptzCommand) {
-                        case 0x01: case 0x02: // rotation
-                            messageType = DC600ProtocolDecoder.MSG_PTZ_ROTATION;
-                            break;
-                        case 0x03: case 0x04: // focus
-                            messageType = DC600ProtocolDecoder.MSG_PTZ_FOCUS;
-                            break;
-                        case 0x05: case 0x06: // aperture
-                            messageType = DC600ProtocolDecoder.MSG_PTZ_APERTURE;
-                            break;
-                        case 0x07: case 0x08: // wiper
-                            messageType = DC600ProtocolDecoder.MSG_PTZ_WIPER;
-                            break;
-                        case 0x09: case 0x0A: // infrared
-                            messageType = DC600ProtocolDecoder.MSG_PTZ_INFRARED;
-                            break;
-                        case 0x0B: case 0x0C: // zoom
-                            messageType = DC600ProtocolDecoder.MSG_PTZ_ZOOM;
-                            break;
-                        default:
-                            return null;
+                case "getTerminalParameters":
+                    // Section 8.8: Query terminal parameters (0x8104)
+                    // Can query all parameters or specific ones
+                    if (command.hasAttribute("parameterIds")) {
+                        // Section 8.9: Query specific parameters (0x8106)
+                        String[] ids = command.getString("parameterIds").split(",");
+                        data.writeByte(ids.length);
+                        for (String paramId : ids) {
+                            data.writeInt(Integer.parseInt(paramId.trim(), 16));
+                        }
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_CHECK_SPECIFIED_PARAMETERS, id, false, data);
+                    } else {
+                        // Query all parameters - message body is null per spec
+                        return DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_CHECK_TERMINAL_PARAMETER, id, false,
+                                Unpooled.buffer(0));
                     }
-                    return DC600ProtocolDecoder.formatMessage(0x7e, messageType, id, false, data);
 
-                case Command.TYPE_VIDEO_ATTRIBUTES_QUERY:
+                case "retrieveMultimedia":
+                    // Section 8.32: Query multimedia files stored on terminal (0x8802)
+                    data.writeByte(command.getInteger("multimediaType")); // 0=Image, 1=Audio, 2=Video
+                    data.writeByte(command.getInteger("channelId"));      // 0 = all channels
+                    data.writeByte(command.getInteger("eventCode"));      // Event code
+                    // Start time (BCD[6] - yyMMddHHmmss)
+                    String startTime = command.getString("startTime");
+                    data.writeBytes(DataConverter.parseHex(startTime));
+                    // End time (BCD[6] - yyMMddHHmmss)
+                    String endTime = command.getString("endTime");
+                    data.writeBytes(DataConverter.parseHex(endTime));
                     return DC600ProtocolDecoder.formatMessage(
-                            0x7e, DC600ProtocolDecoder.MSG_VIDEO_ATTRIBUTES_QUERY, id, false, data);
+                            0x7e, DC600ProtocolDecoder.MSG_RETRIEVE_MULTIMEDIA, id, false, data);
 
-                case Command.TYPE_VIDEO_QUERY_LIST:
-                    int queryChannel = command.getInteger(Command.KEY_CHANNEL);
-                    data.writeByte(queryChannel); // Logical channel
-                    data.writeBytes(time); // start time
-                    data.writeBytes(time); // end time
-                    data.writeLong(0x0000000000000000L); // Alarm flag (all zeros = no filter)
-                    data.writeByte(0x00); // Audio/video type: 0=both
-                    data.writeByte(0x00); // Stream type: 0=all
-                    data.writeByte(0x00); // Storage type: 0=all
-
+                case "uploadMultimediaByTime":
+                    // Section 8.34: Command terminal to upload multimedia files by time range (0x8803)
+                    data.writeByte(command.getInteger("multimediaType")); // 0=Image, 1=Audio, 2=Video
+                    data.writeByte(command.getInteger("channelId"));      // Channel ID
+                    data.writeByte(command.getInteger("eventCode"));      // Event code
+                    // Start time (BCD[6])
+                    String uploadStartTime = command.getString("startTime");
+                    data.writeBytes(DataConverter.parseHex(uploadStartTime));
+                    // End time (BCD[6])
+                    String uploadEndTime = command.getString("endTime");
+                    data.writeBytes(DataConverter.parseHex(uploadEndTime));
+                    data.writeByte(command.getInteger("deleteAfter")); // 0=reserve, 1=delete after upload
                     return DC600ProtocolDecoder.formatMessage(
-                            0x7e, DC600ProtocolDecoder.MSG_VIDEO_RESOURCE_LIST_QUERY, id, false, data);
+                            0x7e, DC600ProtocolDecoder.MSG_STORE_MULTIMEDIA_UPLOAD, id, false, data);
 
-                case Command.TYPE_VIDEO_RESOURCE_LIST_QUERY:
-                    data.writeByte(0x00); // list type
-                    data.writeBytes(time); // start time
-                    data.writeBytes(time); // end time
-                    data.writeByte(0xFF); // all channels
-                    data.writeByte(0x00); // media type
-                    data.writeByte(0x00); // event type
-                    data.writeByte(0x00); // storage type
+                case "uploadMultimediaById":
+                    // Section 8.35: Request single multimedia file by ID (0x8805)
+                    data.writeInt(command.getInteger("multimediaId"));
+                    data.writeByte(command.getInteger("deleteAfter")); // 0=reserve, 1=delete after upload
                     return DC600ProtocolDecoder.formatMessage(
-                            0x7e, DC600ProtocolDecoder.MSG_VIDEO_RESOURCE_LIST_QUERY, id, false, data);
-                // TODO: add more commands for image, video and live stream
+                            0x7e, DC600ProtocolDecoder.MSG_SINGLE_MULTIMEDIA_UPLOAD, id, false, data);
+
+                case "confirmAlarm":
+                    // Section 8.14: Manually confirm alarm (0x8203)
+                    data.writeShort(command.getInteger("alarmSerial")); // Alarm message serial number
+                    data.writeInt(command.getInteger("alarmType"));     // Alarm type bits (Table 36)
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_MANUALLY_CONFIRM_ALARM, id, false, data);
+
+                case "videoPlaybackControl":
+                    // JT/T 1078-2016: Video playback control (0x9202)
+                    int playbackChannel = command.getInteger(Command.KEY_CHANNEL);
+                    int controlCode = command.getInteger("controlCode");
+                    // 0=start, 1=pause, 2=resume, 3=stop, 4=fast forward, 5=slow playback
+                    data.writeByte(playbackChannel);
+                    data.writeByte(controlCode);
+                    data.writeByte(command.getInteger("playbackSpeed")); // Fast forward/slow speed
+                    data.writeByte(command.getInteger("playbackMultiplier")); // Speed multiplier
+                    return DC600ProtocolDecoder.formatMessage(
+                            0x7e, DC600ProtocolDecoder.MSG_VIDEO_PLAYBACK_CONTROL, id, false, data);
+
                 default:
                     return null;
             }
