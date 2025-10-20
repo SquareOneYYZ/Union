@@ -223,41 +223,157 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private void decodeAlarmSigns(Position position, long alarmSign) {
+        String alarmType = null;
+
+        // Bit 0: Emergency alarm (SOS)
         if (BitUtil.check(alarmSign, 0)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_SOS);
+            alarmType = Position.ALARM_SOS;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 1: Overspeed alarm
         if (BitUtil.check(alarmSign, 1)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_OVERSPEED);
+            alarmType = Position.ALARM_OVERSPEED;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 2: Driving alarm malfunction
         if (BitUtil.check(alarmSign, 2)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_FAULT);
+            alarmType = Position.ALARM_FAULT;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 3: Risk warning
         if (BitUtil.check(alarmSign, 3)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+            alarmType = Position.ALARM_GENERAL;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 4: GNSS module fault
+        if (BitUtil.check(alarmSign, 4)) {
+            alarmType = Position.ALARM_GPS_MODULE_FAULT;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 5: GNSS antenna disconnected
+        if (BitUtil.check(alarmSign, 5)) {
+            alarmType = Position.ALARM_GPS_ANTENNA_DISCONNECTED;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 6: GNSS antenna short circuit
+        if (BitUtil.check(alarmSign, 6)) {
+            alarmType = Position.ALARM_GPS_ANTENNA_SHORT;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 7: Terminal main power under-voltage
+        if (BitUtil.check(alarmSign, 7)) {
+            alarmType = Position.ALARM_MAIN_POWER_UNDER_VOLTAGE;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 8: Terminal main power off
+        if (BitUtil.check(alarmSign, 8)) {
+            alarmType = Position.ALARM_MAIN_POWER_OFF;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 9: Terminal LCD fault
+        if (BitUtil.check(alarmSign, 9)) {
+            alarmType = Position.ALARM_LCD_FAULT;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 10: TTS module fault
+        if (BitUtil.check(alarmSign, 10)) {
+            alarmType = Position.ALARM_TTS_FAULT;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 11: Camera fault
+        if (BitUtil.check(alarmSign, 11)) {
+            alarmType = Position.ALARM_CAMERA_FAULT;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 12: Road transport IC card module fault
+        if (BitUtil.check(alarmSign, 12)) {
+            alarmType = Position.ALARM_IC_CARD_FAULT;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 13: Overspeed warning
         if (BitUtil.check(alarmSign, 13)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_OVERSPEED);
+            alarmType = Position.ALARM_OVERSPEED;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 14: Fatigue driving warning
         if (BitUtil.check(alarmSign, 14)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_FATIGUE_DRIVING);
+            alarmType = Position.ALARM_FATIGUE_DRIVING;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 18: Accumulated overspeed driving time
         if (BitUtil.check(alarmSign, 18)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_OVERSPEED);
+            alarmType = Position.ALARM_OVERSPEED;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 19: Timeout parking
         if (BitUtil.check(alarmSign, 19)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_IDLE);
+            alarmType = Position.ALARM_IDLE;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 20: Enter and exit the area
         if (BitUtil.check(alarmSign, 20)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_GEOFENCE_ENTER);
+            alarmType = Position.ALARM_GEOFENCE_ENTER;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 21: Enter and exit the route
         if (BitUtil.check(alarmSign, 21)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_GEOFENCE_EXIT);
+            alarmType = Position.ALARM_GEOFENCE_EXIT;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 22: Driving time of route not enough/too long
         if (BitUtil.check(alarmSign, 22)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+            alarmType = Position.ALARM_GENERAL;
+            position.set(Position.KEY_ALARM, alarmType);
         }
+        // Bit 23: Off track alarm
         if (BitUtil.check(alarmSign, 23)) {
-            position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+            alarmType = Position.ALARM_GENERAL;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 24: VSS fault
+        if (BitUtil.check(alarmSign, 24)) {
+            alarmType = Position.ALARM_VSS_FAULT;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 25: Vehicle oil amount abnormal
+        if (BitUtil.check(alarmSign, 25)) {
+            alarmType = Position.ALARM_OIL_ABNORMAL;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 26: Vehicle stolen
+        if (BitUtil.check(alarmSign, 26)) {
+            alarmType = Position.ALARM_VEHICLE_STOLEN;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 27: Illegal ignition
+        if (BitUtil.check(alarmSign, 27)) {
+            alarmType = Position.ALARM_ILLEGAL_IGNITION;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 28: Illegal displacement
+        if (BitUtil.check(alarmSign, 28)) {
+            alarmType = Position.ALARM_ILLEGAL_DISPLACEMENT;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 29: Collision alarm
+        if (BitUtil.check(alarmSign, 29)) {
+            alarmType = Position.ALARM_COLLISION;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 30: Rollover alarm
+        if (BitUtil.check(alarmSign, 30)) {
+            alarmType = Position.ALARM_ROLLOVER;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+        // Bit 31: Illegal door opening
+        if (BitUtil.check(alarmSign, 31)) {
+            alarmType = Position.ALARM_ILLEGAL_DOOR_OPEN;
+            position.set(Position.KEY_ALARM, alarmType);
+        }
+
+        // Set KEY_EVENT to ensure Traccar event system creates an event
+        if (alarmType != null) {
+            position.set(Position.KEY_EVENT, alarmType);
         }
     }
 
@@ -324,39 +440,108 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         position.set("adasType", alarmType);
                         position.set("adasLevel", alarmLevel);
 
+                        // Determine if this is an actual alarm or just monitoring/event data
+                        boolean isRealAlarm = (alarmId > 0 && alarmType > 0 && alarmType <= 0x0F);
+
+                        // Map ADAS alarm types to Traccar alarm constants
                         switch (alarmType) {
+                            case 0x00: // No alarm - monitoring/status update only
+                                position.set("adasStatus", "monitoring");
+                                LOGGER.debug("ADAS Monitoring Update - Device: {}, Level: {}",
+                                            position.getDeviceId(), alarmLevel);
+                                // Don't set KEY_ALARM - this is monitoring, not an alarm
+                                isRealAlarm = false;
+                                break;
+
                             case 0x01: // Forward collision warning
                                 position.set(Position.KEY_ALARM, Position.ALARM_ACCIDENT);
                                 position.set("adasAlarmName", "forwardCollision");
+                                position.set(Position.KEY_EVENT, Position.ALARM_ACCIDENT);
                                 LOGGER.warn("ADAS ALARM TYPE: Forward Collision Warning - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
+
                             case 0x02: // Lane departure warning
                                 position.set(Position.KEY_ALARM, Position.ALARM_LANE_CHANGE);
                                 position.set("adasAlarmName", "laneDeparture");
+                                position.set(Position.KEY_EVENT, Position.ALARM_LANE_CHANGE);
                                 break;
+
                             case 0x03: // Vehicle distance monitoring warning
                                 position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
                                 position.set("adasAlarmName", "vehicleTooClose");
+                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 break;
+
                             case 0x04: // Pedestrian collision warning
                                 position.set(Position.KEY_ALARM, Position.ALARM_ACCIDENT);
                                 position.set("adasAlarmName", "pedestrianCollision");
+                                position.set(Position.KEY_EVENT, Position.ALARM_ACCIDENT);
                                 break;
+
                             case 0x05: // Frequent lane change warning
                                 position.set(Position.KEY_ALARM, Position.ALARM_LANE_CHANGE);
                                 position.set("adasAlarmName", "frequentLaneChange");
+                                position.set(Position.KEY_EVENT, Position.ALARM_LANE_CHANGE);
                                 break;
+
                             case 0x06: // Road sign out of limit warning
                                 position.set(Position.KEY_ALARM, Position.ALARM_OVERSPEED);
                                 position.set("adasAlarmName", "roadSignViolation");
+                                position.set(Position.KEY_EVENT, Position.ALARM_OVERSPEED);
                                 break;
+
                             case 0x07: // Obstacle warning
                                 position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
                                 position.set("adasAlarmName", "obstacleDetection");
+                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 break;
+
+                            case 0x10: // Road sign recognition event
+                                position.set("adasEventName", "roadSignRecognition");
+                                position.set("event", "roadSignRecognition");
+                                LOGGER.info("ADAS EVENT: Road Sign Recognition - Device: {}, AlarmId: {}",
+                                            position.getDeviceId(), alarmId);
+                                // Don't set KEY_ALARM - this is an event, not an alarm
+                                isRealAlarm = false;
+                                break;
+
+                            case 0x11: // Actively capture event
+                                position.set("adasEventName", "activeCapture");
+                                position.set("event", "activeCapture");
+                                LOGGER.info("ADAS EVENT: Active Capture - Device: {}, AlarmId: {}",
+                                            position.getDeviceId(), alarmId);
+                                // Don't set KEY_ALARM - this is an event, not an alarm
+                                isRealAlarm = false;
+                                break;
+
                             default:
-                                position.set("adasAlarmName", "unknown_" + alarmType);
+                                // Handle user-defined (0x08-0x0F, 0x12-0x1F) and vendor-specific types
+                                if (alarmType >= 0x08 && alarmType <= 0x0F) {
+                                    position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                    position.set("adasAlarmName", "userDefined_" + alarmType);
+                                    position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
+                                    LOGGER.warn("ADAS USER-DEFINED ALARM - Device: {}, AlarmId: {}, Type: 0x{}",
+                                                position.getDeviceId(), alarmId,
+                                                Integer.toHexString(alarmType).toUpperCase());
+                                } else if (alarmType >= 0x12 && alarmType <= 0x1F) {
+                                    position.set("adasEventName", "userDefined_" + alarmType);
+                                    position.set("event", "adasUserDefinedEvent");
+                                    LOGGER.info("ADAS USER-DEFINED EVENT - Device: {}, AlarmId: {}, Type: 0x{}",
+                                                position.getDeviceId(), alarmId,
+                                                Integer.toHexString(alarmType).toUpperCase());
+                                    isRealAlarm = false;
+                                } else {
+                                    // Vendor-specific or unknown type
+                                    position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                    position.set("adasAlarmName", "vendorSpecific_0x"
+                                            + Integer.toHexString(alarmType).toUpperCase());
+                                    position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
+                                    LOGGER.warn("ADAS VENDOR-SPECIFIC ALARM - Device: {}, AlarmId: {}, Type: 0x{},"
+                                                    + " Status: {}, Level: {}",
+                                                position.getDeviceId(), alarmId,
+                                                Integer.toHexString(alarmType).toUpperCase(), alarmStatus, alarmLevel);
+                                }
                                 break;
                         }
 
@@ -374,11 +559,28 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         } else {
                             buf.skipBytes(length - 4);
                         }
-                        LOGGER.info("Triggering alarm attachment request for ADAS alarm - Device: {}, AlarmId: {},"
-                                        + " Type: 0x{}", position.getDeviceId(), alarmId,
-                                           Integer.toHexString(alarmType).toUpperCase());
 
-                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
+                        // Only create event correlation and request attachments for REAL alarms
+                        if (isRealAlarm) {
+                            // Create event correlation for multimedia linking
+                            String eventKey = position.getDeviceId() + "_" + alarmId;
+                            EventMediaCorrelation correlation = new EventMediaCorrelation();
+                            correlation.deviceId = position.getDeviceId();
+                            correlation.alarmId = alarmId;
+                            correlation.alarmType = "ADAS_" + Integer.toHexString(alarmType).toUpperCase();
+                            correlation.eventTime = new Date();
+                            eventMediaMap.put(eventKey, correlation);
+
+                            LOGGER.info("Triggering alarm attachment request for ADAS alarm - Device: {}, AlarmId: {},"
+                                            + " Type: 0x{}", position.getDeviceId(), alarmId,
+                                               Integer.toHexString(alarmType).toUpperCase());
+
+                            sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
+                        } else {
+                            LOGGER.debug("Skipping event correlation for ADAS monitoring/event data - AlarmId: {},"
+                                            + " Type: 0x{}",
+                                        alarmId, Integer.toHexString(alarmType).toUpperCase());
+                        }
                     } else {
                         buf.skipBytes(length);
                     }
@@ -400,42 +602,109 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         position.set("dsmType", alarmType);
                         position.set("dsmLevel", alarmLevel);
 
+                        // Determine if this is an actual alarm or just monitoring data
+                        boolean isRealAlarm = (alarmId > 0 && alarmType > 0);
+
                         // Map DSM alarm types to Traccar alarm constants
                         switch (alarmType) {
+                            case 0x00: // No alarm - fatigue monitoring update
+                                position.set("dsmStatus", "fatigueMonitoring");
+                                position.set("fatigueLevel", alarmLevel);
+                                LOGGER.debug("DSM Fatigue Monitoring - Device: {}, Level: {}",
+                                            position.getDeviceId(), alarmLevel);
+                                // Don't set KEY_ALARM - this is monitoring, not an alarm
+                                // Don't create event correlation for monitoring data
+                                isRealAlarm = false;
+                                break;
+
                             case 0x01: // Fatigue driving alarm
                                 position.set(Position.KEY_ALARM, Position.ALARM_FATIGUE_DRIVING);
                                 position.set("dsmAlarmName", "fatigueDriving");
-                                LOGGER.warn("DSM ALARM TYPE: Fatigue Driving - Device: {}, AlarmId: {}",
-                                        position.getDeviceId(), alarmId);
+                                position.set(Position.KEY_EVENT, Position.ALARM_FATIGUE_DRIVING);
+                                LOGGER.warn("DSM ALARM TYPE: Fatigue Driving - Device: {}, AlarmId: {}, Level: {}",
+                                        position.getDeviceId(), alarmId, alarmLevel);
                                 break;
+
                             case 0x02: // Calling/phone use alarm - CRITICAL FOR REQUIREMENT
                                 position.set(Position.KEY_ALARM, Position.ALARM_PHONE_CALL);
                                 position.set("dsmAlarmName", "phoneUse");
                                 position.set("phoneUseDetected", true);
+                                position.set(Position.KEY_EVENT, Position.ALARM_PHONE_CALL);
                                 LOGGER.warn("DSM ALARM TYPE: PHONE USE DETECTED - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
+
                             case 0x03: // Smoking alarm
                                 position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
                                 position.set("dsmAlarmName", "smoking");
+                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 LOGGER.warn("DSM ALARM TYPE: Smoking Detected - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
+
                             case 0x04: // Distracted driving alarm
                                 position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
                                 position.set("dsmAlarmName", "distractedDriving");
+                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 LOGGER.warn("DSM ALARM TYPE: Distracted Driving - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
+
                             case 0x05: // Driver abnormal alarm
                                 position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
                                 position.set("dsmAlarmName", "driverAbnormal");
+                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 break;
+
+                            case 0x10: // Auto capture event
+                                position.set("dsmEventName", "autoCapture");
+                                position.set("event", "dsmAutoCapture");
+                                LOGGER.info("DSM EVENT: Auto Capture - Device: {}, AlarmId: {}",
+                                            position.getDeviceId(), alarmId);
+                                // Don't set KEY_ALARM - this is an event, not an alarm
+                                isRealAlarm = false;
+                                break;
+
+                            case 0x11: // Driver change event
+                                position.set("dsmEventName", "driverChange");
+                                position.set("event", "driverChange");
+                                LOGGER.info("DSM EVENT: Driver Change - Device: {}, AlarmId: {}",
+                                            position.getDeviceId(), alarmId);
+                                // Don't set KEY_ALARM - this is an event, not an alarm
+                                isRealAlarm = false;
+                                break;
+
                             default:
-                                position.set("dsmAlarmName", "unknown_" + alarmType);
+                                // Handle user-defined (0x06-0x0F, 0x12-0x1F) and vendor-specific types (like 0xE1)
+                                if (alarmType >= 0x06 && alarmType <= 0x0F) {
+                                    position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                    position.set("dsmAlarmName", "userDefined_" + alarmType);
+                                    position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
+                                    LOGGER.warn("DSM USER-DEFINED ALARM - Device: {}, AlarmId: {}, Type: 0x{}",
+                                                position.getDeviceId(), alarmId,
+                                                Integer.toHexString(alarmType).toUpperCase());
+                                } else if (alarmType >= 0x12 && alarmType <= 0x1F) {
+                                    position.set("dsmEventName", "userDefined_" + alarmType);
+                                    position.set("event", "dsmUserDefinedEvent");
+                                    LOGGER.info("DSM USER-DEFINED EVENT - Device: {}, AlarmId: {}, Type: 0x{}",
+                                                position.getDeviceId(), alarmId,
+                                                Integer.toHexString(alarmType).toUpperCase());
+                                    isRealAlarm = false;
+                                } else {
+                                    // Vendor-specific type (like 0xE1 = 225)
+                                    position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                    position.set("dsmAlarmName", "vendorSpecific_0x"
+                                            + Integer.toHexString(alarmType).toUpperCase());
+                                    position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
+                                    LOGGER.warn("DSM VENDOR-SPECIFIC ALARM 0x{} - Device: {}, AlarmId: {}, Status: {},"
+                                                    + " Level: {}",
+                                                Integer.toHexString(alarmType).toUpperCase(), position.getDeviceId(),
+                                                alarmId, alarmStatus, alarmLevel);
+                                }
                                 break;
                         }
 
+                        // Read additional data if present
                         if (length >= 32) {
                             position.set("dsmSpeed", buf.readUnsignedByte()); // Vehicle speed (1 km/h)
                             position.set("dsmAltitude", buf.readUnsignedShort() / 10.0); // Altitude (1/10 m)
@@ -450,12 +719,30 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         } else {
                             buf.skipBytes(length - 4);
                         }
-                        LOGGER.info("Triggering alarm attachment request for DSM alarm - Device: {}, AlarmId: {},"
-                                        + " Type: 0x{}", position.getDeviceId(), alarmId,
-                                               Integer.toHexString(alarmType).toUpperCase());
 
-                        // Trigger automatic alarm attachment request
-                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
+                        // Only create event correlation and request attachments for REAL alarms
+                        // Skip monitoring updates (type 0x00), events (0x10-0x11), and alarmId=0
+                        if (isRealAlarm) {
+                            // Create event correlation for multimedia linking
+                            String eventKey = position.getDeviceId() + "_" + alarmId;
+                            EventMediaCorrelation correlation = new EventMediaCorrelation();
+                            correlation.deviceId = position.getDeviceId();
+                            correlation.alarmId = alarmId;
+                            correlation.alarmType = "DSM_" + Integer.toHexString(alarmType).toUpperCase();
+                            correlation.eventTime = new Date();
+                            eventMediaMap.put(eventKey, correlation);
+
+                            LOGGER.info("Triggering alarm attachment request for DSM alarm - Device: {}, AlarmId: {},"
+                                        + " Type: 0x{}", position.getDeviceId(), alarmId,
+                                        Integer.toHexString(alarmType).toUpperCase());
+
+                            // Trigger automatic alarm attachment request
+                            sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
+                        } else {
+                            LOGGER.debug("Skipping event correlation for DSM monitoring/event data - AlarmId: {},"
+                                        + " Type: 0x{}",
+                                        alarmId, Integer.toHexString(alarmType).toUpperCase());
+                        }
                     } else {
                         buf.skipBytes(length);
                     }
@@ -841,16 +1128,30 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
             position.set("imageCaptureStatus", resultStr);
             StringBuilder mediaIds = new StringBuilder();
+            List<Integer> mediaIdList = new ArrayList<>();
             for (int i = 0; i < mediaIdCount && buf.readableBytes() >= 4; i++) {
                 int mediaId = buf.readInt();
                 if (mediaIds.length() > 0) {
                     mediaIds.append(",");
                 }
                 mediaIds.append(mediaId);
+                mediaIdList.add(mediaId);
                 position.set("mediaId" + i, mediaId);
             }
             if (mediaIds.length() > 0) {
                 position.set("mediaIds", mediaIds.toString());
+
+                // Update event correlation with expected media IDs
+                // Look for recent event correlations for this device
+                for (EventMediaCorrelation correlation : eventMediaMap.values()) {
+                    if (correlation.deviceId == position.getDeviceId()
+                            && correlation.expectedMediaIds.isEmpty()) {
+                        correlation.expectedMediaIds.addAll(mediaIdList);
+                        LOGGER.info("Linked {} media IDs to event AlarmId: {} for device: {}",
+                                mediaIdList.size(), correlation.alarmId, position.getDeviceId());
+                        break;
+                    }
+                }
             }
         }
         position.setValid(false); // This is an event, not a location update
@@ -1052,8 +1353,45 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
     private final Map<String, MultimediaFile> multimediaFiles = new HashMap<>();
 
+    // Event-to-Multimedia correlation storage
+    private static final class EventMediaCorrelation {
+        private long deviceId;
+        private int alarmId;
+        private String alarmType;
+        private Date eventTime;
+        private List<Integer> expectedMediaIds = new ArrayList<>();
+        private List<String> receivedMediaPaths = new ArrayList<>();
+    }
+
+    private final Map<String, EventMediaCorrelation> eventMediaMap = new HashMap<>();
+
+    /**
+     * Clean up old event correlations to prevent memory leaks
+     * Removes correlations older than 1 hour
+     */
+    private void cleanupOldCorrelations() {
+        long currentTime = System.currentTimeMillis();
+        long maxAge = 60 * 60 * 1000; // 1 hour in milliseconds
+
+        eventMediaMap.entrySet().removeIf(entry -> {
+            EventMediaCorrelation correlation = entry.getValue();
+            long age = currentTime - correlation.eventTime.getTime();
+            if (age > maxAge) {
+                LOGGER.debug("Removing old event correlation for AlarmId: {}, age: {} minutes",
+                        correlation.alarmId, age / 60000);
+                return true;
+            }
+            return false;
+        });
+    }
+
     private Position decodeMultimediaDataUpload(DeviceSession deviceSession, ByteBuf buf,
                                                 Channel channel, SocketAddress remoteAddress, ByteBuf id) {
+        // Periodically clean up old correlations
+        if (Math.random() < 0.1) { // 10% chance on each call
+            cleanupOldCorrelations();
+        }
+
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
 
@@ -1093,7 +1431,23 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         position.set("multimediaType", multimediaType);
         position.set("packetSize", packetData.length);
         position.set("totalReceived", file.receivedSize);
-        position.set("event", "multimediaDataReceived");
+
+        // Check if this multimedia is linked to an alarm event
+        EventMediaCorrelation linkedEvent = null;
+        for (EventMediaCorrelation correlation : eventMediaMap.values()) {
+            if (correlation.deviceId == position.getDeviceId()
+                    && correlation.expectedMediaIds.contains(multimediaId)) {
+                linkedEvent = correlation;
+                position.set("eventAlarmId", correlation.alarmId);
+                position.set("eventAlarmType", correlation.alarmType);
+                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL); // Trigger event
+                LOGGER.info("Multimedia {} linked to event AlarmId: {} ({})",
+                        multimediaId, correlation.alarmId, correlation.alarmType);
+                break;
+            }
+        }
+
+        position.set("event", linkedEvent != null ? "alarmMultimedia" : "multimediaDataReceived");
         if (buf.readableBytes() == 0) {
             try {
                 // Determine file extension
@@ -1133,7 +1487,17 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     position.set(Position.KEY_VIDEO, filePath);
                 }
                 position.set("multimediaFile", filePath);
-                position.set("event", "multimediaUploadComplete");
+
+                // Update event correlation with received media path
+                if (linkedEvent != null) {
+                    linkedEvent.receivedMediaPaths.add(filePath);
+                    position.set("event", "alarmMultimediaComplete");
+                    LOGGER.info("Event AlarmId: {} now has {} media files: {}",
+                            linkedEvent.alarmId, linkedEvent.receivedMediaPaths.size(),
+                            linkedEvent.receivedMediaPaths);
+                } else {
+                    position.set("event", "multimediaUploadComplete");
+                }
             } catch (Exception e) {
                 LOGGER.error("FAILED TO SAVE MULTIMEDIA FILE - Device: {}, MultimediaId: {}, Error: {}",
                         file.deviceId, multimediaId, e.getMessage(), e);
@@ -1151,8 +1515,18 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         remoteAddress));
             }
         }
-        position.setValid(false);
-        position.setTime(new Date());
+
+        // If this multimedia is linked to an alarm event, mark position as valid to ensure event recording
+        // Otherwise, mark as invalid since it's just data transmission
+        position.setValid(linkedEvent != null);
+        position.setTime(linkedEvent != null ? linkedEvent.eventTime : new Date());
+
+        // Add correlation info for event querying
+        if (linkedEvent != null) {
+            position.set("correlatedEvent", true);
+            position.set("eventMediaCount", linkedEvent.receivedMediaPaths.size());
+        }
+
         return position;
     }
 
