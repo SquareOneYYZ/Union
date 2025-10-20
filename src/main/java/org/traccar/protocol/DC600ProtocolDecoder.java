@@ -1241,7 +1241,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             position.set("uploadResult", result);
             position.set("event", result == 0 ? "fileUploadSuccess" : "fileUploadFailed");
         }
-
         position.setValid(false);
         position.setTime(new Date());
         return position;
