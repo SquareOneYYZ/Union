@@ -31,6 +31,7 @@ import org.traccar.session.DeviceSession;
 import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -145,26 +146,48 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private void sendAlarmAttachmentRequest(Channel channel, SocketAddress remoteAddress,
-                                             ByteBuf id, int alarmId, int alarmType) {
+                                             ByteBuf id, int alarmId, int alarmType, Position position) {
         if (channel != null) {
             LOGGER.info("SENDING ALARM ATTACHMENT REQUEST (0x9208) - AlarmId: {}, AlarmType: 0x{}",
                     alarmId, Integer.toHexString(alarmType).toUpperCase());
             ByteBuf data = Unpooled.buffer();
-            data.writeByte(alarmId);           // Alarm serial number
-            data.writeByte(alarmType);         // Alarm type (ADAS or DSM)
-            data.writeByte(0x00);              // Alarm terminal ID length (0 = all terminals)
-            data.writeByte(0x00);              // Reserved
-//            channel.writeAndFlush(new NetworkMessage(
-//                    formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD_REQUEST, id, false, data),
-//                    remoteAddress));
+//            data.writeByte(alarmId);           // Alarm serial number
+//            data.writeByte(alarmType);         // Alarm type (ADAS or DSM)
+//            data.writeByte(0x00);              // Alarm terminal ID length (0 = all terminals)
+//            data.writeByte(0x00);              // Reserved
+            String serverIp = "165.22.228.97";
+            data.writeByte(serverIp.length());
+            data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+            data.writeShort(5999);
+            data.writeShort(0);
+            byte[] alarmFlag = new byte[16];
+            if (position.hasAttribute("adasAlarmId") || position.hasAttribute("dsmAlarmId")) {
+                String deviceId = String.format("%07d", position.getDeviceId());
+                System.arraycopy(deviceId.getBytes(StandardCharsets.US_ASCII), 0, alarmFlag, 0, 7);
+                Date alarmTime = position.getDeviceTime() != null ? position.getDeviceTime() : new Date();
+                SimpleDateFormat sdf = new SimpleDateFormat("yyMMddHHmmss");
+                byte[] timeBytes = DataConverter.parseHex(sdf.format(alarmTime));
+                System.arraycopy(timeBytes, 0, alarmFlag, 7, 6);
+                alarmFlag[13] = (byte) alarmId;
+                alarmFlag[14] = 0x01;
+                alarmFlag[15] = 0x00;
+            }
+            data.writeBytes(alarmFlag);
+            byte[] alarmNumber = new byte[32];
+            String uniqueAlarmNumber = String.format("ALM-%d-%d-%d",
+                    position.getDeviceId(), alarmId, System.currentTimeMillis());
+            byte[] alarmNumBytes = uniqueAlarmNumber.getBytes(StandardCharsets.US_ASCII);
+            System.arraycopy(alarmNumBytes, 0, alarmNumber, 0, Math.min(alarmNumBytes.length, 32));
+            data.writeBytes(alarmNumber);
+            data.writeBytes(new byte[16]);
             ByteBuf message = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD_REQUEST, id, false, data);
             byte[] rawBytes = new byte[message.readableBytes()];
             message.getBytes(message.readerIndex(), rawBytes);
-            LOGGER.debug("ALARM ATTACHMENT REQUEST RAW DATA - AlarmId: {}, Hex: {}",
-                    alarmId, DataConverter.printHex(rawBytes));
+            LOGGER.info("ALARM ATTACHMENT REQUEST RAW DATA - AlarmId: {}, Length: {}, Hex: {}",
+                    alarmId, rawBytes.length, DataConverter.printHex(rawBytes));
             channel.writeAndFlush(new NetworkMessage(message, remoteAddress));
-            LOGGER.info("ALARM ATTACHMENT REQUEST SENT - AlarmId: {}, AlarmType: 0x{}",
-                    alarmId, Integer.toHexString(alarmType).toUpperCase());
+            LOGGER.info("ALARM ATTACHMENT REQUEST SENT - AlarmId: {}, Server: {}:{}",
+                    alarmId, serverIp, 5999);
         } else {
             LOGGER.error("Cannot send alarm attachment request - channel is null");
         }
@@ -378,7 +401,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                         + " Type: 0x{}", position.getDeviceId(), alarmId,
                                            Integer.toHexString(alarmType).toUpperCase());
 
-                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
+                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType, position);
                     } else {
                         buf.skipBytes(length);
                     }
@@ -455,7 +478,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                                Integer.toHexString(alarmType).toUpperCase());
 
                         // Trigger automatic alarm attachment request
-                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
+                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType, position);
                     } else {
                         buf.skipBytes(length);
                     }
