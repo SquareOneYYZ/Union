@@ -246,157 +246,122 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private void decodeAlarmSigns(Position position, long alarmSign) {
-        String alarmType = null;
-
+        // Use addAlarm() to append multiple alarms instead of overwriting
         // Bit 0: Emergency alarm (SOS)
         if (BitUtil.check(alarmSign, 0)) {
-            alarmType = Position.ALARM_SOS;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_SOS);
         }
         // Bit 1: Overspeed alarm
         if (BitUtil.check(alarmSign, 1)) {
-            alarmType = Position.ALARM_OVERSPEED;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_OVERSPEED);
         }
         // Bit 2: Driving alarm malfunction
         if (BitUtil.check(alarmSign, 2)) {
-            alarmType = Position.ALARM_FAULT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_FAULT);
         }
         // Bit 3: Risk warning
         if (BitUtil.check(alarmSign, 3)) {
-            alarmType = Position.ALARM_GENERAL;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_GENERAL);
         }
         // Bit 4: GNSS module fault
         if (BitUtil.check(alarmSign, 4)) {
-            alarmType = Position.ALARM_GPS_MODULE_FAULT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_GPS_MODULE_FAULT);
         }
         // Bit 5: GNSS antenna disconnected
         if (BitUtil.check(alarmSign, 5)) {
-            alarmType = Position.ALARM_GPS_ANTENNA_DISCONNECTED;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_GPS_ANTENNA_DISCONNECTED);
         }
         // Bit 6: GNSS antenna short circuit
         if (BitUtil.check(alarmSign, 6)) {
-            alarmType = Position.ALARM_GPS_ANTENNA_SHORT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_GPS_ANTENNA_SHORT);
         }
         // Bit 7: Terminal main power under-voltage
         if (BitUtil.check(alarmSign, 7)) {
-            alarmType = Position.ALARM_MAIN_POWER_UNDER_VOLTAGE;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_MAIN_POWER_UNDER_VOLTAGE);
         }
         // Bit 8: Terminal main power off
         if (BitUtil.check(alarmSign, 8)) {
-            alarmType = Position.ALARM_MAIN_POWER_OFF;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_MAIN_POWER_OFF);
         }
         // Bit 9: Terminal LCD fault
         if (BitUtil.check(alarmSign, 9)) {
-            alarmType = Position.ALARM_LCD_FAULT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_LCD_FAULT);
         }
         // Bit 10: TTS module fault
         if (BitUtil.check(alarmSign, 10)) {
-            alarmType = Position.ALARM_TTS_FAULT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_TTS_FAULT);
         }
         // Bit 11: Camera fault
         if (BitUtil.check(alarmSign, 11)) {
-            alarmType = Position.ALARM_CAMERA_FAULT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_CAMERA_FAULT);
         }
         // Bit 12: Road transport IC card module fault
         if (BitUtil.check(alarmSign, 12)) {
-            alarmType = Position.ALARM_IC_CARD_FAULT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_IC_CARD_FAULT);
         }
         // Bit 13: Overspeed warning
         if (BitUtil.check(alarmSign, 13)) {
-            alarmType = Position.ALARM_OVERSPEED;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_OVERSPEED);
         }
         // Bit 14: Fatigue driving warning
         if (BitUtil.check(alarmSign, 14)) {
-            alarmType = Position.ALARM_FATIGUE_DRIVING;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_FATIGUE_DRIVING);
         }
         // Bit 18: Accumulated overspeed driving time
         if (BitUtil.check(alarmSign, 18)) {
-            alarmType = Position.ALARM_OVERSPEED;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_OVERSPEED);
         }
         // Bit 19: Timeout parking
         if (BitUtil.check(alarmSign, 19)) {
-            alarmType = Position.ALARM_IDLE;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_IDLE);
         }
         // Bit 20: Enter and exit the area
         if (BitUtil.check(alarmSign, 20)) {
-            alarmType = Position.ALARM_GEOFENCE_ENTER;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_GEOFENCE_ENTER);
         }
         // Bit 21: Enter and exit the route
         if (BitUtil.check(alarmSign, 21)) {
-            alarmType = Position.ALARM_GEOFENCE_EXIT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_GEOFENCE_EXIT);
         }
         // Bit 22: Driving time of route not enough/too long
         if (BitUtil.check(alarmSign, 22)) {
-            alarmType = Position.ALARM_GENERAL;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_GENERAL);
         }
         // Bit 23: Off track alarm
         if (BitUtil.check(alarmSign, 23)) {
-            alarmType = Position.ALARM_GENERAL;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_GENERAL);
         }
         // Bit 24: VSS fault
         if (BitUtil.check(alarmSign, 24)) {
-            alarmType = Position.ALARM_VSS_FAULT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_VSS_FAULT);
         }
         // Bit 25: Vehicle oil amount abnormal
         if (BitUtil.check(alarmSign, 25)) {
-            alarmType = Position.ALARM_OIL_ABNORMAL;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_OIL_ABNORMAL);
         }
         // Bit 26: Vehicle stolen
         if (BitUtil.check(alarmSign, 26)) {
-            alarmType = Position.ALARM_VEHICLE_STOLEN;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_VEHICLE_STOLEN);
         }
         // Bit 27: Illegal ignition
         if (BitUtil.check(alarmSign, 27)) {
-            alarmType = Position.ALARM_ILLEGAL_IGNITION;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_ILLEGAL_IGNITION);
         }
         // Bit 28: Illegal displacement
         if (BitUtil.check(alarmSign, 28)) {
-            alarmType = Position.ALARM_ILLEGAL_DISPLACEMENT;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_ILLEGAL_DISPLACEMENT);
         }
         // Bit 29: Collision alarm
         if (BitUtil.check(alarmSign, 29)) {
-            alarmType = Position.ALARM_COLLISION;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_COLLISION);
         }
         // Bit 30: Rollover alarm
         if (BitUtil.check(alarmSign, 30)) {
-            alarmType = Position.ALARM_ROLLOVER;
-            position.set(Position.KEY_ALARM, alarmType);
+            position.addAlarm(Position.ALARM_ROLLOVER);
         }
         // Bit 31: Illegal door opening
         if (BitUtil.check(alarmSign, 31)) {
-            alarmType = Position.ALARM_ILLEGAL_DOOR_OPEN;
-            position.set(Position.KEY_ALARM, alarmType);
-        }
-
-        // Set KEY_EVENT to ensure Traccar event system creates an event
-        if (alarmType != null) {
-            position.set(Position.KEY_EVENT, alarmType);
+            position.addAlarm(Position.ALARM_ILLEGAL_DOOR_OPEN);
         }
     }
 
@@ -449,7 +414,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
                 case 0x64: // T/JSATL12-2017 Table 4-15: ADAS alarm information
                     if (length >= 4) {
-                        int alarmId = buf.readUnsignedByte();
+                        long alarmId = buf.readUnsignedInt();
                         int alarmStatus = buf.readUnsignedByte();
                         int alarmType = buf.readUnsignedByte();
                         int alarmLevel = buf.readUnsignedByte();
@@ -464,7 +429,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         position.set("adasLevel", alarmLevel);
 
                         // Determine if this is an actual alarm or just monitoring/event data
-                        boolean isRealAlarm = (alarmId > 0 && alarmType > 0 && alarmType <= 0x0F);
+                        boolean isRealAlarm = (alarmId >= 0 && alarmType >= 0 && alarmType <= 0x0F);
 
                         // Map ADAS alarm types to Traccar alarm constants
                         switch (alarmType) {
@@ -477,47 +442,40 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 break;
 
                             case 0x01: // Forward collision warning
-                                position.set(Position.KEY_ALARM, Position.ALARM_ACCIDENT);
+                                position.addAlarm(Position.ALARM_ACCIDENT);
                                 position.set("adasAlarmName", "forwardCollision");
-                                position.set(Position.KEY_EVENT, Position.ALARM_ACCIDENT);
                                 LOGGER.warn("ADAS ALARM TYPE: Forward Collision Warning - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
 
                             case 0x02: // Lane departure warning
-                                position.set(Position.KEY_ALARM, Position.ALARM_LANE_CHANGE);
+                                position.addAlarm(Position.ALARM_LANE_CHANGE);
                                 position.set("adasAlarmName", "laneDeparture");
-                                position.set(Position.KEY_EVENT, Position.ALARM_LANE_CHANGE);
                                 break;
 
                             case 0x03: // Vehicle distance monitoring warning
-                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.addAlarm(Position.ALARM_GENERAL);
                                 position.set("adasAlarmName", "vehicleTooClose");
-                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 break;
 
                             case 0x04: // Pedestrian collision warning
-                                position.set(Position.KEY_ALARM, Position.ALARM_ACCIDENT);
+                                position.addAlarm(Position.ALARM_ACCIDENT);
                                 position.set("adasAlarmName", "pedestrianCollision");
-                                position.set(Position.KEY_EVENT, Position.ALARM_ACCIDENT);
                                 break;
 
                             case 0x05: // Frequent lane change warning
-                                position.set(Position.KEY_ALARM, Position.ALARM_LANE_CHANGE);
+                                position.addAlarm(Position.ALARM_LANE_CHANGE);
                                 position.set("adasAlarmName", "frequentLaneChange");
-                                position.set(Position.KEY_EVENT, Position.ALARM_LANE_CHANGE);
                                 break;
 
                             case 0x06: // Road sign out of limit warning
-                                position.set(Position.KEY_ALARM, Position.ALARM_OVERSPEED);
+                                position.addAlarm(Position.ALARM_OVERSPEED);
                                 position.set("adasAlarmName", "roadSignViolation");
-                                position.set(Position.KEY_EVENT, Position.ALARM_OVERSPEED);
                                 break;
 
                             case 0x07: // Obstacle warning
-                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.addAlarm(Position.ALARM_GENERAL);
                                 position.set("adasAlarmName", "obstacleDetection");
-                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 break;
 
                             case 0x10: // Road sign recognition event
@@ -541,9 +499,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             default:
                                 // Handle user-defined (0x08-0x0F, 0x12-0x1F) and vendor-specific types
                                 if (alarmType >= 0x08 && alarmType <= 0x0F) {
-                                    position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                    position.addAlarm(Position.ALARM_GENERAL);
                                     position.set("adasAlarmName", "userDefined_" + alarmType);
-                                    position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                     LOGGER.warn("ADAS USER-DEFINED ALARM - Device: {}, AlarmId: {}, Type: 0x{}",
                                                 position.getDeviceId(), alarmId,
                                                 Integer.toHexString(alarmType).toUpperCase());
@@ -556,10 +513,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                     isRealAlarm = false;
                                 } else {
                                     // Vendor-specific or unknown type
-                                    position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                    position.addAlarm(Position.ALARM_GENERAL);
                                     position.set("adasAlarmName", "vendorSpecific_0x"
                                             + Integer.toHexString(alarmType).toUpperCase());
-                                    position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                     LOGGER.warn("ADAS VENDOR-SPECIFIC ALARM - Device: {}, AlarmId: {}, Type: 0x{},"
                                                     + " Status: {}, Level: {}",
                                                 position.getDeviceId(), alarmId,
@@ -589,7 +545,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             String eventKey = position.getDeviceId() + "_" + alarmId;
                             EventMediaCorrelation correlation = new EventMediaCorrelation();
                             correlation.deviceId = position.getDeviceId();
-                            correlation.alarmId = alarmId;
+                            correlation.alarmId = (int) alarmId;
                             correlation.alarmType = "ADAS_" + Integer.toHexString(alarmType).toUpperCase();
                             correlation.eventTime = new Date();
                             eventMediaMap.put(eventKey, correlation);
@@ -598,13 +554,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                             + " Type: 0x{}", position.getDeviceId(), alarmId,
                                                Integer.toHexString(alarmType).toUpperCase());
 
-                            sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType,position);
+                            sendAlarmAttachmentRequest(channel, remoteAddress, id, (int) alarmId, alarmType, position);
                         } else {
                             LOGGER.debug("Skipping event correlation for ADAS monitoring/event data - AlarmId: {},"
                                             + " Type: 0x{}",
                                         alarmId, Integer.toHexString(alarmType).toUpperCase());
                         }
-                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType, position);
                     } else {
                         buf.skipBytes(length);
                     }
@@ -642,42 +597,37 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 break;
 
                             case 0x01: // Fatigue driving alarm
-                                position.set(Position.KEY_ALARM, Position.ALARM_FATIGUE_DRIVING);
+                                position.addAlarm(Position.ALARM_FATIGUE_DRIVING);
                                 position.set("dsmAlarmName", "fatigueDriving");
-                                position.set(Position.KEY_EVENT, Position.ALARM_FATIGUE_DRIVING);
                                 LOGGER.warn("DSM ALARM TYPE: Fatigue Driving - Device: {}, AlarmId: {}, Level: {}",
                                         position.getDeviceId(), alarmId, alarmLevel);
                                 break;
 
                             case 0x02: // Calling/phone use alarm - CRITICAL FOR REQUIREMENT
-                                position.set(Position.KEY_ALARM, Position.ALARM_PHONE_CALL);
+                                position.addAlarm(Position.ALARM_PHONE_CALL);
                                 position.set("dsmAlarmName", "phoneUse");
                                 position.set("phoneUseDetected", true);
-                                position.set(Position.KEY_EVENT, Position.ALARM_PHONE_CALL);
                                 LOGGER.warn("DSM ALARM TYPE: PHONE USE DETECTED - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
 
                             case 0x03: // Smoking alarm
-                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.addAlarm(Position.ALARM_GENERAL);
                                 position.set("dsmAlarmName", "smoking");
-                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 LOGGER.warn("DSM ALARM TYPE: Smoking Detected - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
 
                             case 0x04: // Distracted driving alarm
-                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.addAlarm(Position.ALARM_GENERAL);
                                 position.set("dsmAlarmName", "distractedDriving");
-                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 LOGGER.warn("DSM ALARM TYPE: Distracted Driving - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
 
                             case 0x05: // Driver abnormal alarm
-                                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                position.addAlarm(Position.ALARM_GENERAL);
                                 position.set("dsmAlarmName", "driverAbnormal");
-                                position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                 break;
 
                             case 0x10: // Auto capture event
@@ -701,9 +651,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             default:
                                 // Handle user-defined (0x06-0x0F, 0x12-0x1F) and vendor-specific types (like 0xE1)
                                 if (alarmType >= 0x06 && alarmType <= 0x0F) {
-                                    position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                    position.addAlarm(Position.ALARM_GENERAL);
                                     position.set("dsmAlarmName", "userDefined_" + alarmType);
-                                    position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                     LOGGER.warn("DSM USER-DEFINED ALARM - Device: {}, AlarmId: {}, Type: 0x{}",
                                                 position.getDeviceId(), alarmId,
                                                 Integer.toHexString(alarmType).toUpperCase());
@@ -716,10 +665,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                     isRealAlarm = false;
                                 } else {
                                     // Vendor-specific type (like 0xE1 = 225)
-                                    position.set(Position.KEY_ALARM, Position.ALARM_GENERAL);
+                                    position.addAlarm(Position.ALARM_GENERAL);
                                     position.set("dsmAlarmName", "vendorSpecific_0x"
                                             + Integer.toHexString(alarmType).toUpperCase());
-                                    position.set(Position.KEY_EVENT, Position.ALARM_GENERAL);
                                     LOGGER.warn("DSM VENDOR-SPECIFIC ALARM 0x{} - Device: {}, AlarmId: {}, Status: {},"
                                                     + " Level: {}",
                                                 Integer.toHexString(alarmType).toUpperCase(), position.getDeviceId(),
@@ -761,14 +709,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                         Integer.toHexString(alarmType).toUpperCase());
 
                             // Trigger automatic alarm attachment request
-                            //sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType);
+                            sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType, position);
                         } else {
                             LOGGER.debug("Skipping event correlation for DSM monitoring/event data - AlarmId: {},"
                                         + " Type: 0x{}",
                                         alarmId, Integer.toHexString(alarmType).toUpperCase());
                         }
-                        // Trigger automatic alarm attachment request
-                        sendAlarmAttachmentRequest(channel, remoteAddress, id, alarmId, alarmType, position);
                     } else {
                         buf.skipBytes(length);
                     }
@@ -1466,7 +1412,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 linkedEvent = correlation;
                 position.set("eventAlarmId", correlation.alarmId);
                 position.set("eventAlarmType", correlation.alarmType);
-                position.set(Position.KEY_ALARM, Position.ALARM_GENERAL); // Trigger event
+                position.addAlarm(Position.ALARM_GENERAL); // Trigger event
                 LOGGER.info("Multimedia {} linked to event AlarmId: {} ({})",
                         multimediaId, correlation.alarmId, correlation.alarmType);
                 break;

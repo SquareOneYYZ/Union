@@ -172,7 +172,7 @@ class DeviceConfig:
     hardware_version: str = "1.0.0"
 
     server_ip: str = "127.0.0.1"
-    server_port: int = 8888
+    server_port: int = 5999
 
     # Authentication code (received after registration)
     auth_code: str = ""
