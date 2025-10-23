@@ -796,9 +796,11 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         boolean isSubPackage = BitUtil.check(attribute, 13);
         int encryption = (attribute >> 10) & 0x07;
 
+        int totalPackages = 1;  // Default to 1 if not sub-packaged
+        int packageNo = 1;      // Default to 1 if not sub-packaged
         if (isSubPackage) {
-            int totalPackages = buf.readUnsignedShort();
-            int packageNo = buf.readUnsignedShort();
+            totalPackages = buf.readUnsignedShort();
+            packageNo = buf.readUnsignedShort();
         }
         if (encryption != 0) {
             return null;
@@ -919,9 +921,11 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
             case MSG_MULTIMEDIA_DATA_UPLOAD:
                 // Section 8.28: Multimedia data upload (0x0801)
-                LOGGER.info("RECEIVED MULTIMEDIA DATA UPLOAD (0x0801) - Device: {}", deviceSession.getUniqueId());
+                LOGGER.info("RECEIVED MULTIMEDIA DATA UPLOAD (0x0801) - Device: {}, Packet {}/{}",
+                        deviceSession.getUniqueId(), packageNo, totalPackages);
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
-                Position uploadPos = decodeMultimediaDataUpload(deviceSession, buf, channel, remoteAddress, id);
+                Position uploadPos = decodeMultimediaDataUpload(deviceSession, buf, channel, remoteAddress, id,
+                        totalPackages, packageNo);
                 if (uploadPos != null) {
                     LOGGER.info("MULTIMEDIA DATA DECODED - MultimediaId: {}, Type: {}, PacketSize: {},"
                                     + " TotalReceived: {}",
@@ -1321,6 +1325,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         private int multimediaType;
         private int formatCode;
         private String deviceId;
+        private int totalPackages;
+        private int receivedPackages;
     }
 
     private final Map<String, MultimediaFile> multimediaFiles = new HashMap<>();
@@ -1358,12 +1364,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private Position decodeMultimediaDataUpload(DeviceSession deviceSession, ByteBuf buf,
-                                                Channel channel, SocketAddress remoteAddress, ByteBuf id) {
-        // Periodically clean up old correlations
-        if (Math.random() < 0.1) { // 10% chance on each call
-            cleanupOldCorrelations();
-        }
-
+                                                Channel channel, SocketAddress remoteAddress, ByteBuf id,
+                                                int totalPackages, int packageNo) {
         Position position = new Position(getProtocolName());
         position.setDeviceId(deviceSession.getDeviceId());
 
@@ -1386,8 +1388,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         MultimediaFile file = multimediaFiles.get(fileKey);
 
         if (file == null) {
-            LOGGER.info("NEW MULTIMEDIA FILE STARTED - Device: {}, MultimediaId: {}, Type: {}",
-                    deviceSession.getUniqueId(), multimediaId, multimediaType);
+            LOGGER.info("NEW MULTIMEDIA FILE STARTED - Device: {}, MultimediaId: {}, Type: {}, Total Packages: {}",
+                    deviceSession.getUniqueId(), multimediaId, multimediaType, totalPackages);
             file = new MultimediaFile();
             file.multimediaId = multimediaId;
             file.deviceId = deviceSession.getUniqueId();
@@ -1395,14 +1397,24 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             file.formatCode = formatCode;
             file.data = Unpooled.buffer();
             file.receivedSize = 0;
+            file.totalPackages = totalPackages;
+            file.receivedPackages = 0;
             multimediaFiles.put(fileKey, file);
         }
         file.data.writeBytes(packetData);
         file.receivedSize += packetData.length;
+        file.receivedPackages++;
+
+        LOGGER.debug("MULTIMEDIA PACKET PROCESSED - Device: {}, MultimediaId: {}, Package {}/{}, Size: {} bytes",
+                deviceSession.getUniqueId(), multimediaId, packageNo, totalPackages, packetData.length);
+
         position.set("multimediaId", multimediaId);
         position.set("multimediaType", multimediaType);
         position.set("packetSize", packetData.length);
         position.set("totalReceived", file.receivedSize);
+        position.set("packageNo", packageNo);
+        position.set("totalPackages", totalPackages);
+        position.set("event", "multimediaDataReceived");
 
         // Check if this multimedia is linked to an alarm event
         EventMediaCorrelation linkedEvent = null;
@@ -1420,7 +1432,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         }
 
         position.set("event", linkedEvent != null ? "alarmMultimedia" : "multimediaDataReceived");
-        if (buf.readableBytes() == 0) {
+
+        // Check if this is the LAST packet (per JT/T 808 specification)
+        // Compare packet numbers, NOT buffer bytes to packet count!
+        if (packageNo == totalPackages) {
             try {
                 // Determine file extension
                 String extension;
@@ -1444,9 +1459,10 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         extension = "bin";
                         break;
                 }
-                LOGGER.info("SAVING MULTIMEDIA FILE - Device: {}, MultimediaId: {}, Type: {}, Size: {} bytes,"
-                                + " Extension: {}",
-                        file.deviceId, multimediaId, multimediaType, file.receivedSize, extension);
+                LOGGER.info("LAST PACKET RECEIVED - SAVING MULTIMEDIA FILE - Device: {}, MultimediaId: {}, "
+                                + "Type: {}, Packages: {}/{}, Total Size: {} bytes, Extension: {}",
+                        file.deviceId, multimediaId, multimediaType, file.receivedPackages,
+                        file.totalPackages, file.receivedSize, extension);
                 // Save file using Traccar's storage system (like DualcamProtocolDecoder)
                 String filePath = writeMediaFile(file.deviceId, file.data, extension);
                 LOGGER.info("MULTIMEDIA FILE SAVED SUCCESSFULLY - Path: {}, Size: {} bytes",
