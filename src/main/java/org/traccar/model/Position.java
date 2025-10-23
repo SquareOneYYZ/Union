@@ -162,6 +162,28 @@ public class Position extends Message {
     public static final String ALARM_REMOVING = "removing";
     public static final String ALARM_PHONE_CALL = "phoneCall";
     public static final String ALARM_SEAT_BELT = "seatBelt";
+
+    // JT/T 808-2013 Hardware fault alarms (bits 4-12)
+    public static final String ALARM_GPS_MODULE_FAULT = "gpsModuleFault";
+    public static final String ALARM_GPS_ANTENNA_DISCONNECTED = "gpsAntennaDisconnected";
+    public static final String ALARM_GPS_ANTENNA_SHORT = "gpsAntennaShort";
+    public static final String ALARM_MAIN_POWER_UNDER_VOLTAGE = "mainPowerUnderVoltage";
+    public static final String ALARM_MAIN_POWER_OFF = "mainPowerOff";
+    public static final String ALARM_LCD_FAULT = "lcdFault";
+    public static final String ALARM_TTS_FAULT = "ttsFault";
+    public static final String ALARM_CAMERA_FAULT = "cameraFault";
+    public static final String ALARM_IC_CARD_FAULT = "icCardFault";
+
+    // JT/T 808-2013 Vehicle fault alarms (bits 24-31)
+    public static final String ALARM_VSS_FAULT = "vssFault";
+    public static final String ALARM_OIL_ABNORMAL = "oilAbnormal";
+    public static final String ALARM_VEHICLE_STOLEN = "vehicleStolen";
+    public static final String ALARM_ILLEGAL_IGNITION = "illegalIgnition";
+    public static final String ALARM_ILLEGAL_DISPLACEMENT = "illegalDisplacement";
+    public static final String ALARM_COLLISION = "collision";
+    public static final String ALARM_ROLLOVER = "rollover";
+    public static final String ALARM_ILLEGAL_DOOR_OPEN = "illegalDoorOpen";
+
     public Position() {
     }
 
