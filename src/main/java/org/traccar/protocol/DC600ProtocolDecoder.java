@@ -169,6 +169,8 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 //            data.writeByte(alarmType);         // Alarm type (ADAS or DSM)
 //            data.writeByte(0x00);              // Alarm terminal ID length (0 = all terminals)
 //            data.writeByte(0x00);              // Reserved
+            String serverIp = getConfig().getString("dc600.attachment.ip", "165.22.228.97");
+            int serverPort = getConfig().getInteger("dc600.attachment.port", 5999);
             data.writeByte(serverIp.length());
             data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
             data.writeShort(serverPort);
