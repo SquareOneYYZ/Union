@@ -155,7 +155,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 //            data.writeByte(alarmType);         // Alarm type (ADAS or DSM)
 //            data.writeByte(0x00);              // Alarm terminal ID length (0 = all terminals)
 //            data.writeByte(0x00);              // Reserved
-            String serverIp = "165.22.228.97";
+            String serverIp = "127.0.0.1";
             data.writeByte(serverIp.length());
             data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
             data.writeShort(5999);
@@ -429,7 +429,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         position.set("adasLevel", alarmLevel);
 
                         // Determine if this is an actual alarm or just monitoring/event data
-                        boolean isRealAlarm = (alarmId >= 0 && alarmType >= 0 && alarmType <= 0x0F);
+                        // Per T/JSATL12-2017: Types 0x01-0x0F are alarms (require attachment requests)
+                        // Type 0x00 is monitoring, types 0x10-0x1F are events (no attachment requests)
+                        boolean isRealAlarm = (alarmType >= 0x01 && alarmType <= 0x0F);
 
                         // Map ADAS alarm types to Traccar alarm constants
                         switch (alarmType) {
@@ -582,7 +584,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         position.set("dsmLevel", alarmLevel);
 
                         // Determine if this is an actual alarm or just monitoring data
-                        boolean isRealAlarm = (alarmId > 0 && alarmType > 0);
+                        // Per T/JSATL12-2017: Types 0x01-0x0F are alarms (require attachment requests)
+                        // Type 0x00 is monitoring, types 0x10-0x1F are events (no attachment requests)
+                        boolean isRealAlarm = (alarmType >= 0x01 && alarmType <= 0x0F);
 
                         // Map DSM alarm types to Traccar alarm constants
                         switch (alarmType) {

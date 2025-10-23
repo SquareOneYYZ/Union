@@ -441,21 +441,31 @@ class DC600Device:
             adas_type = 0x01  # Forward collision warning
             adas_level = 2  # Warning level
 
-            # ADAS data structure (minimum 7 bytes as decoder expects at line 417)
+            # ADAS data structure - MUST send full 42-byte structure to avoid decoder bug at line 539
+            # The decoder has a bug: it reads 7 bytes then tries to skip (length-4) bytes
+            # To work around this, we send the full structure (length >= 32)
             adas_data = struct.pack(">I", alarm_id)     # Alarm ID (4 bytes unsigned int)
             adas_data += struct.pack("B", adas_status)  # Status (1 byte)
             adas_data += struct.pack("B", adas_type)    # Type (1 byte)
             adas_data += struct.pack("B", adas_level)   # Level (1 byte)
-            # If length >= 32, add more data (speed, altitude, lat, lon, time, etc.)
-            # For now, just send minimum data
+
+            # Extended data (required to make length >= 32)
+            adas_data += struct.pack("B", speed // 10)             # Speed (1 byte, km/h)
+            adas_data += struct.pack(">H", int(altitude * 10))     # Altitude (2 bytes, 0.1m units)
+            adas_data += struct.pack(">i", latitude)               # Latitude (4 bytes)
+            adas_data += struct.pack(">i", longitude)              # Longitude (4 bytes)
+            adas_data += time_bcd                                  # Time (6 bytes BCD)
+            adas_data += struct.pack(">H", status & 0xFFFF)        # Vehicle status (2 bytes)
+            adas_data += b'\x00' * 16                              # Alarm identification (16 bytes)
+            # Total: 4+1+1+1+1+2+4+4+6+2+16 = 42 bytes
 
             # Additional info format: ID (1 byte) + Length (1 byte) + Data
             body += struct.pack("B", 0x64)              # Additional info ID
-            body += struct.pack("B", len(adas_data))    # Length
+            body += struct.pack("B", len(adas_data))    # Length (should be 42)
             body += adas_data
 
             log(f"ADAS Alarm: Type=0x{adas_type:02X} (Forward Collision), AlarmId={alarm_id}, Level={adas_level}", "WARNING")
-            log(f"ADAS data: {len(adas_data)} bytes", "INFO")
+            log(f"ADAS data: {len(adas_data)} bytes (full structure to work around decoder bug)", "INFO")
 
         elif alarm_type == "DSM":
             # Additional info ID: 0x65 (DSM alarm) - per DC600ProtocolDecoder line 569
