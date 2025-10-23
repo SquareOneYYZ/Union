@@ -28,7 +28,6 @@ import org.traccar.helper.*;
 import org.traccar.model.Position;
 import org.traccar.session.DeviceSession;
 
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -152,25 +151,16 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             LOGGER.info("SENDING ALARM ATTACHMENT REQUEST (0x9208) - AlarmId: {}, AlarmType: 0x{}",
                     alarmId, Integer.toHexString(alarmType).toUpperCase());
 
-            // Get actual server IP from channel's local address
-            String serverIp = "165.22.228.97"; // Default fallback
-            int serverPort = 5999;
-            if (channel.localAddress() instanceof InetSocketAddress) {
-                InetSocketAddress localAddr = (InetSocketAddress) channel.localAddress();
-                serverIp = localAddr.getAddress().getHostAddress();
-                serverPort = localAddr.getPort();
-                LOGGER.info("Using actual server address from channel: {}:{}", serverIp, serverPort);
-            } else {
-                LOGGER.warn("Could not get server IP from channel, using fallback: {}", serverIp);
-            }
+            // Get server IP and port from config (configurable via traccar.xml)
+            String serverIp = getConfig().getString("dc600.attachment.ip", "165.22.228.97");
+            int serverPort = getConfig().getInteger("dc600.attachment.port", 5999);
+            LOGGER.info("Using configured attachment server: {}:{}", serverIp, serverPort);
 
             ByteBuf data = Unpooled.buffer();
 //            data.writeByte(alarmId);           // Alarm serial number
 //            data.writeByte(alarmType);         // Alarm type (ADAS or DSM)
 //            data.writeByte(0x00);              // Alarm terminal ID length (0 = all terminals)
 //            data.writeByte(0x00);              // Reserved
-            String serverIp = getConfig().getString("dc600.attachment.ip", "165.22.228.97");
-            int serverPort = getConfig().getInteger("dc600.attachment.port", 5999);
             data.writeByte(serverIp.length());
             data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
             data.writeShort(serverPort);
