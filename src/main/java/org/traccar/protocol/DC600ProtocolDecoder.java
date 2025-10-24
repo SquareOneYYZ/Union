@@ -755,6 +755,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         position.set("mediaFormat", mediaFormat);
                         position.set("eventCode", eventCode);
 
+                        // Set alarm ID so sendAlarmAttachmentRequest populates the alarm flag
+                        position.set("adasAlarmId", mediaId);  // Use mediaId as alarmId for workaround
+
                         // Set generic alarm since we cannot determine specific type
                         position.addAlarm("unknown");
                         position.set("alarmSource", "multimedia_event_0x70");
