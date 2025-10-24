@@ -737,6 +737,53 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     }
                     break;
 
+                case 0x70: // T/JSATL12-2017 Table 4-19: Multi-media Event ID (WORKAROUND)
+                    // TEMPORARY WORKAROUND: Device is NOT sending 0x64/0x65 alarm data
+                    // Parse 0x70 to infer alarm and trigger attachment request anyway
+                    if (length >= 7) {
+                        long mediaId = buf.readUnsignedInt();
+                        int mediaType = buf.readUnsignedByte();
+                        int mediaFormat = buf.readUnsignedByte();
+                        int eventCode = buf.readUnsignedByte();
+
+                        LOGGER.warn("WORKAROUND - Multi-media event detected (0x70) without ADAS/DSM data (0x64/0x65)"
+                                + " - Device: {}, MediaId: {}, EventCode: 0x{}", position.getDeviceId(), mediaId,
+                                Integer.toHexString(eventCode).toUpperCase());
+
+                        position.set("mediaId", mediaId);
+                        position.set("mediaType", mediaType);
+                        position.set("mediaFormat", mediaFormat);
+                        position.set("eventCode", eventCode);
+
+                        // Set generic alarm since we cannot determine specific type
+                        position.addAlarm("unknown");
+                        position.set("alarmSource", "multimedia_event_0x70");
+
+                        // Create event correlation for multimedia linking
+                        String eventKey = position.getDeviceId() + "_" + mediaId;
+                        EventMediaCorrelation correlation = new EventMediaCorrelation();
+                        correlation.deviceId = position.getDeviceId();
+                        correlation.alarmId = (int) mediaId;
+                        correlation.alarmType = "MULTIMEDIA_EVENT_0x" + Integer.toHexString(eventCode).toUpperCase();
+                        correlation.eventTime = new Date();
+                        eventMediaMap.put(eventKey, correlation);
+
+                        LOGGER.info("WORKAROUND - Triggering alarm attachment request based on 0x70 - Device: {},"
+                                + " MediaId: {}, EventCode: 0x{}", position.getDeviceId(), mediaId,
+                                Integer.toHexString(eventCode).toUpperCase());
+
+                        // Send 0x9208 request using mediaId as alarmId and eventCode as alarmType
+                        sendAlarmAttachmentRequest(channel, remoteAddress, id, (int) mediaId, eventCode, position);
+
+                        // Skip remaining bytes if any
+                        if (length > 7) {
+                            buf.skipBytes(length - 7);
+                        }
+                    } else {
+                        buf.skipBytes(length);
+                    }
+                    break;
+
                 default:
                     buf.skipBytes(length);
                     break;
