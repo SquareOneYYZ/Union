@@ -244,6 +244,44 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
     }
 
+    private void configureDeviceAdasDsmProfile(Channel channel, SocketAddress remoteAddress, ByteBuf id) {
+        if (channel != null) {
+            LOGGER.info("Configuring ADAS/DSM parameters for THIS server profile - Device: {}",
+                    ByteBufUtil.hexDump(id));
+
+            ByteBuf data = Unpooled.buffer();
+            data.writeByte(0x04);  // Number of parameters to set
+
+            // Parameter 0x0076: ADAS alarm enable (enable all types)
+            data.writeInt(0x0076);
+            data.writeByte(0x01);  // Length: 1 byte
+            data.writeByte(0xFF);  // Value: all bits set (all ADAS types enabled)
+
+            // Parameter 0x0077: DSM alarm enable (enable all types)
+            data.writeInt(0x0077);
+            data.writeByte(0x01);  // Length: 1 byte
+            data.writeByte(0xFF);  // Value: all bits set (all DSM types enabled)
+
+            // Parameter 0x007E: ADAS upload settings (upload 0x64 in 0x0200)
+            data.writeInt(0x007E);
+            data.writeByte(0x01);  // Length: 1 byte
+            data.writeByte(0x01);  // Value: bit 0 = 1 (upload 0x64 in location reports)
+
+            // Parameter 0x007F: DSM upload settings (upload 0x65 in 0x0200)
+            data.writeInt(0x007F);
+            data.writeByte(0x01);  // Length: 1 byte
+            data.writeByte(0x01);  // Value: bit 0 = 1 (upload 0x65 in location reports)
+
+            ByteBuf message = formatMessage(delimiter, MSG_PARAMETER_SETTING, id, false, data);
+            channel.writeAndFlush(new NetworkMessage(message, remoteAddress));
+
+            LOGGER.info("ADAS/DSM configuration sent (0x8103) - device will include 0x64/0x65 in future 0x0200 "
+                    + "messages for THIS server");
+        } else {
+            LOGGER.warn("Cannot send ADAS/DSM configuration - channel is null");
+        }
+    }
+
     private String decodeDeviceId(ByteBuf id) {
         StringBuilder deviceId = new StringBuilder();
         for (int i = 0; i < id.readableBytes(); i++) {
@@ -897,6 +935,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     channel.writeAndFlush(new NetworkMessage(
                             formatMessage(delimiter, MSG_TERMINAL_REGISTER_RESPONSE, id, false, response),
                             remoteAddress));
+
+                    // Configure ADAS/DSM parameters for this server profile
+                    configureDeviceAdasDsmProfile(channel, remoteAddress, id);
                 }
 
                 ByteBuf response = Unpooled.buffer();
@@ -910,6 +951,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             case MSG_TERMINAL_AUTH:
                 // Section 8.6: Terminal authentication - send general response
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
+
+                // Configure ADAS/DSM parameters for this server profile after authentication
+                configureDeviceAdasDsmProfile(channel, remoteAddress, id);
                 return null;
 
             case MSG_TERMINAL_HEARTBEAT:
@@ -929,6 +973,21 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
             case MSG_TERMINAL_GENERAL_RESPONSE:
                 // Section 8.1: Terminal general response - acknowledgment from device
+                if (buf.readableBytes() >= 3) {
+                    int responseSerial = buf.readUnsignedShort();
+                    int originalMsgId = buf.readUnsignedShort();
+                    int result = buf.readUnsignedByte();
+
+                    if (originalMsgId == MSG_PARAMETER_SETTING) {
+                        if (result == RESULT_SUCCESS) {
+                            LOGGER.info("✓ Device accepted ADAS/DSM configuration (0x8103) - Device: {}, "
+                                    + "Parameters 0x007E/0x007F configured", deviceSession.getUniqueId());
+                        } else {
+                            LOGGER.warn("✗ Device rejected ADAS/DSM configuration (0x8103) - Device: {}, "
+                                    + "Result: 0x{}", deviceSession.getUniqueId(), Integer.toHexString(result));
+                        }
+                    }
+                }
                 return null;
 
             case MSG_ALARM_ATTACHMENT_INFO:
