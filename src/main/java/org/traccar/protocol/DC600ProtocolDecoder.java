@@ -153,16 +153,19 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
             // Get server IP and port from config (configurable via traccar.xml)
             String serverIp = getConfig().getString("dc600.attachment.ip", "165.22.228.97");
-            int serverPort = getConfig().getInteger("dc600.attachment.port", 5999);
+            int serverPort = getConfig().getInteger("dc600.attachment.port", 60001);
             LOGGER.info("Using configured attachment server: {}:{}", serverIp, serverPort);
+            LOGGER.info("DC600 media uploads require JT1078 server on port {} - ensure JT1078 protocol is enabled",
+                    serverPort);
 
             ByteBuf data = Unpooled.buffer();
 //            data.writeByte(alarmId);           // Alarm serial number
 //            data.writeByte(alarmType);         // Alarm type (ADAS or DSM)
 //            data.writeByte(0x00);              // Alarm terminal ID length (0 = all terminals)
 //            data.writeByte(0x00);              // Reserved
-            data.writeByte(serverIp.length());
+            data.writeByte(serverIp.length() + 1);  // +1 for NULL terminator
             data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+            data.writeByte(0x00);  // NULL terminator (matches vendor format)
             data.writeShort(serverPort);
             data.writeShort(0);
             byte[] alarmFlag = new byte[16];
