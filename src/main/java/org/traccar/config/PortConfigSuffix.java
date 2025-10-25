@@ -282,6 +282,7 @@ public class PortConfigSuffix extends ConfigSuffix<Integer> {
         PORTS.put("snapper", 5256);
         PORTS.put("gl601", 5257);
         PORTS.put("dc600", 5999);
+        PORTS.put("jt1078", 60001);
 
     }
 
