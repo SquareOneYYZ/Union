@@ -188,6 +188,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             System.arraycopy(alarmNumBytes, 0, alarmNumber, 0, Math.min(alarmNumBytes.length, 32));
             data.writeBytes(alarmNumber);
             data.writeBytes(new byte[16]);
+            id.resetReaderIndex();  // Reset reader index to ensure full 6 bytes are written
             ByteBuf message = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD_REQUEST, id, false, data);
             byte[] rawBytes = new byte[message.readableBytes()];
             message.getBytes(message.readerIndex(), rawBytes);
