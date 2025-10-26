@@ -168,28 +168,51 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             data.writeByte(0x00);  // NULL terminator (matches vendor format)
             data.writeShort(serverPort);
             data.writeShort(0);
+
+            // Alarm flag: BYTE[16] - Alarm identification number per DC600 spec Table 4-16
+            // Structure: Terminal ID (7) + Time (6) + Serial (1) + Attachments (1) + Reserved (1)
             byte[] alarmFlag = new byte[16];
             if (position.hasAttribute("adasAlarmId") || position.hasAttribute("dsmAlarmId")) {
+                // Terminal ID (7 bytes) - Device ID formatted as string
                 String deviceId = String.format("%07d", position.getDeviceId());
                 System.arraycopy(deviceId.getBytes(StandardCharsets.US_ASCII), 0, alarmFlag, 0, 7);
+
+                // Time (6 bytes BCD) - YY-MM-DD-hh-mm-ss
                 Date alarmTime = position.getDeviceTime() != null ? position.getDeviceTime() : new Date();
                 SimpleDateFormat sdf = new SimpleDateFormat("yyMMddHHmmss");
                 byte[] timeBytes = DataConverter.parseHex(sdf.format(alarmTime));
                 System.arraycopy(timeBytes, 0, alarmFlag, 7, 6);
+
+                // Serial number (1 byte) - Alarm sequence number
                 alarmFlag[13] = (byte) alarmId;
+
+                // Number of attachments (1 byte)
                 alarmFlag[14] = 0x01;
+
+                // Reserved (1 byte)
                 alarmFlag[15] = 0x00;
             }
-            data.writeBytes(alarmFlag);
+            data.writeBytes(alarmFlag); // 16 bytes
+
+            // Alarm number: BYTE[32] - Platform-assigned unique alarm number per DC600 spec Table 4-21
             byte[] alarmNumber = new byte[32];
             String uniqueAlarmNumber = String.format("ALM-%d-%d-%d",
                     position.getDeviceId(), alarmId, System.currentTimeMillis());
             byte[] alarmNumBytes = uniqueAlarmNumber.getBytes(StandardCharsets.US_ASCII);
             System.arraycopy(alarmNumBytes, 0, alarmNumber, 0, Math.min(alarmNumBytes.length, 32));
-            data.writeBytes(alarmNumber);
+            data.writeBytes(alarmNumber); // 32 bytes
+
+            // Reserved: BYTE[16] (16 bytes zeros)
             data.writeBytes(new byte[16]);
-            id.resetReaderIndex();  // Reset reader index to ensure full 6 bytes are written
-            ByteBuf message = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD_REQUEST, id, false, data);
+
+            // CRITICAL FIX: Copy device ID to new buffer to avoid buffer lifecycle issues
+            // The `id` parameter is a slice of the incoming buffer and may be consumed/corrupted
+            // by the time formatMessage() tries to write it
+            byte[] deviceIdBytes = new byte[6];
+            id.getBytes(id.readerIndex(), deviceIdBytes);
+            ByteBuf deviceIdBuf = Unpooled.wrappedBuffer(deviceIdBytes);
+
+            ByteBuf message = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD_REQUEST, deviceIdBuf, false, data);
             byte[] rawBytes = new byte[message.readableBytes()];
             message.getBytes(message.readerIndex(), rawBytes);
             LOGGER.info("ALARM ATTACHMENT REQUEST RAW DATA - AlarmId: {}, Length: {}, Hex: {}",
