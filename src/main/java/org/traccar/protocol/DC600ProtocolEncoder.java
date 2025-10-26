@@ -17,10 +17,12 @@ package org.traccar.protocol;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.BaseProtocolEncoder;
 import org.traccar.Protocol;
+import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.helper.DataConverter;
 import org.traccar.helper.model.AttributeUtil;
@@ -34,8 +36,15 @@ import java.util.Date;
 public class DC600ProtocolEncoder extends BaseProtocolEncoder {
     private static final Logger LOGGER = LoggerFactory.getLogger(DC600ProtocolEncoder.class);
 
+    private Config config;
+
     public DC600ProtocolEncoder(Protocol protocol) {
         super(protocol);
+    }
+
+    @Inject
+    public void setConfig(Config config) {
+        this.config = config;
     }
 
     @Override
@@ -108,16 +117,24 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
 
                 case Command.TYPE_LIVE_STREAM:
                     int channel = command.getInteger(Command.KEY_CHANNEL);
-                    String serverIp = "143.198.33.215";
-                    int serverPort = 9101;
+                    // JT/T 1076-2016 channel numbering starts from 1, not 0. Ensure minimum channel is 1.
+                    if (channel == 0) {
+                        channel = 1;
+                        LOGGER.warn("Channel 0 is invalid per JT/T 1076, using channel 1 for device {}",
+                                command.getDeviceId());
+                    }
+                    // Read from config file with defaults
+                    String serverIp = config.getString("dc600.livestream.ip", "143.198.33.215");
+                    int serverPort = config.getInteger("dc600.livestream.port", 9101);
                     int udpPort = 0;
                     LOGGER.info("LIVE STREAM START REQUEST - Device: {}, Channel: {}, Server: {}:{}(TCP)/{}(UDP)",
                             command.getDeviceId(), channel, serverIp, serverPort, udpPort);
-                    data.writeByte(serverIp.length()); // Server IP address length
+                    data.writeByte(serverIp.length() + 1); // Server IP address length (+1 for NULL terminator)
                     data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII)); // Server IP address
+                    data.writeByte(0x00); // NULL terminator (required by DC600 protocol)
                     data.writeShort(serverPort); // Server video channel listening port (TCP)
                     data.writeShort(udpPort); // Server video channel monitoring port (UDP)
-                    data.writeByte(channel);
+                    data.writeByte(channel); // Channel number (1-based per JT/T 1076-2016)
                     int dataType = 0; // Audio and video
                     if (command.hasAttribute(Command.KEY_DATA_TYPE)) {
                         dataType = command.getInteger(Command.KEY_DATA_TYPE);
@@ -158,11 +175,15 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                             false, stopData);
 
                 case Command.TYPE_VIDEO_PLAYBACK:
-                    String playbackServerIp  = "165.22.228.97";
-                    data.writeByte(playbackServerIp .length());
-                    data.writeBytes(playbackServerIp .getBytes(StandardCharsets.US_ASCII));
-                    data.writeShort(5999); // TCP port
-                    data.writeShort(0);    // UDP port
+                    // Read from config file with defaults
+                    String playbackServerIp = config.getString("dc600.playback.ip", "165.22.228.97");
+                    int playbackTcpPort = config.getInteger("dc600.playback.port", 5999);
+                    int playbackUdpPort = config.getInteger("dc600.playback.udpPort", 0);
+                    data.writeByte(playbackServerIp.length() + 1); // +1 for NULL terminator
+                    data.writeBytes(playbackServerIp.getBytes(StandardCharsets.US_ASCII));
+                    data.writeByte(0x00); // NULL terminator (required by DC600 protocol)
+                    data.writeShort(playbackTcpPort); // TCP port
+                    data.writeShort(playbackUdpPort); // UDP port
                     data.writeByte(command.getInteger(Command.KEY_CHANNEL));
                     data.writeByte(0x00);
                     data.writeByte(0x01);
