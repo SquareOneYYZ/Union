@@ -33,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -168,25 +169,40 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             data.writeByte(0x00);  // NULL terminator (matches vendor format)
             data.writeShort(serverPort);
             data.writeShort(0);
-            byte[] alarmFlag = new byte[16];
-            if (position.hasAttribute("adasAlarmId") || position.hasAttribute("dsmAlarmId")) {
-                String deviceId = String.format("%07d", position.getDeviceId());
-                System.arraycopy(deviceId.getBytes(StandardCharsets.US_ASCII), 0, alarmFlag, 0, 7);
-                Date alarmTime = position.getDeviceTime() != null ? position.getDeviceTime() : new Date();
-                SimpleDateFormat sdf = new SimpleDateFormat("yyMMddHHmmss");
-                byte[] timeBytes = DataConverter.parseHex(sdf.format(alarmTime));
-                System.arraycopy(timeBytes, 0, alarmFlag, 7, 6);
-                alarmFlag[13] = (byte) alarmId;
-                alarmFlag[14] = 0x01;
-                alarmFlag[15] = 0x00;
+
+            // ✓ CORRECT - Alarm flag: DWORD (4 bytes) - bit field per JT/T protocol Table 4-21
+            // Each bit represents an alarm type:
+            // Bit 0 (0x00000001) = Alarm type 1
+            // Bit 1 (0x00000002) = Alarm type 2
+            // Bit 2 (0x00000004) = Alarm type 3 (alarm type 0x4 if using direct mapping)
+            // Bit 3 (0x00000008) = Alarm type 4
+            // etc.
+            int alarmFlag;
+            if (alarmType >= 1 && alarmType <= 32) {
+                // Standard mapping: alarm type N uses bit position (N-1)
+                alarmFlag = 1 << (alarmType - 1);
+            } else {
+                // For alarm types that are already bit values (like 0x4), use direct mapping
+                // This handles cases where alarmType is 0x1, 0x2, 0x4, 0x8, etc.
+                alarmFlag = alarmType;
             }
-            data.writeBytes(alarmFlag);
-            byte[] alarmNumber = new byte[32];
-            String uniqueAlarmNumber = String.format("ALM-%d-%d-%d",
-                    position.getDeviceId(), alarmId, System.currentTimeMillis());
-            byte[] alarmNumBytes = uniqueAlarmNumber.getBytes(StandardCharsets.US_ASCII);
-            System.arraycopy(alarmNumBytes, 0, alarmNumber, 0, Math.min(alarmNumBytes.length, 32));
-            data.writeBytes(alarmNumber);
+            LOGGER.info("Alarm flag: 0x{} (alarmType: 0x{})",
+                    Integer.toHexString(alarmFlag).toUpperCase(),
+                    Integer.toHexString(alarmType).toUpperCase());
+            data.writeInt(alarmFlag); // 4 bytes, big endian
+
+            // ✓ CORRECT - Alarm number: BYTE[32] (32 bytes) - array of alarm sequence numbers
+            // Per JT/T protocol Table 4-21: sequence numbers of alarms in this batch
+            byte[] alarmNumbers = new byte[32];
+            Arrays.fill(alarmNumbers, (byte) 0xFF); // Fill with 0xFF (invalid/unused marker)
+            alarmNumbers[0] = (byte) alarmId; // First alarm sequence number in this batch
+            // If multiple alarms in one request, add more:
+            // alarmNumbers[1] = (byte)secondAlarmId;
+            // alarmNumbers[2] = (byte)thirdAlarmId;
+            // etc.
+            data.writeBytes(alarmNumbers); // 32 bytes total
+
+            // Reserved: 16 bytes (zeros)
             data.writeBytes(new byte[16]);
             id.resetReaderIndex();  // Reset reader index to ensure full 6 bytes are written
             ByteBuf message = formatMessage(delimiter, MSG_ALARM_ATTACHMENT_UPLOAD_REQUEST, id, false, data);
