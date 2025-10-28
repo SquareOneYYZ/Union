@@ -79,10 +79,13 @@
     <entry key='tollRoute.roundingDecimals'>3</entry>
 
     <entry key='media.enable'>true</entry>
-    <entry key='media.path'>/opt/traccar/media</entry>
+    <entry key='media.path'>C:\Users\Filing Cabinet\IdeaProjects\test\media</entry>
 
     <entry key='dc600.livestream.ip'>143.198.33.215</entry>
     <entry key='dc600.livestream.port'>9101</entry>
+    <entry key='dc600.attachment.ip'>165.22.228.97</entry>
+    <entry key='dc600.attachment.port'>5999</entry>
+
 
 
 

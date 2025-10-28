@@ -13,3 +13,32 @@ build
 .vscode
 bin
 .metadata
+
+# Large database and log files
+events.mysql
+*.sql.gz
+*.mysql
+
+# Large log files
+logs/*.log
+logs/*.logs
+tools/**/*.log
+tools/**/__pycache__/
+
+# Media files (test data)
+media/
+
+# Device logs
+device_logs/
+
+# Files with sensitive information
+smtp notes
+*.env
+*.pem
+*.key
+*credentials*
+
+# Configuration files (may contain secrets)
+traccar.xml
+traccar-*.xml
+debug.xml

@@ -1,0 +1,25 @@
+{
+  "server": {
+    "server_ip": "device.istarmap.com",
+    "server_port": 9092,
+    "timeout": 30,
+    "comment": "Change host to 'localhost' for local testing"
+  },
+  "device": {
+    "device_id": "496076898991",
+    "auth_code": "496076898991",
+    "comment": "Device ID from actual 7pm session logs"
+  },
+  "test_scenarios": {
+    "run_scenario_1": true,
+    "run_scenario_2": true,
+    "run_scenario_3": true,
+    "delay_between_scenarios": 3
+  },
+  "timing": {
+    "heartbeat_interval": 30,
+    "location_report_interval": 10,
+    "alarm_listen_timeout": 15,
+    "comment": "All values in seconds"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "server_ip": "device.istarmap.com",
+  "server_port": 9092,
+  "phone_number": "496076898991",
+
+
+  "initial_latitude": 31.230416,
+  "initial_longitude": 121.473701,
+
+  "heartbeat_interval": 30,
+  "location_interval": 10,
+
+  "test_scenarios": {
+    "enable_adas_alarms": true,
+    "enable_dsm_alarms": true,
+    "alarm_interval": 20,
+    "simulate_movement": true
+  },
+
+  "media_paths": {
+    "sample_photos": "C:/Users/Filing Cabinet/Downloads/DC600 all alarms for ADAS and DSM/Photo",
+    "sample_videos": "C:/Users/Filing Cabinet/Downloads/DC600 all alarms for ADAS and DSM"
+  },
+
+  "_comments": {
+    "server_ip": "Server IP address to connect to",
+    "server_port": "Server TCP port",
+    "phone_number": "Device phone number (12 digits)",
+    "heartbeat_interval": "Seconds between heartbeat messages",
+    "location_interval": "Seconds between location reports",
+    "alarm_interval": "Seconds between simulated alarms",
+    "enable_adas_alarms": "Test all ADAS alarm types (11 types)",
+    "enable_dsm_alarms": "Test all DSM alarm types (6 types)",
+    "simulate_movement": "Simulate GPS movement"
+  }
+}

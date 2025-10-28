@@ -1,0 +1,25 @@
+{
+  "server_ip": "iotstagingenv.duckdns.org",
+  "server_port": 5999,
+  "phone_number": "496076898991",
+
+  "initial_latitude": 31.230416,
+  "initial_longitude": 121.473701,
+
+  "heartbeat_interval": 30,
+  "location_interval": 10,
+
+  "test_scenarios": {
+    "enable_adas_alarms": true,
+    "enable_dsm_alarms": true,
+    "alarm_interval": 20,
+    "simulate_movement": true
+  },
+
+  "media_paths": {
+    "sample_photos": "C:/Users/Filing Cabinet/Downloads/DC600 all alarms for ADAS and DSM/Photo",
+    "sample_videos": "C:/Users/Filing Cabinet/Downloads/DC600 all alarms for ADAS and DSM"
+  },
+
+  "_comment": "Configuration for staging server - matches working DC600 device from oct24-1 logs"
+}

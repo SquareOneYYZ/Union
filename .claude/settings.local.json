@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build -x test)",
+      "Read(//c/Users/Filing Cabinet/Downloads/device logs/7pm/files/**)",
+      "Bash(python3:*)",
+      "Read(//c/Users/Filing Cabinet/Downloads/device logs/10 pm/**)",
+      "Read(//c/Users/Filing Cabinet/Downloads/device logs/**)",
+      "Read(//c/Users/Filing Cabinet/Downloads/DC600 all alarms for ADAS and DSM/easy_log/**)",
+      "Read(//c/Users/Filing Cabinet/Downloads/DC600 all alarms for ADAS and DSM/rec_log/**)",
+      "Read(//c/Users/Filing Cabinet/Downloads/**)",
+      "Bash(dir \"C:\\Users\\Filing Cabinet\\Downloads\\device logs\\oct24-2\")",
+      "Bash(find:*)",
+      "Bash(./gradlew compileJava:*)",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "Bash(timeout 20 powershell:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

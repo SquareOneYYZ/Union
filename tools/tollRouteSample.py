@@ -53,9 +53,9 @@ import datetime
 #     ("2025-02-02 12:46:44",43.52088888888889,-79.71133333333333,67.4946,123),
 #     ("2025-02-02 12:46:54",43.519173333333335,-79.70774222222222,68.0346,123),
 
-id = '1234567890123456'
-server = 'iotstagingenv.duckdns.org:5055'
-# server = 'localhost:5055'
+id = '12345678901234'
+# server = 'iotstagingenv.duckdns.org:5055'
+server = 'www.iotrides.com:5055'
 
 
 
