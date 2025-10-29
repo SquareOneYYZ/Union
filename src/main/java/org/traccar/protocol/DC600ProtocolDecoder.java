@@ -173,81 +173,75 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             // Structure: Terminal ID (7) + Time (6) + Serial (1) + Attachments (1) + Reserved (1)
             byte[] alarmFlag = new byte[16];
 
-            // CRITICAL FIX: Use the Alarm Identification extracted from the device
-            // The device sends us the exact 16-byte structure in 0x64/0x65/0x70 packets
-            // We should ECHO IT BACK to ensure timestamp, serial, and attachment count match!
+            // CRITICAL FIX: Reconstruct Alarm Identification based on vendor packet analysis
+            // Device firmware does NOT populate timestamp in Alarm Identification correctly (sends zeros)
+            // We must reconstruct it with the correct timestamp from the standalone timestamp field
+
+            // Extract sequence/attachments from device Alarm ID if available
+            int sequence = alarmId; // Default to alarmId
+            int attachments = 4; // Default 04 (as seen in all vendor packets)
+
             if (position.hasAttribute("alarmIdentification")) {
                 String extractedAlarmIdHex = (String) position.getAttributes().get("alarmIdentification");
                 if (extractedAlarmIdHex != null && !extractedAlarmIdHex.isEmpty()) {
                     byte[] extractedAlarmId = DataConverter.parseHex(extractedAlarmIdHex);
                     if (extractedAlarmId.length == 16) {
-                        System.arraycopy(extractedAlarmId, 0, alarmFlag, 0, 16);
-                        LOGGER.info("CRITICAL FIX - Using extracted Alarm Identification (16 bytes): {}",
-                                extractedAlarmIdHex);
-
-                        // Log extracted details for verification
-                        int serial = extractedAlarmId[13] & 0xFF;
-                        int attachments = extractedAlarmId[14] & 0xFF;
-                        LOGGER.info("Alarm Flag details - Serial: {}, Attachments: {}", serial, attachments);
-                    } else {
-                        LOGGER.warn("Invalid alarmIdentification length: {} bytes - constructing manually",
-                                extractedAlarmId.length);
+                        // Extract sequence and attachments from device data
+                        sequence = extractedAlarmId[13] & 0xFF;
+                        int deviceAttachments = extractedAlarmId[14] & 0xFF;
+                        if (deviceAttachments > 0) {
+                            attachments = deviceAttachments;
+                        }
+                        LOGGER.info("Extracted from device Alarm ID - Sequence: {}, Attachments: {}",
+                                sequence, deviceAttachments);
                     }
-                } else {
-                    LOGGER.warn("Empty alarmIdentification attribute - constructing manually");
                 }
             }
 
-            // Fallback: Construct manually if not extracted from device
-            if (alarmFlag[0] == 0 && alarmFlag[1] == 0 && alarmFlag[7] == 0) {
-                LOGGER.warn("Alarm Identification not found - constructing manually (may cause mismatch!)");
+            // Terminal ID (7 bytes) - FIXED VALUE per vendor packets: 30 00 00 00 00 00 00
+            alarmFlag[0] = 0x30;
+            // Bytes 1-6 remain 0x00
 
-                if (position.hasAttribute("adasAlarmId") || position.hasAttribute("dsmAlarmId")
-                        || position.hasAttribute("multimediaEventTime")) {
-                    // Terminal ID (7 bytes) - Device ID formatted as string
-                    String deviceId = String.format("%07d", position.getDeviceId());
-                    System.arraycopy(deviceId.getBytes(StandardCharsets.US_ASCII), 0, alarmFlag, 0, 7);
-
-                    // Time (6 bytes BCD) - YY-MM-DD-hh-mm-ss - USE ALARM-SPECIFIC TIMESTAMP
-                    Date alarmTime = null;
-                    if (position.hasAttribute("adasAlarmTime")) {
-                        Long timestamp = (Long) position.getAttributes().get("adasAlarmTime");
-                        alarmTime = new Date(timestamp);
-                        LOGGER.info("Using ADAS alarm timestamp: {}, Unix: {}", alarmTime, timestamp / 1000);
-                    } else if (position.hasAttribute("dsmAlarmTime")) {
-                        Long timestamp = (Long) position.getAttributes().get("dsmAlarmTime");
-                        alarmTime = new Date(timestamp);
-                        LOGGER.info("Using DSM alarm timestamp: {}, Unix: {}", alarmTime, timestamp / 1000);
-                    } else if (position.hasAttribute("multimediaEventTime")) {
-                        // Use timestamp extracted from 0x70 multimedia event
-                        Long timestamp = (Long) position.getAttributes().get("multimediaEventTime");
-                        alarmTime = new Date(timestamp);
-                        LOGGER.info("Using 0x70 multimedia event timestamp: {}, Unix: {}",
-                                alarmTime, timestamp / 1000);
-                    }
-                    if (alarmTime == null) {
-                        // Fallback to device time or current time
-                        alarmTime = position.getDeviceTime() != null ? position.getDeviceTime() : new Date();
-                        LOGGER.warn("NO ALARM TIMESTAMP FOUND - Using fallback: {}, Unix: {}",
-                                alarmTime, alarmTime.getTime() / 1000);
-                    }
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyMMddHHmmss");
-                    byte[] timeBytes = DataConverter.parseHex(sdf.format(alarmTime));
-                    System.arraycopy(timeBytes, 0, alarmFlag, 7, 6);
-                    LOGGER.warn("Manually constructed Alarm Flag timestamp: {}, BCD: {}",
-                            alarmTime, DataConverter.printHex(timeBytes));
-
-                    // Serial number (1 byte) - Alarm sequence number
-                    alarmFlag[13] = (byte) alarmId;
-
-                    // Number of attachments (1 byte) - HARDCODED (may be wrong!)
-                    alarmFlag[14] = 0x01;
-                    LOGGER.warn("Hardcoded attachment count = 1 (may not match device!)");
-
-                    // Reserved (1 byte)
-                    alarmFlag[15] = 0x00;
-                }
+            // Time (6 bytes BCD) - YY-MM-DD-hh-mm-ss - USE STANDALONE ALARM TIMESTAMP
+            Date alarmTime = null;
+            if (position.hasAttribute("adasAlarmTime")) {
+                Long timestamp = (Long) position.getAttributes().get("adasAlarmTime");
+                alarmTime = new Date(timestamp);
+                LOGGER.info("Using ADAS standalone timestamp: {} (Unix: {})", alarmTime, timestamp / 1000);
+            } else if (position.hasAttribute("dsmAlarmTime")) {
+                Long timestamp = (Long) position.getAttributes().get("dsmAlarmTime");
+                alarmTime = new Date(timestamp);
+                LOGGER.info("Using DSM standalone timestamp: {} (Unix: {})", alarmTime, timestamp / 1000);
+            } else if (position.hasAttribute("multimediaEventTime")) {
+                Long timestamp = (Long) position.getAttributes().get("multimediaEventTime");
+                alarmTime = new Date(timestamp);
+                LOGGER.info("Using 0x70 multimedia timestamp: {} (Unix: {})", alarmTime, timestamp / 1000);
             }
+
+            if (alarmTime == null) {
+                // Fallback to device time or current time
+                alarmTime = position.getDeviceTime() != null ? position.getDeviceTime() : new Date();
+                LOGGER.warn("NO ALARM TIMESTAMP - Using fallback: {} (Unix: {})",
+                        alarmTime, alarmTime.getTime() / 1000);
+            }
+
+            // Convert timestamp to BCD format: YY MM DD HH MM SS
+            SimpleDateFormat sdf = new SimpleDateFormat("yyMMddHHmmss");
+            byte[] timeBytes = DataConverter.parseHex(sdf.format(alarmTime));
+            System.arraycopy(timeBytes, 0, alarmFlag, 7, 6);
+
+            // Serial number (1 byte) - Sequence from device or alarmId
+            alarmFlag[13] = (byte) sequence;
+
+            // Number of attachments (1 byte) - From device or default 04
+            alarmFlag[14] = (byte) attachments;
+
+            // Reserved (1 byte)
+            alarmFlag[15] = 0x00;
+
+            LOGGER.info("Reconstructed Alarm Identification - Terminal: 30000000000000, Time: {}, "
+                    + "Sequence: {}, Attachments: {}, Full hex: {}",
+                    DataConverter.printHex(timeBytes), sequence, attachments, DataConverter.printHex(alarmFlag));
             data.writeBytes(alarmFlag); // 16 bytes
 
             // Alarm number: BYTE[32] - Platform-assigned unique alarm number per DC600 spec Table 4-21
@@ -375,13 +369,21 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private Date readDate(ByteBuf buf, TimeZone timeZone) {
+        int year = BcdUtil.readInteger(buf, 2);
+        int month = BcdUtil.readInteger(buf, 2);
+        int day = BcdUtil.readInteger(buf, 2);
+        int hour = BcdUtil.readInteger(buf, 2);
+        int minute = BcdUtil.readInteger(buf, 2);
+        int second = BcdUtil.readInteger(buf, 2);
+        LOGGER.debug("readDate BCD values - Y:{} M:{} D:{} H:{} Min:{} S:{}",
+                year, month, day, hour, minute, second);
         return new DateBuilder(timeZone)
-                .setYear(BcdUtil.readInteger(buf, 2))
-                .setMonth(BcdUtil.readInteger(buf, 2))
-                .setDay(BcdUtil.readInteger(buf, 2))
-                .setHour(BcdUtil.readInteger(buf, 2))
-                .setMinute(BcdUtil.readInteger(buf, 2))
-                .setSecond(BcdUtil.readInteger(buf, 2))
+                .setYear(year)
+                .setMonth(month)
+                .setDay(day)
+                .setHour(hour)
+                .setMinute(minute)
+                .setSecond(second)
                 .getDate();
     }
 
@@ -660,29 +662,46 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         }
 
                         if (length >= 32) {
+                            // Read preceding vehicle data (5 bytes) per Table 4-15
+                            buf.readUnsignedByte(); // Byte 7: Speed of preceding vehicle
+                            buf.readUnsignedByte(); // Byte 8: Preceding vehicle/pedestrian distance
+                            buf.readUnsignedByte(); // Byte 9: Deviation type
+                            buf.readUnsignedByte(); // Byte 10: Road sign identification type
+                            buf.readUnsignedByte(); // Byte 11: Road sign identification data
+
+                            // Now at byte 12 - vehicle speed and position data
                             position.set("adasSpeed", buf.readUnsignedByte()); // Vehicle speed (1 km/h)
                             position.set("adasAltitude", buf.readUnsignedShort() / 10.0); // Altitude (1/10 m)
                             position.set("adasLatitude", buf.readInt() / 1000000.0); // Latitude (degree * 10^6)
                             position.set("adasLongitude", buf.readInt() / 1000000.0); // Longitude (degree * 10^6)
-                            // BCD timestamp (6 bytes): YY-MM-DD-hh-mm-ss - THIS IS THE ALARM TIME
+
+                            // DIAGNOSTIC: Log buffer state before reading timestamp
+                            int bufPos = buf.readerIndex();
+                            int bufReadable = buf.readableBytes();
+                            byte[] next24Bytes = new byte[Math.min(24, bufReadable)];
+                            buf.getBytes(bufPos, next24Bytes);
+                            LOGGER.info("ADAS BUFFER DIAGNOSTIC - Position: {}, Readable: {}, Next 24 bytes: {}",
+                                    bufPos, bufReadable, DataConverter.printHex(next24Bytes));
+
+                            // Read the 6-byte BCD timestamp field (alarm occurrence time)
                             Date alarmTime = readDate(buf, timeZone);
                             position.set("adasAlarmTime", alarmTime.getTime()); // Store as Long (milliseconds)
-                            LOGGER.debug("ADAS Alarm Time: {}", alarmTime);
+                            LOGGER.info("ADAS Alarm Time (standalone field): {} (Unix: {})",
+                                    alarmTime, alarmTime.getTime() / 1000);
+
                             // Vehicle status (2 bytes)
                             buf.skipBytes(2);
 
-                            // CRITICAL: Extract complete 16-byte Alarm Identification structure (Table 4-16)
+                            // Extract 16-byte Alarm Identification structure (Table 4-16)
                             int remainingBytes = buf.readableBytes();
                             if (remainingBytes >= 16) {
                                 byte[] alarmIdentification = new byte[16];
                                 buf.readBytes(alarmIdentification);
-                                // Store as hex string since position.set() doesn't accept byte[]
                                 position.set("alarmIdentification", DataConverter.printHex(alarmIdentification));
 
-                                // Log the attachment count for debugging
+                                // Log details for debugging
                                 int attachmentCount = alarmIdentification[14] & 0xFF;
-                                LOGGER.info("CRITICAL FIX - Extracted Alarm Identification from 0x64: "
-                                        + "AlarmId={}, Serial={}, Attachments={}, Hex={}",
+                                LOGGER.info("ADAS Alarm ID: AlarmId={}, Seq={}, Attachments={}, Hex={}",
                                         alarmId, alarmIdentification[13] & 0xFF, attachmentCount,
                                         DataConverter.printHex(alarmIdentification));
                             } else {
@@ -836,29 +855,46 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
                         // Read additional data if present
                         if (length >= 32) {
+                            // Read preceding vehicle data (5 bytes) per Table 4-17
+                            buf.readUnsignedByte(); // Byte 7: Speed of preceding vehicle
+                            buf.readUnsignedByte(); // Byte 8: Preceding vehicle/pedestrian distance
+                            buf.readUnsignedByte(); // Byte 9: Deviation type
+                            buf.readUnsignedByte(); // Byte 10: Road sign identification type
+                            buf.readUnsignedByte(); // Byte 11: Road sign identification data
+
+                            // Now at byte 12 - vehicle speed and position data
                             position.set("dsmSpeed", buf.readUnsignedByte()); // Vehicle speed (1 km/h)
                             position.set("dsmAltitude", buf.readUnsignedShort() / 10.0); // Altitude (1/10 m)
                             position.set("dsmLatitude", buf.readInt() / 1000000.0); // Latitude (degree * 10^6)
                             position.set("dsmLongitude", buf.readInt() / 1000000.0); // Longitude (degree * 10^6)
-                            // BCD timestamp (6 bytes) - THIS IS THE ALARM TIME
+
+                            // DIAGNOSTIC: Log buffer state before reading timestamp
+                            int bufPos = buf.readerIndex();
+                            int bufReadable = buf.readableBytes();
+                            byte[] next24Bytes = new byte[Math.min(24, bufReadable)];
+                            buf.getBytes(bufPos, next24Bytes);
+                            LOGGER.info("DSM BUFFER DIAGNOSTIC - Position: {}, Readable: {}, Next 24 bytes: {}",
+                                    bufPos, bufReadable, DataConverter.printHex(next24Bytes));
+
+                            // Read the 6-byte BCD timestamp field (alarm occurrence time)
                             Date alarmTime = readDate(buf, timeZone);
                             position.set("dsmAlarmTime", alarmTime.getTime()); // Store as Long (milliseconds)
-                            LOGGER.debug("DSM Alarm Time: {}", alarmTime);
+                            LOGGER.info("DSM Alarm Time (standalone field): {} (Unix: {})",
+                                    alarmTime, alarmTime.getTime() / 1000);
+
                             // Vehicle status (2 bytes)
                             buf.skipBytes(2);
 
-                            // CRITICAL: Extract complete 16-byte Alarm Identification structure (Table 4-16)
+                            // Extract 16-byte Alarm Identification structure (Table 4-16)
                             int remainingBytes = buf.readableBytes();
                             if (remainingBytes >= 16) {
                                 byte[] alarmIdentification = new byte[16];
                                 buf.readBytes(alarmIdentification);
-                                // Store as hex string since position.set() doesn't accept byte[]
                                 position.set("alarmIdentification", DataConverter.printHex(alarmIdentification));
 
-                                // Log the attachment count for debugging
+                                // Log details for debugging
                                 int attachmentCount = alarmIdentification[14] & 0xFF;
-                                LOGGER.info("CRITICAL FIX - Extracted Alarm Identification from 0x65: "
-                                        + "AlarmId={}, Serial={}, Attachments={}, Hex={}",
+                                LOGGER.info("DSM Alarm ID: AlarmId={}, Seq={}, Attachments={}, Hex={}",
                                         alarmId, alarmIdentification[13] & 0xFF, attachmentCount,
                                         DataConverter.printHex(alarmIdentification));
                             } else {
