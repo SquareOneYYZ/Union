@@ -80,6 +80,7 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
         private int eventCode;
         private ByteBuf data;
         private String deviceId;
+        private String filename;        // T/JSATL12-2017 filename from code stream packet
 
         MediaTransfer(long multimediaId, int mediaType, int mediaFormat, int eventCode, String deviceId) {
             this.multimediaId = multimediaId;
@@ -125,6 +126,14 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
 
         String getDeviceId() {
             return deviceId;
+        }
+
+        String getFilename() {
+            return filename;
+        }
+
+        void setFilename(String filename) {
+            this.filename = filename;
         }
 
         void release() {
@@ -189,6 +198,20 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
     protected Object decode(Channel channel, SocketAddress remoteAddress, Object msg) throws Exception {
         ByteBuf buf = (ByteBuf) msg;
 
+        // Check if this is a T/JSATL12-2017 code stream packet (Table 4-26)
+        // These start with 0x30316364 instead of 0x7E delimiter
+        if (isCodeStreamPacket(buf)) {
+            // This is a raw TCP code stream packet, NOT a JT/T 808 message
+            DeviceSession deviceSession = getDeviceSession(channel, remoteAddress);
+            if (deviceSession == null) {
+                LOGGER.warn("Code stream packet received but no device session found");
+                return null;
+            }
+
+            return decodeCodeStreamPacket(channel, remoteAddress, buf, deviceSession);
+        }
+
+        // Otherwise, proceed with normal JT/T 808 message parsing
         if (buf.readableBytes() < 12) {
             LOGGER.warn("JT1078 message too short: {} bytes (minimum 12)", buf.readableBytes());
             return null;
@@ -344,6 +367,246 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
         }
     }
 
+    /**
+     * Detects if the buffer contains a T/JSATL12-2017 code stream packet
+     * (Table 4-26 format with 0x30316364 header)
+     */
+    private boolean isCodeStreamPacket(ByteBuf buf) {
+        if (buf.readableBytes() < 4) {
+            return false;
+        }
+
+        int readerIndex = buf.readerIndex();
+
+        // Check for frame header: 0x30 0x31 0x63 0x64 ("01cd" in ASCII)
+        byte b0 = buf.getByte(readerIndex);
+        byte b1 = buf.getByte(readerIndex + 1);
+        byte b2 = buf.getByte(readerIndex + 2);
+        byte b3 = buf.getByte(readerIndex + 3);
+
+        return b0 == 0x30 && b1 == 0x31 && b2 == 0x63 && b3 == 0x64;
+    }
+
+    /**
+     * Extracts multimedia ID from T/JSATL12-2017 filename format
+     * Format: <type>_<channel>_<alarm_type>_<serial>_<alarm_number>.<ext>
+     * Example: "00_64_6402_0_ALM-3906-0-1762021442036.jpg"
+     */
+    private long extractMultimediaIdFromFilename(String filename) {
+        try {
+            // Extract alarm number from filename (last part before extension)
+            String withoutExt = filename.substring(0, filename.lastIndexOf('.'));
+            String[] parts = withoutExt.split("_");
+
+            if (parts.length >= 5) {
+                // Last part is alarm number (e.g., "ALM-3906-0-1762021442036")
+                String alarmPart = parts[parts.length - 1];
+
+                // Extract just the numeric ID at the end
+                String[] alarmParts = alarmPart.split("-");
+                if (alarmParts.length >= 4) {
+                    return Long.parseLong(alarmParts[alarmParts.length - 1]);
+                }
+            }
+
+            // Fallback: use hash of filename
+            return Math.abs(filename.hashCode());
+
+        } catch (Exception e) {
+            LOGGER.warn("Failed to extract multimedia ID from filename '{}': {}",
+                    filename, e.getMessage());
+            return Math.abs(filename.hashCode());
+        }
+    }
+
+    /**
+     * Parses T/JSATL12-2017 code stream data packet (Table 4-26)
+     * This is sent as raw TCP data, NOT as JT/T 808 signaling message
+     */
+    private Object decodeCodeStreamPacket(Channel channel, SocketAddress remoteAddress,
+                                         ByteBuf buf, DeviceSession deviceSession) {
+        LOGGER.info("-".repeat(70));
+        LOGGER.info("RECEIVED: CODE STREAM DATA PACKET (T/JSATL12-2017 Table 4-26)");
+        LOGGER.info("  Device: {}", deviceSession.getDeviceId());
+        LOGGER.info("  Packet Size: {} bytes", buf.readableBytes());
+
+        if (buf.readableBytes() < 62) {
+            LOGGER.warn("  [ERROR] Packet too small: {} bytes (minimum 62)", buf.readableBytes());
+            return null;
+        }
+
+        // Read frame header (4 bytes) - should be 0x30 0x31 0x63 0x64
+        int frameHeader = buf.readInt();
+        LOGGER.info("  Frame Header: 0x{}", Integer.toHexString(frameHeader));
+
+        if (frameHeader != 0x30316364) {
+            LOGGER.warn("  [ERROR] Invalid frame header: expected 0x30316364, got 0x{}",
+                    Integer.toHexString(frameHeader));
+            return null;
+        }
+
+        // Read filename (50 bytes, zero-padded)
+        byte[] filenameBytes = new byte[50];
+        buf.readBytes(filenameBytes);
+        String filename = new String(filenameBytes, StandardCharsets.US_ASCII).trim();
+        LOGGER.info("  Filename: '{}'", filename);
+
+        // Read data offset (4 bytes)
+        long dataOffset = buf.readUnsignedInt();
+        LOGGER.info("  Data Offset: {} bytes", dataOffset);
+
+        // Read data length (4 bytes)
+        long dataLength = buf.readUnsignedInt();
+        LOGGER.info("  Data Length: {} bytes", dataLength);
+
+        // Read data body (remaining bytes)
+        int actualDataLength = buf.readableBytes();
+        LOGGER.info("  Actual Data: {} bytes", actualDataLength);
+
+        if (actualDataLength != dataLength) {
+            LOGGER.warn("  [WARNING] Data length mismatch: declared={}, actual={}",
+                    dataLength, actualDataLength);
+        }
+
+        byte[] fileData = new byte[actualDataLength];
+        buf.readBytes(fileData);
+
+        // Log first 32 bytes as hex for debugging
+        int previewLength = Math.min(32, actualDataLength);
+        LOGGER.info("  Data Preview (first {} bytes): {}",
+                previewLength, ByteBufUtil.hexDump(fileData, 0, previewLength));
+
+        // Extract multimedia ID from filename
+        long multimediaId = extractMultimediaIdFromFilename(filename);
+        LOGGER.info("  Extracted Multimedia ID: {}", multimediaId);
+
+        // Determine file type from filename extension
+        int fileType = 0; // Default to image
+        int fileFormat = 0; // Default to JPEG
+
+        if (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) {
+            fileType = 0; // Image
+            fileFormat = 0; // JPEG
+        } else if (filename.toLowerCase().endsWith(".png")) {
+            fileType = 0; // Image
+            fileFormat = 1; // TIF/PNG
+        } else if (filename.toLowerCase().endsWith(".mp4") || filename.toLowerCase().endsWith(".wmv")) {
+            fileType = 2; // Video
+            fileFormat = 4; // WMV/MP4
+        } else if (filename.toLowerCase().endsWith(".wav")) {
+            fileType = 1; // Audio
+            fileFormat = 3; // WAV
+        } else if (filename.toLowerCase().endsWith(".mp3")) {
+            fileType = 1; // Audio
+            fileFormat = 2; // MP3
+        }
+
+        LOGGER.info("  File Type: {} ({})", fileType, getMediaTypeName(fileType));
+        LOGGER.info("  File Format: {} ({})", fileFormat, getMediaFormatName(fileFormat));
+
+        // Get or create MediaTransfer for this file
+        MediaTransfer transfer = activeTransfers.get(multimediaId);
+
+        if (transfer == null) {
+            // First packet for this file
+            LOGGER.info("  [NEW TRANSFER] Creating MediaTransfer for ID: {}", multimediaId);
+            transfer = new MediaTransfer(multimediaId, fileType, fileFormat, 0,
+                    deviceSession.getUniqueId());
+            transfer.setFilename(filename);
+            activeTransfers.put(multimediaId, transfer);
+        } else {
+            LOGGER.info("  [CONTINUING TRANSFER] Appending to existing transfer");
+            LOGGER.info("    Previous size: {} bytes", transfer.getData().readableBytes());
+        }
+
+        // Append data at the specified offset
+        if (dataOffset == 0 || dataOffset == transfer.getData().readableBytes()) {
+            // Sequential write - just append
+            transfer.getData().writeBytes(fileData);
+            transfer.incrementReceivedPackets();
+            LOGGER.info("  [APPENDED] Sequential write at offset {}", dataOffset);
+        } else {
+            LOGGER.warn("  [WARNING] Non-sequential write: offset={}, current_size={}",
+                    dataOffset, transfer.getData().readableBytes());
+            // For now, still append (could implement random-access in future)
+            transfer.getData().writeBytes(fileData);
+            transfer.incrementReceivedPackets();
+        }
+
+        int newSize = transfer.getData().readableBytes();
+        LOGGER.info("  [SUCCESS] Transfer updated:");
+        LOGGER.info("    Multimedia ID: {}", multimediaId);
+        LOGGER.info("    Packets received: {}", transfer.getReceivedPackets());
+        LOGGER.info("    Total size: {} bytes", newSize);
+        LOGGER.info("    Filename: {}", filename);
+
+        logActiveTransfers();
+
+        LOGGER.info("-".repeat(70));
+
+        // No response needed for code stream packets (per T/JSATL12-2017)
+        return null;
+    }
+
+    /**
+     * Sends 0x9212 File Upload Complete Response (T/JSATL12-2017 Section 4.10)
+     * This is MANDATORY per the specification
+     */
+    private void sendFileUploadCompleteResponse(Channel channel, SocketAddress remoteAddress,
+                                               ByteBuf deviceId, int sequenceNumber,
+                                               String filename, int fileType, boolean success) {
+        LOGGER.info("-".repeat(70));
+        LOGGER.info("SENDING: FILE UPLOAD COMPLETE RESPONSE (0x9212)");
+        LOGGER.info("  Filename: {}", filename);
+        LOGGER.info("  File Type: {} ({})", fileType, getMediaTypeName(fileType));
+        LOGGER.info("  Upload Result: {} ({})", success ? "0x00" : "0x01",
+                success ? "Finished" : "Supplement Upload");
+
+        if (channel == null) {
+            LOGGER.error("  [ERROR] Channel is null - cannot send response");
+            return;
+        }
+
+        try {
+            // Build message body
+            ByteBuf body = Unpooled.buffer();
+
+            // File name length (1 byte)
+            byte[] filenameBytes = filename.getBytes(StandardCharsets.US_ASCII);
+            body.writeByte(filenameBytes.length);
+
+            // File name (variable)
+            body.writeBytes(filenameBytes);
+
+            // File type (1 byte): 0=picture, 1=audio, 2=video, 3=text, 4=other
+            body.writeByte(fileType);
+
+            // Upload result (1 byte): 0x00=Finished, 0x01=Supplement upload
+            body.writeByte(success ? 0x00 : 0x01);
+
+            // No supplement needed - number of packets = 0
+            body.writeByte(0x00);
+
+            // Format message using existing helper
+            ByteBuf response = formatMessage(0x7E, 0x9212, deviceId, body);
+
+            LOGGER.info("  Message Size: {} bytes", response.readableBytes());
+            LOGGER.info("  Hex: {}", ByteBufUtil.hexDump(response));
+
+            // Send to device
+            channel.writeAndFlush(new NetworkMessage(response, remoteAddress));
+
+            LOGGER.info("  [SUCCESS] 0x9212 response sent");
+
+            body.release();
+
+        } catch (Exception e) {
+            LOGGER.error("  [ERROR] Failed to send 0x9212 response:", e);
+        }
+
+        LOGGER.info("-".repeat(70));
+    }
+
     private Object decodeMultimediaDataUpload(Channel channel, SocketAddress remoteAddress,
                                              ByteBuf id, int index, ByteBuf buf,
                                              DeviceSession deviceSession, int bodyLength) {
@@ -455,60 +718,41 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
         LOGGER.info("  Sequence: {}", index);
         LOGGER.info("  Remaining bytes: {}", buf.readableBytes());
 
-        // Parse 0x1210 message
+        // Parse 0x1210 message per T/JSATL12-2017 Table 4-23
         // Format:
-        // - Server IP Length (1 byte)
-        // - Server IP (variable, ASCII)
-        // - TCP Port (2 bytes)
-        // - UDP Port (2 bytes)
-        // - Alarm Serial Number (4 bytes) or Alarm Flag (16 bytes)
+        // - Terminal ID (7 bytes)
+        // - Alarm Flag (16 bytes)
         // - Alarm Number (32 bytes, ASCII)
-        // - Reserved (16 bytes)
+        // - Information Type (1 byte): 0x00=Normal, 0x01=Update
         // - Attachment Count (1 byte)
-        // - File Info List (variable)
+        // - File Info List (variable, Table 4-24 format per file)
 
-        int serverIpLength = buf.readUnsignedByte();
-        String serverIp = buf.readCharSequence(serverIpLength, StandardCharsets.US_ASCII).toString();
-        int tcpPort = buf.readUnsignedShort();
-        int udpPort = buf.readUnsignedShort();
+        // Read Terminal ID (7 bytes)
+        byte[] terminalIdBytes = new byte[7];
+        buf.readBytes(terminalIdBytes);
+        String terminalId = new String(terminalIdBytes, StandardCharsets.US_ASCII).trim();
+        LOGGER.info("0x1210 HEADER:");
+        LOGGER.info("  Terminal ID (7 bytes): '{}' (hex: {})",
+                terminalId, ByteBufUtil.hexDump(terminalIdBytes));
 
-        LOGGER.info("0x1210 ATTACHMENT SERVER INFO:");
-        LOGGER.info("  Server IP: {} (length: {} bytes)", serverIp, serverIpLength);
-        LOGGER.info("  TCP Port: {}", tcpPort);
-        LOGGER.info("  UDP Port: {}", udpPort);
+        // Read Alarm Flag (16 bytes) - See Table 4-16 for structure
+        byte[] alarmFlagBytes = new byte[16];
+        buf.readBytes(alarmFlagBytes);
+        LOGGER.info("  Alarm Flag (16 bytes): {}", ByteBufUtil.hexDump(alarmFlagBytes));
 
-        // Read alarm identifier (16 bytes - could be 4-byte serial + padding or full alarm flag)
-        ByteBuf alarmData = buf.readSlice(16);
-        String alarmFlag = ByteBufUtil.hexDump(alarmData);
-        LOGGER.info("0x1210 ALARM IDENTIFICATION:");
-        LOGGER.info("  Alarm Flag (16 bytes): {}", alarmFlag);
-        LOGGER.info("  Structure breakdown:");
-        byte[] alarmBytes = new byte[16];
-        alarmData.resetReaderIndex();
-        alarmData.readBytes(alarmBytes);
-        LOGGER.info("    Terminal ID (7): {}", ByteBufUtil.hexDump(alarmBytes, 0, 7));
-        LOGGER.info("    Time BCD (6): {}", ByteBufUtil.hexDump(alarmBytes, 7, 6));
-        LOGGER.info("    Serial (1): 0x{}", Integer.toHexString(alarmBytes[13] & 0xFF));
-        LOGGER.info("    Attachments (1): {}", alarmBytes[14] & 0xFF);
-        LOGGER.info("    Reserved (1): 0x{}", Integer.toHexString(alarmBytes[15] & 0xFF));
-
-        // Read alarm number (32 bytes)
+        // Read Alarm Number (32 bytes, ASCII)
         byte[] alarmNumberBytes = new byte[32];
         buf.readBytes(alarmNumberBytes);
         String alarmNumber = new String(alarmNumberBytes, StandardCharsets.US_ASCII).trim();
-        LOGGER.info("0x1210 ALARM NUMBER:");
-        LOGGER.info("  Alarm Number: '{}'", alarmNumber);
-        LOGGER.info("  Raw (32 bytes): {}", ByteBufUtil.hexDump(alarmNumberBytes));
+        LOGGER.info("  Alarm Number (32 bytes): '{}'", alarmNumber);
 
-        // Skip reserved (16 bytes)
-        byte[] reserved = new byte[16];
-        buf.readBytes(reserved);
-        LOGGER.info("0x1210 RESERVED BYTES:");
-        LOGGER.info("  Reserved (16 bytes): {}", ByteBufUtil.hexDump(reserved));
+        // Read Information Type (1 byte)
+        int informationType = buf.readUnsignedByte();
+        LOGGER.info("  Information Type: {} ({})",
+                informationType, informationType == 0 ? "Normal" : "Update");
 
-        // Read attachment count
+        // Read Attachment Count (1 byte)
         int attachmentCount = buf.readUnsignedByte();
-        LOGGER.info("0x1210 ATTACHMENT INFO:");
         LOGGER.info("  Attachment Count: {}", attachmentCount);
 
         // Parse file info list
@@ -552,14 +796,95 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
     private Object decodeFileInfoUpload(Channel channel, SocketAddress remoteAddress,
                                        ByteBuf id, int index, ByteBuf buf,
                                        DeviceSession deviceSession) {
-        LOGGER.info("RECEIVED FILE INFO UPLOAD (0x1211) - Device: {}, Seq: {}",
-                deviceSession.getDeviceId(), index);
+        LOGGER.info("-".repeat(70));
+        LOGGER.info("RECEIVED: FILE INFO UPLOAD (0x1211)");
+        LOGGER.info("  Device: {}", deviceSession.getDeviceId());
+        LOGGER.info("  Sequence: {}", index);
+        LOGGER.info("  Remaining bytes: {}", buf.readableBytes());
 
-        // TODO: Parse file metadata
-        // Send acknowledgment
+        // Parse 0x1211 message per T/JSATL12-2017 Table 4-25
+        // Format:
+        // - File name length (1 byte)
+        // - File name (variable, STRING)
+        // - File type (1 byte): 0=picture, 1=audio, 2=video, 3=text, 4=other
+        // - File size (4 bytes, DWORD)
+
+        if (buf.readableBytes() < 6) {
+            LOGGER.warn("0x1211 [ERROR] Insufficient data: {} bytes (minimum 6)", buf.readableBytes());
+            sendGeneralResponse(channel, remoteAddress, id, MSG_FILE_INFO_UPLOAD, index, RESULT_SUCCESS);
+            return null;
+        }
+
+        // Read file name length (1 byte)
+        int fileNameLength = buf.readUnsignedByte();
+        LOGGER.info("0x1211 FILE INFO:");
+        LOGGER.info("  File Name Length: {} bytes", fileNameLength);
+
+        if (buf.readableBytes() < fileNameLength + 5) {
+            LOGGER.warn("0x1211 [ERROR] Insufficient data for filename: expected {}, remaining {}",
+                    fileNameLength + 5, buf.readableBytes());
+            sendGeneralResponse(channel, remoteAddress, id, MSG_FILE_INFO_UPLOAD, index, RESULT_SUCCESS);
+            return null;
+        }
+
+        // Read file name (variable)
+        String fileName = buf.readCharSequence(fileNameLength, StandardCharsets.US_ASCII).toString();
+        LOGGER.info("  File Name: '{}'", fileName);
+
+        // Read file type (1 byte)
+        int fileType = buf.readUnsignedByte();
+        String fileTypeStr;
+        switch (fileType) {
+            case 0: fileTypeStr = "Picture"; break;
+            case 1: fileTypeStr = "Audio"; break;
+            case 2: fileTypeStr = "Video"; break;
+            case 3: fileTypeStr = "Text"; break;
+            case 4: fileTypeStr = "Other"; break;
+            default: fileTypeStr = "Unknown"; break;
+        }
+        LOGGER.info("  File Type: {} ({})", fileType, fileTypeStr);
+
+        // Read file size (4 bytes, DWORD)
+        long fileSize = buf.readUnsignedInt();
+        LOGGER.info("  File Size: {} bytes ({} KB)", fileSize, fileSize / 1024);
+
+        // Extract multimedia ID from filename for validation
+        long multimediaId = extractMultimediaIdFromFilename(fileName);
+        LOGGER.info("  Extracted Multimedia ID: {}", multimediaId);
+
+        // Check if MediaTransfer already exists from code stream packets
+        MediaTransfer transfer = activeTransfers.get(multimediaId);
+        if (transfer != null) {
+            LOGGER.info("0x1211 [VALIDATION] MediaTransfer found for ID: {}", multimediaId);
+            LOGGER.info("  Current transfer size: {} bytes", transfer.getData().readableBytes());
+
+            // Validate file size if data already received
+            if (transfer.getData().readableBytes() > 0 && transfer.getData().readableBytes() != fileSize) {
+                LOGGER.warn("  [WARNING] Size mismatch: declared={}, received={}",
+                        fileSize, transfer.getData().readableBytes());
+            } else {
+                LOGGER.info("  [OK] File metadata validated");
+            }
+        } else {
+            LOGGER.info("0x1211 [INFO] No MediaTransfer found yet (will be created by code stream packets)");
+            // This is normal - code stream packets may arrive after 0x1211
+        }
+
+        LOGGER.info("0x1211 PROCESSING COMPLETE:");
+        LOGGER.info("  File: {}", fileName);
+        LOGGER.info("  Type: {}", fileTypeStr);
+        LOGGER.info("  Size: {} bytes", fileSize);
+        LOGGER.info("  Next: Expecting code stream packets with file data");
+
+        // Send acknowledgment (0x8001)
+        LOGGER.info("0x1211 SENDING ACK (0x8001):");
+        LOGGER.info("  Seq: {}", index);
         sendGeneralResponse(channel, remoteAddress, id, MSG_FILE_INFO_UPLOAD, index, RESULT_SUCCESS);
+        LOGGER.info("  [ACK SENT]");
 
-        return null;
+        LOGGER.info("-".repeat(70));
+
+        return null;  // File data comes via code stream packets
     }
 
     private Object decodeFileUploadComplete(Channel channel, SocketAddress remoteAddress,
@@ -571,145 +896,177 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
         LOGGER.info("  Sequence: {}", index);
         LOGGER.info("  Remaining bytes: {}", buf.readableBytes());
 
-        // Parse 0x1212 message
-        // Format (based on JT808-2013 Annex B):
-        // - Result (1 byte): 0=success, others=failure
-        // - Multimedia ID count (2 bytes, WORD)
-        // - Multimedia ID list (4 bytes each, DWORD)
+        // Parse 0x1212 message per T/JSATL12-2017 Table 4-27
+        // Format:
+        // - File name length (1 byte)
+        // - File name (variable, STRING)
+        // - File type (1 byte): 0=picture, 1=audio, 2=video, 3=text, 4=other
+        // - File size (4 bytes, DWORD)
 
-        int result = buf.readUnsignedByte();
-        int multimediaIdCount = buf.readUnsignedShort();
+        if (buf.readableBytes() < 6) {
+            LOGGER.warn("0x1212 [ERROR] Insufficient data: {} bytes (minimum 6)", buf.readableBytes());
+            sendGeneralResponse(channel, remoteAddress, id, MSG_FILE_UPLOAD_COMPLETE, index, RESULT_SUCCESS);
+            return null;
+        }
 
-        LOGGER.info("0x1212 COMPLETION HEADER:");
-        LOGGER.info("  Result Code: {} (0=success, other=failure)", result);
-        LOGGER.info("  Multimedia ID Count: {}", multimediaIdCount);
+        // Read file name length (1 byte)
+        int fileNameLength = buf.readUnsignedByte();
+        LOGGER.info("0x1212 FILE INFO:");
+        LOGGER.info("  File Name Length: {} bytes", fileNameLength);
 
-        if (result != 0) {
-            LOGGER.warn("0x1212 [WARNING] Upload result indicates FAILURE: {}", result);
-            LOGGER.warn("  Device reported upload failure - files may not have been sent correctly");
+        if (buf.readableBytes() < fileNameLength + 5) {
+            LOGGER.warn("0x1212 [ERROR] Insufficient data for filename: expected {}, remaining {}",
+                    fileNameLength + 5, buf.readableBytes());
+            sendGeneralResponse(channel, remoteAddress, id, MSG_FILE_UPLOAD_COMPLETE, index, RESULT_SUCCESS);
+            return null;
+        }
+
+        // Read file name (variable)
+        String fileName = buf.readCharSequence(fileNameLength, StandardCharsets.US_ASCII).toString();
+        LOGGER.info("  File Name: '{}'", fileName);
+
+        // Read file type (1 byte)
+        int fileType = buf.readUnsignedByte();
+        String fileTypeStr;
+        switch (fileType) {
+            case 0: fileTypeStr = "Picture"; break;
+            case 1: fileTypeStr = "Audio"; break;
+            case 2: fileTypeStr = "Video"; break;
+            case 3: fileTypeStr = "Text"; break;
+            case 4: fileTypeStr = "Other"; break;
+            default: fileTypeStr = "Unknown"; break;
+        }
+        LOGGER.info("  File Type: {} ({})", fileType, fileTypeStr);
+
+        // Read file size (4 bytes, DWORD)
+        long fileSize = buf.readUnsignedInt();
+        LOGGER.info("  File Size: {} bytes ({} KB)", fileSize, fileSize / 1024);
+
+        LOGGER.info("-".repeat(70));
+
+        // Extract multimedia ID from filename
+        long multimediaId = extractMultimediaIdFromFilename(fileName);
+        LOGGER.info("0x1212 LOCATING TRANSFER:");
+        LOGGER.info("  Extracted Multimedia ID: {}", multimediaId);
+        LOGGER.info("  Filename: '{}'", fileName);
+
+        logActiveTransfers();
+
+        // Get MediaTransfer created by code stream packets
+        MediaTransfer transfer = activeTransfers.get(multimediaId);
+
+        if (transfer == null) {
+            LOGGER.error("0x1212 [ERROR] NO TRANSFER FOUND");
+            LOGGER.error("  Multimedia ID {} not in active transfers", multimediaId);
+            LOGGER.error("  This means:");
+            LOGGER.error("    - No code stream packets (0x30316364) were received for this file");
+            LOGGER.error("    - MediaTransfer was not created by decodeCodeStreamPacket()");
+            LOGGER.error("    - Possible filename mismatch or ID extraction failure");
+            LOGGER.error("  Cannot save file - no data available");
+
+            // Send ACK anyway
+            sendGeneralResponse(channel, remoteAddress, id, MSG_FILE_UPLOAD_COMPLETE, index, RESULT_SUCCESS);
+            LOGGER.info("0x1212 COMPLETE (FAILED - no data)");
+            LOGGER.info("=".repeat(70));
+            return null;
+        }
+
+        LOGGER.info("0x1212 [SUCCESS] TRANSFER FOUND:");
+        LOGGER.info("  Media Type: {} ({})",
+                transfer.getMediaType(), getMediaTypeName(transfer.getMediaType()));
+        LOGGER.info("  Media Format: {} ({})",
+                transfer.getMediaFormat(), getMediaFormatName(transfer.getMediaFormat()));
+        LOGGER.info("  Total Packets: {}", transfer.getReceivedPackets());
+        LOGGER.info("  Total Size: {} bytes", transfer.getData().readableBytes());
+        LOGGER.info("  Filename: '{}'", transfer.getFilename());
+
+        // Validate file size
+        if (transfer.getData().readableBytes() != fileSize) {
+            LOGGER.warn("0x1212 [WARNING] Size mismatch:");
+            LOGGER.warn("  Declared in 0x1212: {} bytes", fileSize);
+            LOGGER.warn("  Actually received: {} bytes", transfer.getData().readableBytes());
+            LOGGER.warn("  Using actual received size");
         } else {
-            LOGGER.info("0x1212 [SUCCESS] Upload result indicates SUCCESS");
+            LOGGER.info("  [OK] File size validated: {} bytes", fileSize);
         }
 
         Position position = null;
 
-        LOGGER.info("0x1212 PROCESSING {} MULTIMEDIA FILE(S):", multimediaIdCount);
-        logActiveTransfers();
+        try {
+            // Write media file to storage
+            String extension = getMediaFileExtension(transfer.getMediaType(), transfer.getMediaFormat());
 
-        // Process each multimedia ID
-        int successCount = 0;
-        int failureCount = 0;
+            LOGGER.info("0x1212 SAVING MEDIA FILE:");
+            LOGGER.info("  Extension: .{}", extension);
+            LOGGER.info("  Size: {} bytes", transfer.getData().readableBytes());
 
-        for (int i = 0; i < multimediaIdCount && buf.readableBytes() >= 4; i++) {
-            long multimediaId = buf.readUnsignedInt();
+            String savedPath = writeMediaFile(transfer.getDeviceId(), transfer.getData(), extension);
 
-            LOGGER.info("-".repeat(70));
-            LOGGER.info("0x1212 MULTIMEDIA FILE #{} OF {}", i + 1, multimediaIdCount);
+            LOGGER.info("0x1212 [SUCCESS] MEDIA FILE SAVED:");
             LOGGER.info("  Multimedia ID: {}", multimediaId);
+            LOGGER.info("  Original Filename: {}", fileName);
+            LOGGER.info("  Saved Path: {}", savedPath);
+            LOGGER.info("  Size: {} bytes", transfer.getData().readableBytes());
+            LOGGER.info("  Packets: {}", transfer.getReceivedPackets());
+            LOGGER.info("  Type: {} (.{})", fileTypeStr, extension);
 
-            // Get transfer state
-            MediaTransfer transfer = activeTransfers.get(multimediaId);
+            // Create Position object to record media event
+            LOGGER.info("0x1212 CREATING POSITION OBJECT:");
+            position = new Position(getProtocolName());
+            position.setDeviceId(deviceSession.getDeviceId());
+            getLastLocation(position, null);
+            LOGGER.info("  Device ID: {}", deviceSession.getDeviceId());
+            LOGGER.info("  Protocol: {}", getProtocolName());
 
-            if (transfer == null) {
-                LOGGER.warn("0x1212 [ERROR] NO TRANSFER FOUND");
-                LOGGER.warn("  Multimedia ID {} not in active transfers", multimediaId);
-                LOGGER.warn("  This could mean:");
-                LOGGER.warn("    - No 0x0801 packets were received for this ID");
-                LOGGER.warn("    - Transfer was already completed or cleaned up");
-                LOGGER.warn("    - Multimedia ID mismatch between device and server");
-                failureCount++;
-                continue;
+            // Store media reference based on type
+            String attributeKey;
+            if (fileType == 0) {
+                // Image
+                attributeKey = Position.KEY_IMAGE;
+                position.set(Position.KEY_IMAGE, savedPath);
+            } else if (fileType == 1) {
+                // Audio
+                attributeKey = Position.KEY_AUDIO;
+                position.set(Position.KEY_AUDIO, savedPath);
+            } else if (fileType == 2) {
+                // Video
+                attributeKey = Position.KEY_VIDEO;
+                position.set(Position.KEY_VIDEO, savedPath);
+            } else {
+                attributeKey = "media";
+                position.set("media", savedPath);
             }
 
-            LOGGER.info("0x1212 TRANSFER FOUND:");
-            LOGGER.info("  Media Type: {} ({})",
-                    transfer.getMediaType(), getMediaTypeName(transfer.getMediaType()));
-            LOGGER.info("  Media Format: {} ({})",
-                    transfer.getMediaFormat(), getMediaFormatName(transfer.getMediaFormat()));
-            LOGGER.info("  Total Packets: {}", transfer.getReceivedPackets());
-            LOGGER.info("  Total Size: {} bytes", transfer.getData().readableBytes());
-            LOGGER.info("  Event Code: 0x{}", Integer.toHexString(transfer.getEventCode()));
+            LOGGER.info("0x1212 POSITION ATTRIBUTES SET:");
+            LOGGER.info("  Attribute: {} = {}", attributeKey, savedPath);
 
-            if (result != 0) {
-                LOGGER.warn("0x1212 [SKIPPED] Device reported failure (result={})", result);
-                LOGGER.warn("  Not writing file due to device-reported upload failure");
-                transfer.release();
-                activeTransfers.remove(multimediaId);
-                failureCount++;
-                continue;
-            }
+            // Store additional metadata
+            position.set("multimediaId", multimediaId);
+            position.set("mediaType", fileType);
+            position.set("mediaFormat", transfer.getMediaFormat());
+            position.set("originalFilename", fileName);
+            position.set("fileSize", fileSize);
+            position.set("mediaPackets", transfer.getReceivedPackets());
 
-            try {
-                // Write media file
-                String extension = getMediaFileExtension(transfer.getMediaType(), transfer.getMediaFormat());
+            LOGGER.info("  Metadata: multimediaId={}, mediaType={}, originalFilename='{}', fileSize={}, packets={}",
+                    multimediaId, fileType, fileName, fileSize, transfer.getReceivedPackets());
 
-                LOGGER.info("0x1212 WRITING MEDIA FILE:");
-                LOGGER.info("  Extension: .{}", extension);
-                LOGGER.info("  Size: {} bytes", transfer.getData().readableBytes());
+        } catch (Exception e) {
+            LOGGER.error("0x1212 [ERROR] Exception while saving media file:", e);
+            LOGGER.error("  Multimedia ID: {}", multimediaId);
+            LOGGER.error("  Filename: {}", fileName);
+            LOGGER.error("  Error: {}", e.getMessage());
 
-                String filename = writeMediaFile(transfer.getDeviceId(), transfer.getData(), extension);
-
-                LOGGER.info("0x1212 [SUCCESS] MEDIA FILE SAVED:");
-                LOGGER.info("  Multimedia ID: {}", multimediaId);
-                LOGGER.info("  Filename: {}", filename);
-                LOGGER.info("  Size: {} bytes", transfer.getData().readableBytes());
-                LOGGER.info("  Packets: {}", transfer.getReceivedPackets());
-                LOGGER.info("  Type: {} ({})", getMediaTypeName(transfer.getMediaType()), extension);
-
-                // Create position object to record media event
-                if (position == null) {
-                    LOGGER.info("0x1212 CREATING POSITION OBJECT:");
-                    position = new Position(getProtocolName());
-                    position.setDeviceId(deviceSession.getDeviceId());
-                    getLastLocation(position, null);
-                    LOGGER.info("  Device ID: {}", deviceSession.getDeviceId());
-                    LOGGER.info("  Protocol: {}", getProtocolName());
-                } else {
-                    LOGGER.info("0x1212 ADDING TO EXISTING POSITION OBJECT");
-                }
-
-                // Store media reference based on type
-                String attributeKey;
-                if (transfer.getMediaType() == 0) {
-                    // Image
-                    attributeKey = Position.KEY_IMAGE;
-                    position.set(Position.KEY_IMAGE, filename);
-                } else if (transfer.getMediaType() == 1) {
-                    // Audio
-                    attributeKey = Position.KEY_AUDIO;
-                    position.set(Position.KEY_AUDIO, filename);
-                } else if (transfer.getMediaType() == 2) {
-                    // Video
-                    attributeKey = Position.KEY_VIDEO;
-                    position.set(Position.KEY_VIDEO, filename);
-                } else {
-                    attributeKey = "media";
-                    position.set("media", filename);
-                }
-
-                LOGGER.info("0x1212 POSITION ATTRIBUTES SET:");
-                LOGGER.info("  Attribute: {} = {}", attributeKey, filename);
-
-                // Store additional metadata
-                position.set("multimediaId", multimediaId);
-                position.set("mediaType", transfer.getMediaType());
-                position.set("mediaFormat", transfer.getMediaFormat());
-                position.set("eventCode", transfer.getEventCode());
-                position.set("mediaPackets", transfer.getReceivedPackets());
-
-                LOGGER.info("  Metadata: multimediaId={}, mediaType={}, mediaFormat={}, eventCode=0x{}, packets={}",
-                        multimediaId, transfer.getMediaType(), transfer.getMediaFormat(),
-                        Integer.toHexString(transfer.getEventCode()), transfer.getReceivedPackets());
-
-                successCount++;
-
-            } catch (Exception e) {
-                LOGGER.error("0x1212 [ERROR] Exception while writing media file:", e);
-                LOGGER.error("  Multimedia ID: {}", multimediaId);
-                LOGGER.error("  Error: {}", e.getMessage());
-                failureCount++;
-            } finally {
-                // Clean up transfer state
+            // Clean up and send ACK
+            transfer.release();
+            activeTransfers.remove(multimediaId);
+            sendGeneralResponse(channel, remoteAddress, id, MSG_FILE_UPLOAD_COMPLETE, index, RESULT_SUCCESS);
+            LOGGER.info("0x1212 COMPLETE (FAILED - exception)");
+            LOGGER.info("=".repeat(70));
+            return null;
+        } finally {
+            // Clean up transfer state (whether success or failure)
+            if (transfer != null) {
                 LOGGER.info("0x1212 CLEANING UP TRANSFER:");
                 LOGGER.info("  Releasing ByteBuf for multimedia ID: {}", multimediaId);
                 transfer.release();
@@ -718,52 +1075,34 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
             }
         }
 
-        // Log final summary
-        LOGGER.info("=".repeat(70));
-        LOGGER.info("0x1212 PROCESSING SUMMARY:");
-        LOGGER.info("  Total files requested: {}", multimediaIdCount);
-        LOGGER.info("  Successfully saved: {} files", successCount);
-        LOGGER.info("  Failed: {} files", failureCount);
-        LOGGER.info("  Active transfers remaining: {}", activeTransfers.size());
-
-        if (successCount > 0) {
-            LOGGER.info("  [SUCCESS] {} multimedia file(s) saved successfully", successCount);
-        }
-        if (failureCount > 0) {
-            LOGGER.warn("  [WARNING] {} multimedia file(s) failed", failureCount);
-        }
-
-        // Log remaining active transfers (shouldn't be any if all completed)
-        if (!activeTransfers.isEmpty()) {
-            LOGGER.warn("0x1212 [WARNING] ORPHANED TRANSFERS DETECTED:");
-            LOGGER.warn("  {} transfer(s) remain in memory after completion", activeTransfers.size());
-            LOGGER.warn("  These may indicate:");
-            LOGGER.warn("    - Device sent 0x1212 for IDs not in 0x0801 packets");
-            LOGGER.warn("    - Missing 0x1212 for some multimedia IDs");
-            LOGGER.warn("  Orphaned transfers:");
-            for (Map.Entry<Long, MediaTransfer> entry : activeTransfers.entrySet()) {
-                MediaTransfer t = entry.getValue();
-                LOGGER.warn("    - ID {}: {} bytes, {} packets, waiting for completion",
-                        t.getMultimediaId(), t.getData().readableBytes(), t.getReceivedPackets());
-            }
-        }
-
         // Send acknowledgment (0x8001)
+        LOGGER.info("-".repeat(70));
         LOGGER.info("0x1212 SENDING ACK (0x8001):");
         LOGGER.info("  Seq: {}", index);
         LOGGER.info("  Result: {} (SUCCESS)", RESULT_SUCCESS);
         sendGeneralResponse(channel, remoteAddress, id, MSG_FILE_UPLOAD_COMPLETE, index, RESULT_SUCCESS);
         LOGGER.info("  [ACK SENT]");
 
-        // Final status
+        // Send 0x9212 File Upload Complete Response (MANDATORY per T/JSATL12-2017 Section 4.10)
+        LOGGER.info("-".repeat(70));
+        LOGGER.info("0x1212 SENDING 0x9212 RESPONSE:");
+        sendFileUploadCompleteResponse(channel, remoteAddress, id, index, fileName, fileType, true);
+
+        // Log final status
+        LOGGER.info("=".repeat(70));
         if (position != null) {
-            LOGGER.info("0x1212 [SUCCESS] RETURNING POSITION OBJECT:");
+            LOGGER.info("0x1212 [SUCCESS] COMPLETE:");
             LOGGER.info("  Device: {}", deviceSession.getDeviceId());
-            LOGGER.info("  Position will be saved to database with media references");
-        } else if (multimediaIdCount > 0) {
-            LOGGER.warn("0x1212 [WARNING] NO POSITION OBJECT CREATED:");
-            LOGGER.warn("  {} multimedia files were requested but none saved successfully", multimediaIdCount);
+            LOGGER.info("  File: {}", fileName);
+            LOGGER.info("  Type: {}", fileTypeStr);
+            LOGGER.info("  Size: {} bytes", fileSize);
+            LOGGER.info("  Position will be saved to database with media reference");
+        } else {
+            LOGGER.warn("0x1212 [FAILED] COMPLETE:");
+            LOGGER.warn("  File was not saved successfully");
         }
+
+        logActiveTransfers();
 
         LOGGER.info("0x1212 COMPLETE");
         LOGGER.info("=".repeat(70));
