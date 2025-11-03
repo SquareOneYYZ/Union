@@ -116,6 +116,7 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                             0x7e, DC600ProtocolDecoder.MSG_IMAGE_CAPTURE_REQUEST, id, false, data);
 
                 case Command.TYPE_LIVE_STREAM:
+                    LOGGER.info("LIVE STREAM - Received command attributes: {}", command.getAttributes());
                     int channel = command.getInteger(Command.KEY_CHANNEL);
                     // JT/T 1076-2016 channel numbering starts from 1, not 0. Ensure minimum channel is 1.
                     if (channel == 0) {
@@ -129,6 +130,10 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     int udpPort = 0;
                     LOGGER.info("LIVE STREAM START REQUEST - Device: {}, Channel: {}, Server: {}:{}(TCP)/{}(UDP)",
                             command.getDeviceId(), channel, serverIp, serverPort, udpPort);
+                    LOGGER.debug("LIVE STREAM ATTR CHECK - hasChannel: {}, hasDataType: {}, hasStreamType: {}",
+                            command.hasAttribute(Command.KEY_CHANNEL),
+                            command.hasAttribute(Command.KEY_DATA_TYPE),
+                            command.hasAttribute(Command.KEY_STREAM_TYPE));
                     data.writeByte(serverIp.length() + 1); // Server IP address length (+1 for NULL terminator)
                     data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII)); // Server IP address
                     data.writeByte(0x00); // NULL terminator (required by DC600 protocol)
