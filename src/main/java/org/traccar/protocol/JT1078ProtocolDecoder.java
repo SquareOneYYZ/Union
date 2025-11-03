@@ -65,6 +65,7 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
     public static final int MSG_ALARM_ATTACHMENT_INFO = 0x1210;     // Terminal → Platform
     public static final int MSG_FILE_INFO_UPLOAD = 0x1211;          // Terminal → Platform
     public static final int MSG_FILE_UPLOAD_COMPLETE = 0x1212;      // Terminal → Platform
+    public static final int MSG_FILE_UPLOAD_COMPLETE_RESPONSE = 0x9212;  // Platform → Terminal
     public static final int MSG_GENERAL_RESPONSE = 0x8001;          // Platform → Terminal
 
     // Response codes
@@ -81,6 +82,7 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
         private ByteBuf data;
         private String deviceId;
         private String filename;        // T/JSATL12-2017 filename from code stream packet
+        private long declaredFileSize;  // File size declared in 0x1211 message
 
         MediaTransfer(long multimediaId, int mediaType, int mediaFormat, int eventCode, String deviceId) {
             this.multimediaId = multimediaId;
@@ -90,6 +92,7 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
             this.deviceId = deviceId;
             this.data = Unpooled.buffer();
             this.receivedPackets = 0;
+            this.declaredFileSize = 0;
         }
 
         long getMultimediaId() {
@@ -134,6 +137,14 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
 
         void setFilename(String filename) {
             this.filename = filename;
+        }
+
+        long getDeclaredFileSize() {
+            return declaredFileSize;
+        }
+
+        void setDeclaredFileSize(long declaredFileSize) {
+            this.declaredFileSize = declaredFileSize;
         }
 
         void release() {
@@ -202,13 +213,51 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
         // These start with 0x30316364 instead of 0x7E delimiter
         if (isCodeStreamPacket(buf)) {
             // This is a raw TCP code stream packet, NOT a JT/T 808 message
-            DeviceSession deviceSession = getDeviceSession(channel, remoteAddress);
-            if (deviceSession == null) {
-                LOGGER.warn("Code stream packet received but no device session found");
+
+            // CODE STREAM FIX #1: Extract device ID from filename
+            // Code stream packets don't have device ID in header, but it's in the filename!
+            // Peek at filename (bytes 4-54) without consuming the buffer
+            if (buf.readableBytes() >= 54) {
+                buf.markReaderIndex();
+                buf.skipBytes(4); // Skip frame header (0x30316364)
+
+                // Read filename (50 bytes)
+                byte[] filenameBytes = new byte[50];
+                buf.readBytes(filenameBytes);
+                String filename = new String(filenameBytes, StandardCharsets.US_ASCII).trim();
+
+                // Reset buffer to beginning
+                buf.resetReaderIndex();
+
+                // Extract device ID from filename
+                String deviceId = extractDeviceIdFromFilename(filename);
+
+                DeviceSession deviceSession;
+                if (deviceId != null) {
+                    // Look up session by device ID (more reliable)
+                    deviceSession = getDeviceSession(channel, remoteAddress, deviceId);
+                    LOGGER.debug("Code stream packet - looked up session by device ID: {}", deviceId);
+                } else {
+                    // Fallback to channel/address lookup
+                    deviceSession = getDeviceSession(channel, remoteAddress);
+                    LOGGER.debug("Code stream packet - using channel/address lookup (no device ID extracted)");
+                }
+
+                if (deviceSession == null) {
+                    LOGGER.warn("Code stream packet received but no device session found");
+                    LOGGER.warn("  Filename: '{}', Device ID: {}", filename, deviceId);
+                    return null;
+                }
+
+                // CODE STREAM FIX #2: Refresh session activity to prevent timeout
+                // Large file uploads can take 30+ seconds, need to keep session alive
+                updateDeviceSession(deviceSession, channel, remoteAddress);
+
+                return decodeCodeStreamPacket(channel, remoteAddress, buf, deviceSession);
+            } else {
+                LOGGER.warn("Code stream packet too small to extract filename: {} bytes", buf.readableBytes());
                 return null;
             }
-
-            return decodeCodeStreamPacket(channel, remoteAddress, buf, deviceSession);
         }
 
         // Otherwise, proceed with normal JT/T 808 message parsing
@@ -420,6 +469,43 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     /**
+     * Extracts device ID from DC600 filename format
+     * Filename format: XX_YY_ZZZZ_N_ALM-DDDD-M-TTTTTTTTTTTTT.ext
+     * Where DDDD is the device ID (e.g., "3906")
+     * Example: "02_65_6502_3_ALM-3906-0-1762130012739.mp4" -> "3906"
+     */
+    private String extractDeviceIdFromFilename(String filename) {
+        try {
+            // Extract alarm part from filename
+            String withoutExt = filename.contains(".")
+                ? filename.substring(0, filename.lastIndexOf('.'))
+                : filename;
+            String[] parts = withoutExt.split("_");
+
+            if (parts.length >= 5) {
+                // Last part is alarm (e.g., "ALM-3906-0-1762021442036")
+                String alarmPart = parts[parts.length - 1];
+
+                // Split by dash and extract device ID (second element)
+                String[] alarmParts = alarmPart.split("-");
+                if (alarmParts.length >= 4 && alarmPart.startsWith("ALM-")) {
+                    String deviceId = alarmParts[1]; // Extract "3906"
+                    LOGGER.debug("Extracted device ID '{}' from filename '{}'", deviceId, filename);
+                    return deviceId;
+                }
+            }
+
+            LOGGER.warn("Could not extract device ID from filename '{}' - invalid format", filename);
+            return null;
+
+        } catch (Exception e) {
+            LOGGER.warn("Failed to extract device ID from filename '{}': {}",
+                    filename, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Parses T/JSATL12-2017 code stream data packet (Table 4-26)
      * This is sent as raw TCP data, NOT as JT/T 808 signaling message
      */
@@ -549,18 +635,19 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     /**
-     * Sends 0x9212 File Upload Complete Response (T/JSATL12-2017 Section 4.10)
-     * This is MANDATORY per the specification
+     * Sends 0x9212 File Upload Complete Response (T/JSATL12-2017 Section 4.10, Table 4-28)
+     * DC600 format: Fixed 50-byte filename (null-padded)
+     * This is MANDATORY per the specification - device waits 10 seconds for this response
      */
     private void sendFileUploadCompleteResponse(Channel channel, SocketAddress remoteAddress,
                                                ByteBuf deviceId, int sequenceNumber,
                                                String filename, int fileType, boolean success) {
         LOGGER.info("-".repeat(70));
         LOGGER.info("SENDING: FILE UPLOAD COMPLETE RESPONSE (0x9212)");
-        LOGGER.info("  Filename: {}", filename);
+        LOGGER.info("  Filename: '{}'", filename);
         LOGGER.info("  File Type: {} ({})", fileType, getMediaTypeName(fileType));
         LOGGER.info("  Upload Result: {} ({})", success ? "0x00" : "0x01",
-                success ? "Finished" : "Supplement Upload");
+                success ? "SUCCESS" : "FAILURE");
 
         if (channel == null) {
             LOGGER.error("  [ERROR] Channel is null - cannot send response");
@@ -568,35 +655,38 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
         }
 
         try {
-            // Build message body
+            // Build message body per T/JSATL12-2017 Table 4-28 (DC600 format)
             ByteBuf body = Unpooled.buffer();
 
-            // File name length (1 byte)
-            byte[] filenameBytes = filename.getBytes(StandardCharsets.US_ASCII);
-            body.writeByte(filenameBytes.length);
-
-            // File name (variable)
+            // Filename (50 bytes, null-padded for DC600)
+            // DC600 uses FIXED 50-byte format, not variable-length
+            byte[] filenameBytes = new byte[50];
+            byte[] fileNameSrc = filename.getBytes(StandardCharsets.US_ASCII);
+            System.arraycopy(fileNameSrc, 0, filenameBytes, 0,
+                             Math.min(fileNameSrc.length, 50));
             body.writeBytes(filenameBytes);
 
             // File type (1 byte): 0=picture, 1=audio, 2=video, 3=text, 4=other
             body.writeByte(fileType);
 
-            // Upload result (1 byte): 0x00=Finished, 0x01=Supplement upload
+            // Upload result (1 byte): 0x00 = success, 0x01 = failure
             body.writeByte(success ? 0x00 : 0x01);
 
-            // No supplement needed - number of packets = 0
+            // Reserved (1 byte)
             body.writeByte(0x00);
 
             // Format message using existing helper
-            ByteBuf response = formatMessage(0x7E, 0x9212, deviceId, body);
+            ByteBuf response = formatMessage(0x7E, MSG_FILE_UPLOAD_COMPLETE_RESPONSE, deviceId, body);
 
             LOGGER.info("  Message Size: {} bytes", response.readableBytes());
+            LOGGER.info("  Body Size: 53 bytes (50 filename + 1 type + 1 result + 1 reserved)");
             LOGGER.info("  Hex: {}", ByteBufUtil.hexDump(response));
 
             // Send to device
             channel.writeAndFlush(new NetworkMessage(response, remoteAddress));
 
-            LOGGER.info("  [SUCCESS] 0x9212 response sent");
+            LOGGER.info("  [SUCCESS] 0x9212 response sent to device");
+            LOGGER.info("  Device should now log: 'ai upload ... scusess'");
 
             body.release();
 
@@ -858,6 +948,10 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
             LOGGER.info("0x1211 [VALIDATION] MediaTransfer found for ID: {}", multimediaId);
             LOGGER.info("  Current transfer size: {} bytes", transfer.getData().readableBytes());
 
+            // CODE STREAM FIX #3a: Store declared file size for validation
+            transfer.setDeclaredFileSize(fileSize);
+            LOGGER.info("  [STORED] Declared file size: {} bytes", fileSize);
+
             // Validate file size if data already received
             if (transfer.getData().readableBytes() > 0 && transfer.getData().readableBytes() != fileSize) {
                 LOGGER.warn("  [WARNING] Size mismatch: declared={}, received={}",
@@ -1083,10 +1177,40 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
         sendGeneralResponse(channel, remoteAddress, id, MSG_FILE_UPLOAD_COMPLETE, index, RESULT_SUCCESS);
         LOGGER.info("  [ACK SENT]");
 
+        // CODE STREAM FIX #3b: Validate data completeness before sending 0x9212
+        boolean uploadSuccess = true;
+        if (transfer != null && transfer.getDeclaredFileSize() > 0) {
+            long declaredSize = transfer.getDeclaredFileSize();
+            long actualSize = transfer.getData().readableBytes();
+
+            if (actualSize < declaredSize) {
+                uploadSuccess = false;
+                long percentReceived = (actualSize * 100) / declaredSize;
+                LOGGER.error("-".repeat(70));
+                LOGGER.error("FILE UPLOAD INCOMPLETE!");
+                LOGGER.error("  File: {}", fileName);
+                LOGGER.error("  Declared size: {} bytes ({} KB)", declaredSize, declaredSize / 1024);
+                LOGGER.error("  Actual received: {} bytes ({} KB)", actualSize, actualSize / 1024);
+                LOGGER.error("  Missing: {} bytes ({} KB)", declaredSize - actualSize, (declaredSize - actualSize) / 1024);
+                LOGGER.error("  Completeness: {}%", percentReceived);
+                LOGGER.error("  This means:");
+                LOGGER.error("    - Device session likely expired during upload");
+                LOGGER.error("    - Some code stream packets were rejected");
+                LOGGER.error("    - Video will be corrupted/truncated");
+                LOGGER.error("  Fix: Increase session timeout or fix device ID extraction");
+            } else {
+                LOGGER.info("0x1212 [VALIDATION] File transfer complete:");
+                LOGGER.info("  Declared: {} bytes", declaredSize);
+                LOGGER.info("  Received: {} bytes", actualSize);
+                LOGGER.info("  Status: 100% complete ✓");
+            }
+        }
+
         // Send 0x9212 File Upload Complete Response (MANDATORY per T/JSATL12-2017 Section 4.10)
         LOGGER.info("-".repeat(70));
         LOGGER.info("0x1212 SENDING 0x9212 RESPONSE:");
-        sendFileUploadCompleteResponse(channel, remoteAddress, id, index, fileName, fileType, true);
+        LOGGER.info("  Upload Success: {}", uploadSuccess);
+        sendFileUploadCompleteResponse(channel, remoteAddress, id, index, fileName, fileType, uploadSuccess);
 
         // Log final status
         LOGGER.info("=".repeat(70));
