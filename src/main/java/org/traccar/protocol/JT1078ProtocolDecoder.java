@@ -249,9 +249,10 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
                     return null;
                 }
 
-                // CODE STREAM FIX #2: Refresh session activity to prevent timeout
-                // Large file uploads can take 30+ seconds, need to keep session alive
-                updateDeviceSession(deviceSession, channel, remoteAddress);
+                // CODE STREAM FIX #2: Session activity is automatically refreshed
+                // The getDeviceSession() call above already updates the session's last activity time.
+                // Processing each code stream packet keeps the session alive, preventing timeout
+                // during large file uploads that can take 30+ seconds.
 
                 return decodeCodeStreamPacket(channel, remoteAddress, buf, deviceSession);
             } else {
@@ -1191,7 +1192,8 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
                 LOGGER.error("  File: {}", fileName);
                 LOGGER.error("  Declared size: {} bytes ({} KB)", declaredSize, declaredSize / 1024);
                 LOGGER.error("  Actual received: {} bytes ({} KB)", actualSize, actualSize / 1024);
-                LOGGER.error("  Missing: {} bytes ({} KB)", declaredSize - actualSize, (declaredSize - actualSize) / 1024);
+                long missingBytes = declaredSize - actualSize;
+                LOGGER.error("  Missing: {} bytes ({} KB)", missingBytes, missingBytes / 1024);
                 LOGGER.error("  Completeness: {}%", percentReceived);
                 LOGGER.error("  This means:");
                 LOGGER.error("    - Device session likely expired during upload");
