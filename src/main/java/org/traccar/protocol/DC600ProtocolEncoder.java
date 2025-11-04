@@ -31,7 +31,10 @@ import org.traccar.model.Command;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 
 public class DC600ProtocolEncoder extends BaseProtocolEncoder {
     private static final Logger LOGGER = LoggerFactory.getLogger(DC600ProtocolEncoder.class);
@@ -115,7 +118,7 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     return DC600ProtocolDecoder.formatMessage(
                             0x7e, DC600ProtocolDecoder.MSG_IMAGE_CAPTURE_REQUEST, id, false, data);
 
-                case Command.TYPE_LIVE_STREAM:
+                /*case Command.TYPE_LIVE_STREAM:
                     LOGGER.info("LIVE STREAM - Received command attributes: {}", command.getAttributes());
                     int channel = command.getInteger(Command.KEY_CHANNEL);
                     // JT/T 1076-2016 channel numbering starts from 1, not 0. Ensure minimum channel is 1.
@@ -161,7 +164,52 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     LOGGER.info("LIVE STREAM REQUEST - MsgID: 0x{}, Channel: {}, Raw: {}",
                             Integer.toHexString(DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_REQUEST).toUpperCase(),
                             channel, hexDump);
-                    return message;
+                    return message;*/
+
+                case Command.TYPE_LIVE_STREAM:
+                    LOGGER.info("LIVE STREAM - Received command attributes: {}", command.getAttributes());
+                    Object chObj = command.getAttributes().get(Command.KEY_CHANNEL);
+                    List<Integer> channels = new ArrayList<>();
+                    if (chObj instanceof Collection<?>) {
+                        for (Object c : (Collection<?>) chObj) {
+                            channels.add(Integer.parseInt(c.toString()));
+                        }
+                    } else if (chObj != null) {
+                        channels.add(command.getInteger(Command.KEY_CHANNEL));
+                    } else {
+                        channels.add(1); // default
+                    }
+                    List<Object> messages = new ArrayList<>();
+                    for (int channel : channels) {
+                        if (channel == 0) {
+                            channel = 1;
+                            LOGGER.warn("Channel 0 is invalid per JT/T 1076, using channel 1 for device {}",
+                                    command.getDeviceId());
+                        }
+                        LOGGER.info("LIVE STREAM START REQUEST - Device: {}, Channel: {}", command.getDeviceId(),
+                                channel);
+                        ByteBuf streamData = Unpooled.buffer();
+                        String serverIp = config.getString("dc600.livestream.ip", "143.198.33.215");
+                        int serverPort = config.getInteger("dc600.livestream.port", 9101);
+                        int udpPort = 0;
+                        streamData.writeByte(serverIp.length() + 1);
+                        streamData.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
+                        streamData.writeByte(0x00);
+                        streamData.writeShort(serverPort);
+                        streamData.writeShort(udpPort);
+                        streamData.writeByte(channel);
+                        streamData.writeByte(0); // dataType
+                        streamData.writeByte(0); // streamType
+                        ByteBuf message = DC600ProtocolDecoder.formatMessage(
+                                0x7e, DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_REQUEST,
+                                id, false, streamData);
+                        byte[] rawBytes = new byte[message.readableBytes()];
+                        message.getBytes(message.readerIndex(), rawBytes);
+                        String hexDump = DataConverter.printHex(rawBytes);
+                        LOGGER.info("LIVE STREAM REQUEST - Channel: {}, Raw: {}", channel, hexDump);
+                        messages.add(message);
+                    }
+                    return messages.size() == 1 ? messages.get(0) : messages;
 
 
                 case Command.TYPE_STOP_LIVE_STREAM:
