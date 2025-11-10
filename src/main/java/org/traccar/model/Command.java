@@ -87,7 +87,7 @@ public class Command extends BaseCommand {
     public static final String KEY_DATA = "data";
     public static final String KEY_INDEX = "index";
     public static final String KEY_PHONE = "phone";
-    public static final String KEY_CHANNEL = "channel";
+    public static final String KEY_CHANNEL = "channels";
     public static final String KEY_COMMAND = "command";
     public static final String KEY_PARAMETER = "parameter";
     public static final String KEY_START_TIME = "startTime";
