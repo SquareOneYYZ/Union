@@ -55,6 +55,25 @@ public class AlarmEventHandler extends BaseEventHandler {
             for (String alarm : alarms) {
                 Event event = new Event(Event.TYPE_ALARM, position);
                 event.set(Position.KEY_ALARM, alarm);
+                if (position.hasAttribute("dsmAlarmId")) {
+                    Object alarmId = position.getAttributes().get("dsmAlarmId");
+                    if (alarmId instanceof Integer) {
+                        event.set("alarmId", (Integer) alarmId);
+                    } else if (alarmId instanceof Long) {
+                        event.set("alarmId", (Long) alarmId);
+                    } else {
+                        event.set("alarmId", String.valueOf(alarmId));
+                    }
+                } else if (position.hasAttribute("adasAlarmId")) {
+                    Object alarmId = position.getAttributes().get("adasAlarmId");
+                    if (alarmId instanceof Integer) {
+                        event.set("alarmId", (Integer) alarmId);
+                    } else if (alarmId instanceof Long) {
+                        event.set("alarmId", (Long) alarmId);
+                    } else {
+                        event.set("alarmId", String.valueOf(alarmId));
+                    }
+                }
                 callback.eventDetected(event);
             }
         }

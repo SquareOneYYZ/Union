@@ -118,53 +118,6 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                     return DC600ProtocolDecoder.formatMessage(
                             0x7e, DC600ProtocolDecoder.MSG_IMAGE_CAPTURE_REQUEST, id, false, data);
 
-                /*case Command.TYPE_LIVE_STREAM:
-                    LOGGER.info("LIVE STREAM - Received command attributes: {}", command.getAttributes());
-                    int channel = command.getInteger(Command.KEY_CHANNEL);
-                    // JT/T 1076-2016 channel numbering starts from 1, not 0. Ensure minimum channel is 1.
-                    if (channel == 0) {
-                        channel = 1;
-                        LOGGER.warn("Channel 0 is invalid per JT/T 1076, using channel 1 for device {}",
-                                command.getDeviceId());
-                    }
-                    // Read from config file with defaults
-                    String serverIp = config.getString("dc600.livestream.ip", "143.198.33.215");
-                    int serverPort = config.getInteger("dc600.livestream.port", 9101);
-                    int udpPort = 0;
-                    LOGGER.info("LIVE STREAM START REQUEST - Device: {}, Channel: {}, Server: {}:{}(TCP)/{}(UDP)",
-                            command.getDeviceId(), channel, serverIp, serverPort, udpPort);
-                    LOGGER.debug("LIVE STREAM ATTR CHECK - hasChannel: {}, hasDataType: {}, hasStreamType: {}",
-                            command.hasAttribute(Command.KEY_CHANNEL),
-                            command.hasAttribute(Command.KEY_DATA_TYPE),
-                            command.hasAttribute(Command.KEY_STREAM_TYPE));
-                    data.writeByte(serverIp.length() + 1); // Server IP address length (+1 for NULL terminator)
-                    data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII)); // Server IP address
-                    data.writeByte(0x00); // NULL terminator (required by DC600 protocol)
-                    data.writeShort(serverPort); // Server video channel listening port (TCP)
-                    data.writeShort(udpPort); // Server video channel monitoring port (UDP)
-                    data.writeByte(channel); // Channel number (1-based per JT/T 1076-2016)
-                    int dataType = 0; // Audio and video
-                    if (command.hasAttribute(Command.KEY_DATA_TYPE)) {
-                        dataType = command.getInteger(Command.KEY_DATA_TYPE);
-                    }
-                    data.writeByte(dataType);
-                    int streamType = 0;
-                    if (command.hasAttribute(Command.KEY_STREAM_TYPE)) {
-                        streamType = command.getInteger(Command.KEY_STREAM_TYPE);
-                    }
-                    data.writeByte(streamType);
-                    LOGGER.debug("Live stream request created - Channel: {}, DataType: {}, StreamType: {},"
-                            + " Data length: {}", channel, dataType, streamType, data.readableBytes());
-                    ByteBuf message = DC600ProtocolDecoder.formatMessage(
-                            0x7e, DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_REQUEST, id, false, data);
-                    // Log the raw message for debugging
-                    byte[] rawBytes = new byte[message.readableBytes()];
-                    message.getBytes(message.readerIndex(), rawBytes);
-                    String hexDump = DataConverter.printHex(rawBytes);
-                    LOGGER.info("LIVE STREAM REQUEST - MsgID: 0x{}, Channel: {}, Raw: {}",
-                            Integer.toHexString(DC600ProtocolDecoder.MSG_VIDEO_LIVE_STREAM_REQUEST).toUpperCase(),
-                            channel, hexDump);
-                    return message;*/
 
                 case Command.TYPE_LIVE_STREAM:
                     LOGGER.info("LIVE STREAM - Received command attributes: {}", command.getAttributes());
@@ -269,8 +222,6 @@ public class DC600ProtocolEncoder extends BaseProtocolEncoder {
                             Unpooled.buffer(0));
 
                 case "getTerminalParameters":
-                    // Section 8.8: Query terminal parameters (0x8104)
-                    // Can query all parameters or specific ones
                     if (command.hasAttribute("parameterIds")) {
                         // Section 8.9: Query specific parameters (0x8106)
                         String[] ids = command.getString("parameterIds").split(",");

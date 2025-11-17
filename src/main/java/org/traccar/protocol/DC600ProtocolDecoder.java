@@ -159,23 +159,13 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                     serverPort);
 
             ByteBuf data = Unpooled.buffer();
-//            data.writeByte(alarmId);           // Alarm serial number
-//            data.writeByte(alarmType);         // Alarm type (ADAS or DSM)
-//            data.writeByte(0x00);              // Alarm terminal ID length (0 = all terminals)
-//            data.writeByte(0x00);              // Reserved
             data.writeByte(serverIp.length() + 1);  // +1 for NULL terminator
             data.writeBytes(serverIp.getBytes(StandardCharsets.US_ASCII));
             data.writeByte(0x00);  // NULL terminator (matches vendor format)
             data.writeShort(serverPort);
             data.writeShort(0);
-
-            // Alarm flag: BYTE[16] - Alarm identification number per DC600 spec Table 4-16
-            // CRITICAL: Use the alarm flag captured from the device's 0x64/0x65 message
-            // The device already sends us the correctly formatted alarm flag (Table 4-16)
-            // with proper timezone (GMT+8), terminal ID format, etc.
             byte[] alarmFlag = new byte[16];
 
-            // Try to get the captured alarm flag from ADAS, DSM, or 0x70 multimedia event (stored as hex string)
             if (position.hasAttribute("adasAlarmFlag")) {
                 String alarmFlagHex = (String) position.getAttributes().get("adasAlarmFlag");
                 alarmFlag = DataConverter.parseHex(alarmFlagHex);
@@ -230,12 +220,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             // Reserved: BYTE[16] (16 bytes zeros)
             data.writeBytes(new byte[16]);
 
-            // CRITICAL FIX: Copy device ID to new buffer to avoid buffer lifecycle issues
-            // The `id` parameter is a slice of the incoming buffer and may be consumed/corrupted
-            // by the time formatMessage() tries to write it
-            // BUG FIX (Oct 30, 2025): Changed from id.readerIndex() to 0 because formatMessage()
-            // consumes the id buffer (via buf.writeBytes(id) which advances readerIndex to 6),
-            // so by the time this executes, id.readerIndex() = 6, causing IndexOutOfBoundsException
             byte[] deviceIdBytes = new byte[6];
             id.getBytes(0, deviceIdBytes);
             ByteBuf deviceIdBuf = Unpooled.wrappedBuffer(deviceIdBytes);
@@ -284,9 +268,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             data.writeByte(0x55);              // Saturation (default)
             data.writeByte(0x55);              // Chroma (default)
 
-//            channel.writeAndFlush(new NetworkMessage(
-//                    formatMessage(delimiter, MSG_IMAGE_CAPTURE_REQUEST, id, false, data),
-//                    remoteAddress));
             ByteBuf message = formatMessage(delimiter, MSG_IMAGE_CAPTURE_REQUEST, id, false, data);
             byte[] rawBytes = new byte[message.readableBytes()];
             message.getBytes(message.readerIndex(), rawBytes);
@@ -307,22 +288,18 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             ByteBuf data = Unpooled.buffer();
             data.writeByte(0x04);  // Number of parameters to set
 
-            // Parameter 0x0076: ADAS alarm enable (enable all types)
             data.writeInt(0x0076);
             data.writeByte(0x01);  // Length: 1 byte
             data.writeByte(0xFF);  // Value: all bits set (all ADAS types enabled)
 
-            // Parameter 0x0077: DSM alarm enable (enable all types)
             data.writeInt(0x0077);
             data.writeByte(0x01);  // Length: 1 byte
             data.writeByte(0xFF);  // Value: all bits set (all DSM types enabled)
 
-            // Parameter 0x007E: ADAS upload settings (upload 0x64 in 0x0200)
             data.writeInt(0x007E);
             data.writeByte(0x01);  // Length: 1 byte
             data.writeByte(0x01);  // Value: bit 0 = 1 (upload 0x64 in location reports)
 
-            // Parameter 0x007F: DSM upload settings (upload 0x65 in 0x0200)
             data.writeInt(0x007F);
             data.writeByte(0x01);  // Length: 1 byte
             data.writeByte(0x01);  // Value: bit 0 = 1 (upload 0x65 in location reports)
@@ -358,120 +335,90 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private void decodeAlarmSigns(Position position, long alarmSign) {
-        // Use addAlarm() to append multiple alarms instead of overwriting
-        // Bit 0: Emergency alarm (SOS)
         if (BitUtil.check(alarmSign, 0)) {
             position.addAlarm(Position.ALARM_SOS);
         }
-        // Bit 1: Overspeed alarm
         if (BitUtil.check(alarmSign, 1)) {
             position.addAlarm(Position.ALARM_OVERSPEED);
         }
-        // Bit 2: Driving alarm malfunction
         if (BitUtil.check(alarmSign, 2)) {
             position.addAlarm(Position.ALARM_FAULT);
         }
-        // Bit 3: Risk warning
         if (BitUtil.check(alarmSign, 3)) {
             position.addAlarm(Position.ALARM_GENERAL);
         }
-        // Bit 4: GNSS module fault
         if (BitUtil.check(alarmSign, 4)) {
             position.addAlarm(Position.ALARM_GPS_MODULE_FAULT);
         }
-        // Bit 5: GNSS antenna disconnected
         if (BitUtil.check(alarmSign, 5)) {
             position.addAlarm(Position.ALARM_GPS_ANTENNA_DISCONNECTED);
         }
-        // Bit 6: GNSS antenna short circuit
         if (BitUtil.check(alarmSign, 6)) {
             position.addAlarm(Position.ALARM_GPS_ANTENNA_SHORT);
         }
-        // Bit 7: Terminal main power under-voltage
         if (BitUtil.check(alarmSign, 7)) {
             position.addAlarm(Position.ALARM_MAIN_POWER_UNDER_VOLTAGE);
         }
-        // Bit 8: Terminal main power off
         if (BitUtil.check(alarmSign, 8)) {
             position.addAlarm(Position.ALARM_MAIN_POWER_OFF);
         }
-        // Bit 9: Terminal LCD fault
         if (BitUtil.check(alarmSign, 9)) {
             position.addAlarm(Position.ALARM_LCD_FAULT);
         }
-        // Bit 10: TTS module fault
         if (BitUtil.check(alarmSign, 10)) {
             position.addAlarm(Position.ALARM_TTS_FAULT);
         }
-        // Bit 11: Camera fault
         if (BitUtil.check(alarmSign, 11)) {
             position.addAlarm(Position.ALARM_CAMERA_FAULT);
         }
-        // Bit 12: Road transport IC card module fault
         if (BitUtil.check(alarmSign, 12)) {
             position.addAlarm(Position.ALARM_IC_CARD_FAULT);
         }
-        // Bit 13: Overspeed warning
         if (BitUtil.check(alarmSign, 13)) {
             position.addAlarm(Position.ALARM_OVERSPEED);
         }
-        // Bit 14: Fatigue driving warning
         if (BitUtil.check(alarmSign, 14)) {
             position.addAlarm(Position.ALARM_FATIGUE_DRIVING);
         }
-        // Bit 18: Accumulated overspeed driving time
         if (BitUtil.check(alarmSign, 18)) {
             position.addAlarm(Position.ALARM_OVERSPEED);
         }
-        // Bit 19: Timeout parking
         if (BitUtil.check(alarmSign, 19)) {
             position.addAlarm(Position.ALARM_IDLE);
         }
-        // Bit 20: Enter and exit the area
         if (BitUtil.check(alarmSign, 20)) {
             position.addAlarm(Position.ALARM_GEOFENCE_ENTER);
         }
-        // Bit 21: Enter and exit the route
         if (BitUtil.check(alarmSign, 21)) {
             position.addAlarm(Position.ALARM_GEOFENCE_EXIT);
         }
-        // Bit 22: Driving time of route not enough/too long
         if (BitUtil.check(alarmSign, 22)) {
             position.addAlarm(Position.ALARM_GENERAL);
         }
-        // Bit 23: Off track alarm
         if (BitUtil.check(alarmSign, 23)) {
             position.addAlarm(Position.ALARM_GENERAL);
         }
-        // Bit 24: VSS fault
         if (BitUtil.check(alarmSign, 24)) {
             position.addAlarm(Position.ALARM_VSS_FAULT);
         }
-        // Bit 25: Vehicle oil amount abnormal
         if (BitUtil.check(alarmSign, 25)) {
             position.addAlarm(Position.ALARM_OIL_ABNORMAL);
         }
-        // Bit 26: Vehicle stolen
         if (BitUtil.check(alarmSign, 26)) {
             position.addAlarm(Position.ALARM_VEHICLE_STOLEN);
         }
-        // Bit 27: Illegal ignition
         if (BitUtil.check(alarmSign, 27)) {
             position.addAlarm(Position.ALARM_ILLEGAL_IGNITION);
         }
-        // Bit 28: Illegal displacement
         if (BitUtil.check(alarmSign, 28)) {
             position.addAlarm(Position.ALARM_ILLEGAL_DISPLACEMENT);
         }
-        // Bit 29: Collision alarm
         if (BitUtil.check(alarmSign, 29)) {
             position.addAlarm(Position.ALARM_COLLISION);
         }
-        // Bit 30: Rollover alarm
         if (BitUtil.check(alarmSign, 30)) {
             position.addAlarm(Position.ALARM_ROLLOVER);
         }
-        // Bit 31: Illegal door opening
         if (BitUtil.check(alarmSign, 31)) {
             position.addAlarm(Position.ALARM_ILLEGAL_DOOR_OPEN);
         }
@@ -512,7 +459,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             if (buf.readableBytes() < length) {
                 break;
             }
-
             switch (infoId) {
                 case 0x01: // Mileage (DWORD, 1/10km)
                     position.set(Position.KEY_ODOMETER, buf.readUnsignedInt() * 100);
@@ -526,14 +472,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
                 case 0x64: // T/JSATL12-2017 Table 4-15: ADAS alarm information
                     if (length >= 7) {
-                        // LOG RAW EXTENDED DATA for debugging
                         int readerIndexBeforeParsing = buf.readerIndex();
                         byte[] rawExtendedData = new byte[length];
                         buf.readBytes(rawExtendedData);
                         buf.readerIndex(readerIndexBeforeParsing); // Reset to continue normal parsing
                         LOGGER.info("ADAS (0x64) RAW EXTENDED DATA ({} bytes): {}",
                                 length, DataConverter.printHex(rawExtendedData));
-
                         long alarmId = buf.readUnsignedInt();
                         int alarmStatus = buf.readUnsignedByte();
                         int alarmType = buf.readUnsignedByte();
@@ -542,24 +486,17 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 position.getDeviceId(), alarmId,
                                 Integer.toHexString(alarmType).toUpperCase(),
                                 alarmStatus, alarmLevel);
-
                         position.set("adasAlarmId", alarmId);
                         position.set("adasStatus", alarmStatus);
                         position.set("adasType", alarmType);
                         position.set("adasLevel", alarmLevel);
 
-                        // Determine if this is an actual alarm or just monitoring/event data
-                        // Per T/JSATL12-2017: Types 0x01-0x0F are alarms (require attachment requests)
-                        // Type 0x00 is monitoring, types 0x10-0x1F are events (no attachment requests)
                         boolean isRealAlarm = (alarmType >= 0x01 && alarmType <= 0x0F);
-
-                        // Map ADAS alarm types to Traccar alarm constants
                         switch (alarmType) {
                             case 0x00: // No alarm - monitoring/status update only
                                 position.set("adasStatus", "monitoring");
                                 LOGGER.debug("ADAS Monitoring Update - Device: {}, Level: {}",
                                             position.getDeviceId(), alarmLevel);
-                                // Don't set KEY_ALARM - this is monitoring, not an alarm
                                 isRealAlarm = false;
                                 break;
 
@@ -568,51 +505,40 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 LOGGER.warn("ADAS ALARM TYPE: Forward Collision Warning - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
-
                             case 0x02: // Lane departure warning
                                 position.addAlarm("laneDeparture");
                                 break;
-
                             case 0x03: // Vehicle distance monitoring warning
                                 position.addAlarm("vehicleTooClose");
                                 break;
-
                             case 0x04: // Pedestrian collision warning
                                 position.addAlarm("pedestrianCollision");
                                 break;
-
                             case 0x05: // Frequent lane change warning
                                 position.addAlarm("frequentLaneChange");
                                 break;
-
                             case 0x06: // Road sign out of limit warning
                                 position.addAlarm("roadSignExceeded");
                                 break;
-
                             case 0x07: // Obstacle warning
                                 position.addAlarm("obstacleDetection");
                                 break;
-
                             case 0x10: // Road sign recognition event
                                 position.set("adasEventName", "roadSignRecognition");
                                 position.set("event", "roadSignRecognition");
                                 LOGGER.info("ADAS EVENT: Road Sign Recognition - Device: {}, AlarmId: {}",
                                             position.getDeviceId(), alarmId);
-                                // Don't set KEY_ALARM - this is an event, not an alarm
                                 isRealAlarm = false;
                                 break;
-
                             case 0x11: // Actively capture event
                                 position.set("adasEventName", "activeCapture");
                                 position.set("event", "activeCapture");
                                 LOGGER.info("ADAS EVENT: Active Capture - Device: {}, AlarmId: {}",
                                             position.getDeviceId(), alarmId);
-                                // Don't set KEY_ALARM - this is an event, not an alarm
                                 isRealAlarm = false;
                                 break;
 
                             default:
-                                // Handle user-defined (0x08-0x0F, 0x12-0x1F) and vendor-specific types
                                 if (alarmType >= 0x08 && alarmType <= 0x0F) {
                                     position.addAlarm(Position.ALARM_GENERAL);
                                     position.set("adasAlarmName", "userDefined_" + alarmType);
@@ -639,26 +565,16 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 break;
                         }
 
-                        // Per T/JSATL12-2017 Table 4-15: Alarm sign number at byte 31
-                        // Structure: 7 header + 5 alarm-specific + 19 position + 16 alarm ID = 47 bytes min
                         if (length >= 47) {
-                            // Skip bytes 7-30 (alarm-specific data + position data) = 24 bytes
-                            // Bytes 7-11: Alarm-specific (speed, distance, deviation, sign type, sign data)
-                            // Bytes 12-30: Position data (19)
                             buf.skipBytes(24);
-
-                            // Alarm identification at byte 31 (16 bytes) - Table 4-16
-                            // CRITICAL: Capture this so we can send it back in 0x9208 request
                             if (buf.readableBytes() >= 16) {
                                 byte[] alarmIdentification = new byte[16];
                                 buf.readBytes(alarmIdentification);
-                                // Store as hex string since position.set() doesn't accept byte[]
                                 String alarmFlagHex = DataConverter.printHex(alarmIdentification);
                                 position.set("adasAlarmFlag", alarmFlagHex);
                                 LOGGER.info("Captured ADAS alarm flag at byte 31 per spec (16 bytes): {}",
                                         alarmFlagHex);
 
-                                // Parse and log for verification
                                 byte[] terminalId = new byte[7];
                                 byte[] timeBcd = new byte[6];
                                 System.arraycopy(alarmIdentification, 0, terminalId, 0, 7);
@@ -671,15 +587,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 LOGGER.info("    Reserved: 0x{}", Integer.toHexString(alarmIdentification[15] & 0xFF));
                             }
 
-                            // Skip remaining bytes if any
                             buf.skipBytes(buf.readableBytes());
                         } else {
                             buf.skipBytes(length - 7);
                         }
 
-                        // Only create event correlation and request attachments for REAL alarms
                         if (isRealAlarm) {
-                            // Create event correlation for multimedia linking
                             String eventKey = position.getDeviceId() + "_" + alarmId;
                             EventMediaCorrelation correlation = new EventMediaCorrelation();
                             correlation.deviceId = position.getDeviceId();
@@ -687,11 +600,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             correlation.alarmType = "ADAS_" + Integer.toHexString(alarmType).toUpperCase();
                             correlation.eventTime = new Date();
                             eventMediaMap.put(eventKey, correlation);
-
                             LOGGER.info("Triggering alarm attachment request for ADAS alarm - Device: {}, AlarmId: {},"
                                             + " Type: 0x{}", position.getDeviceId(), alarmId,
                                                Integer.toHexString(alarmType).toUpperCase());
-
                             sendAlarmAttachmentRequest(channel, remoteAddress, id, (int) alarmId, alarmType, position);
                         } else {
                             LOGGER.debug("Skipping event correlation for ADAS monitoring/event data - AlarmId: {},"
@@ -705,14 +616,12 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
                 case 0x65: // T/JSATL12-2017 Table 4-17: DSM alarm information
                     if (length >= 7) {
-                        // LOG RAW EXTENDED DATA for debugging
                         int readerIndexBeforeParsing = buf.readerIndex();
                         byte[] rawExtendedData = new byte[length];
                         buf.readBytes(rawExtendedData);
                         buf.readerIndex(readerIndexBeforeParsing); // Reset to continue normal parsing
                         LOGGER.info("DSM (0x65) RAW EXTENDED DATA ({} bytes): {}",
                                 length, DataConverter.printHex(rawExtendedData));
-
                         long alarmId = buf.readUnsignedInt();
                         int alarmStatus = buf.readUnsignedByte();
                         int alarmType = buf.readUnsignedByte();
@@ -721,79 +630,60 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 position.getDeviceId(), alarmId,
                                 Integer.toHexString(alarmType).toUpperCase(),
                                 alarmStatus, alarmLevel);
-
                         position.set("dsmAlarmId", alarmId);
                         position.set("dsmStatus", alarmStatus);
                         position.set("dsmType", alarmType);
                         position.set("dsmLevel", alarmLevel);
-
-                        // Determine if this is an actual alarm or just monitoring data
-                        // Per T/JSATL12-2017: Types 0x01-0x0F are alarms (require attachment requests)
-                        // Type 0x00 is monitoring, types 0x10-0x1F are events (no attachment requests)
                         boolean isRealAlarm = (alarmType >= 0x01 && alarmType <= 0x0F);
-
-                        // Map DSM alarm types to Traccar alarm constants
                         switch (alarmType) {
                             case 0x00: // No alarm - fatigue monitoring update
                                 position.set("dsmStatus", "fatigueMonitoring");
                                 position.set("fatigueLevel", alarmLevel);
                                 LOGGER.debug("DSM Fatigue Monitoring - Device: {}, Level: {}",
                                             position.getDeviceId(), alarmLevel);
-                                // Don't set KEY_ALARM - this is monitoring, not an alarm
-                                // Don't create event correlation for monitoring data
                                 isRealAlarm = false;
                                 break;
-
                             case 0x01: // Fatigue driving alarm
                                 position.addAlarm("fatigueDriving");
                                 LOGGER.warn("DSM ALARM TYPE: Fatigue Driving - Device: {}, AlarmId: {}, Level: {}",
                                         position.getDeviceId(), alarmId, alarmLevel);
                                 break;
-
                             case 0x02: // Calling/phone use alarm - CRITICAL FOR REQUIREMENT
                                 position.addAlarm("phoneUse");
                                 position.set("phoneUseDetected", true);
                                 LOGGER.warn("DSM ALARM TYPE: PHONE USE DETECTED - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
-
                             case 0x03: // Smoking alarm
                                 position.addAlarm("smoking");
                                 LOGGER.warn("DSM ALARM TYPE: Smoking Detected - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
-
                             case 0x04: // Distracted driving alarm
                                 position.addAlarm("distractedDriving");
                                 LOGGER.warn("DSM ALARM TYPE: Distracted Driving - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
-
                             case 0x05: // Driver abnormal alarm
                                 position.addAlarm("driverAbnormal");
                                 break;
-
                             case 0x06: // Seatbelt alarm
                                 position.addAlarm("seatBelt");
                                 LOGGER.warn("DSM ALARM TYPE: Seatbelt - Device: {}, AlarmId: {}",
                                         position.getDeviceId(), alarmId);
                                 break;
-
                             case 0x10: // Auto capture event
                                 position.set("dsmEventName", "autoCapture");
                                 position.set("event", "dsmAutoCapture");
                                 LOGGER.info("DSM EVENT: Auto Capture - Device: {}, AlarmId: {}",
                                             position.getDeviceId(), alarmId);
-                                // Don't set KEY_ALARM - this is an event, not an alarm
                                 isRealAlarm = false;
                                 break;
-
                             case 0x11: // Driver change event
                                 position.set("dsmEventName", "driverChange");
                                 position.set("event", "driverChange");
                                 LOGGER.info("DSM EVENT: Driver Change - Device: {}, AlarmId: {}",
                                             position.getDeviceId(), alarmId);
-                                // Don't set KEY_ALARM - this is an event, not an alarm
                                 isRealAlarm = false;
                                 break;
 
@@ -825,27 +715,16 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 break;
                         }
 
-                        // Per T/JSATL12-2017 Table 4-17: Alarm sign number at byte 31
-                        // Structure: 7 header + 5 specific + 19 position + 16 alarm ID = 47 bytes min
                         if (length >= 47) {
-                            // Skip bytes 7-30 (alarm-specific data + position data) = 24 bytes
-                            // Byte 7: Fatigue level (1)
-                            // Bytes 8-11: Reserved (4)
-                            // Bytes 12-30: Position data (19)
                             buf.skipBytes(24);
-
-                            // Alarm identification at byte 31 (16 bytes) - Table 4-16
-                            // CRITICAL: Capture this so we can send it back in 0x9208 request
                             if (buf.readableBytes() >= 16) {
                                 byte[] alarmIdentification = new byte[16];
                                 buf.readBytes(alarmIdentification);
-                                // Store as hex string since position.set() doesn't accept byte[]
                                 String alarmFlagHex = DataConverter.printHex(alarmIdentification);
                                 position.set("dsmAlarmFlag", alarmFlagHex);
                                 LOGGER.info("Captured DSM alarm flag at byte 31 per spec (16 bytes): {}",
                                         alarmFlagHex);
 
-                                // Parse and log for verification
                                 byte[] terminalId = new byte[7];
                                 byte[] timeBcd = new byte[6];
                                 System.arraycopy(alarmIdentification, 0, terminalId, 0, 7);
@@ -857,15 +736,11 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 LOGGER.info("    Attachments: {}", alarmIdentification[14] & 0xFF);
                                 LOGGER.info("    Reserved: 0x{}", Integer.toHexString(alarmIdentification[15] & 0xFF));
                             }
-
-                            // Skip remaining bytes if any
                             buf.skipBytes(buf.readableBytes());
                         } else {
                             buf.skipBytes(length - 7);
                         }
 
-                        // Only create event correlation and request attachments for REAL alarms
-                        // Skip monitoring updates (type 0x00), events (0x10-0x11), and alarmId=0
                         if (isRealAlarm) {
                             // Create event correlation for multimedia linking
                             String eventKey = position.getDeviceId() + "_" + alarmId;
@@ -875,12 +750,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             correlation.alarmType = "DSM_" + Integer.toHexString(alarmType).toUpperCase();
                             correlation.eventTime = new Date();
                             eventMediaMap.put(eventKey, correlation);
-
                             LOGGER.info("Triggering alarm attachment request for DSM alarm - Device: {}, AlarmId: {},"
                                         + " Type: 0x{}", position.getDeviceId(), alarmId,
                                         Integer.toHexString(alarmType).toUpperCase());
-
-                            // Trigger automatic alarm attachment request
                             sendAlarmAttachmentRequest(channel, remoteAddress, id, (int) alarmId, alarmType, position);
                         } else {
                             LOGGER.debug("Skipping event correlation for DSM monitoring/event data - AlarmId: {},"
@@ -901,17 +773,14 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         buf.readerIndex(readerIndexBeforeParsing); // Reset to continue normal parsing
                         LOGGER.info("MULTIMEDIA (0x70) RAW EXTENDED DATA ({} bytes): {}",
                                 length, DataConverter.printHex(rawExtendedData));
-
                         long mediaId = buf.readUnsignedInt();
                         int mediaType = buf.readUnsignedByte();
                         int mediaFormat = buf.readUnsignedByte();
                         int eventCode = buf.readUnsignedByte();
-
                         LOGGER.info("MULTIMEDIA EVENT DETECTED (0x70) - Device: {}, MediaId: {}, Type: {},"
                                         + " Format: {}, EventCode: 0x{}",
                                 position.getDeviceId(), mediaId, mediaType, mediaFormat,
                                 Integer.toHexString(eventCode).toUpperCase());
-
                         position.set("mediaId", mediaId);
                         position.set("mediaType", mediaType);
                         position.set("mediaFormat", mediaFormat);
@@ -922,10 +791,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                             LOGGER.info("0x70 extended data is 47 bytes - SAME as 0x64/0x65! Attempting to read "
                                     + "alarm identification at byte 31...");
 
-                            // Skip bytes 7-30 (position/other data) = 24 bytes
                             buf.skipBytes(24);
-
-                            // Alarm identification at byte 31 (16 bytes) - Table 4-16
                             if (buf.readableBytes() >= 16) {
                                 byte[] alarmIdentification = new byte[16];
                                 buf.readBytes(alarmIdentification);
@@ -933,8 +799,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 position.set("multimediaAlarmFlag", alarmFlagHex);
                                 LOGGER.info("SUCCESS! Captured 0x70 alarm flag at byte 31 (16 bytes): {}",
                                         alarmFlagHex);
-
-                                // Parse and log for verification
                                 byte[] terminalId = new byte[7];
                                 byte[] timeBcd = new byte[6];
                                 System.arraycopy(alarmIdentification, 0, terminalId, 0, 7);
@@ -953,23 +817,17 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                                 LOGGER.warn("0x70 extended data claims 47 bytes but not enough bytes remaining for "
                                         + "alarm ID");
                             }
-
-                            // Skip remaining bytes if any
                             buf.skipBytes(buf.readableBytes());
                         } else {
                             LOGGER.warn("0x70 extended data is only {} bytes (expected 47) - CANNOT read alarm "
                                     + "identification at byte 31", length);
                             LOGGER.warn("FALLBACK - Will reconstruct alarm flag (may have timezone issues)");
-
-                            // Fallback: skip remaining bytes
                             if (length > 7) {
                                 buf.skipBytes(length - 7);
                             }
 
-                            // Set alarm ID for correlation
                             position.set("adasAlarmId", mediaId);
                         }
-
                         // Set generic alarm
                         position.addAlarm("unknown");
                         position.set("alarmSource", "multimedia_event_0x70");
@@ -982,11 +840,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                         correlation.alarmType = "MULTIMEDIA_EVENT_0x" + Integer.toHexString(eventCode).toUpperCase();
                         correlation.eventTime = new Date();
                         eventMediaMap.put(eventKey, correlation);
-
                         LOGGER.info("Triggering alarm attachment request for 0x70 multimedia event - Device: {}, "
                                         + "MediaId: {}, EventCode: 0x{}",
                                 position.getDeviceId(), mediaId, Integer.toHexString(eventCode).toUpperCase());
-
                         // Send 0x9208 request using mediaId as alarmId and eventCode as alarmType
                         sendAlarmAttachmentRequest(channel, remoteAddress, id, (int) mediaId, eventCode, position);
                     } else {
@@ -1022,7 +878,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
         int count = buf.readUnsignedShort();
         int type = buf.readUnsignedByte(); // 0: Normal, 1: Blind area
-
         for (int i = 0; i < count; i++) {
             int length = buf.readUnsignedShort();
             ByteBuf locationBuf = buf.readSlice(length);
@@ -1079,7 +934,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         if (encryption != 0) {
             return null;
         }
-
         ByteBuf id = buf.readSlice(6);
         String deviceId = decodeDeviceId(id);
         id.resetReaderIndex();
@@ -1089,9 +943,7 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
         if (deviceSession == null && type != MSG_TERMINAL_REGISTER) {
             return null;
         }
-
         TimeZone timeZone = TimeZone.getTimeZone("GMT+8");
-
         // Section 7: Protocol classification - message processing
         switch (type) {
             case MSG_TERMINAL_REGISTER:
@@ -1112,36 +964,28 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 ByteBuf response = Unpooled.buffer();
                 response.writeShort(index);        // Response serial number
                 response.writeByte(RESULT_SUCCESS); // Result: 0=success
-                // Authentication code (STRING) - only if success
                 String authCode = generateAuthCode(deviceId); // Generate unique auth code
                 response.writeBytes(authCode.getBytes(StandardCharsets.US_ASCII));
                 return null;
 
             case MSG_TERMINAL_AUTH:
-                // Section 8.6: Terminal authentication - send general response
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
-
-                // Configure ADAS/DSM parameters for this server profile after authentication
                 configureDeviceAdasDsmProfile(channel, remoteAddress, id);
                 return null;
 
             case MSG_TERMINAL_HEARTBEAT:
-                // Section 8.3: Terminal heartbeat - send general response
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return null;
 
             case MSG_LOCATION_REPORT:
-                // Section 8.13: Location information report
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeLocationReport(deviceSession, buf, timeZone, channel, remoteAddress, id, index);
 
             case MSG_LOCATION_BATCH_UPLOAD:
-                // Section 8.26: Positioning data batch upload
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeLocationBatch(deviceSession, buf, timeZone, channel, remoteAddress, id, index);
 
             case MSG_TERMINAL_GENERAL_RESPONSE:
-                // Section 8.1: Terminal general response - acknowledgment from device
                 if (buf.readableBytes() >= 3) {
                     int responseSerial = buf.readUnsignedShort();
                     int originalMsgId = buf.readUnsignedShort();
@@ -1160,7 +1004,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 return null;
 
             case MSG_ALARM_ATTACHMENT_INFO:
-                // T/JSATL12-2017 Section 4.6.2: Alarm attachment information message (0x1210)
                 LOGGER.info("RECEIVED ALARM ATTACHMENT INFO (0x1210) - Device: {}", deviceSession.getUniqueId());
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 Position attachmentPos = decodeAlarmAttachmentInfo(deviceSession, buf);
@@ -1172,22 +1015,18 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 return attachmentPos;
 
             case MSG_VIDEO_LIVE_STREAM_RESPONSE:
-                // JT/T 1078-2016 Section 5.1: Video live stream response (0x1001)
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeVideoLiveStreamResponse(deviceSession, buf);
 
             case MSG_VIDEO_PLAYBACK_RESPONSE:
-                // JT/T 1078-2016: Video playback response (0x1201)
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeVideoPlaybackResponse(deviceSession, buf);
 
             case MSG_VIDEO_RESOURCE_LIST_RESPONSE:
-                // JT/T 1078-2016: Video resource list response (0x1205)
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeVideoResourceListResponse(deviceSession, buf);
 
             case MSG_IMAGE_CAPTURE_RESPONSE:
-                // Section 8.31: Image/video capture response (0x0805)
                 LOGGER.info("RECEIVED IMAGE CAPTURE RESPONSE (0x0805) - Device: {}", deviceSession.getUniqueId());
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 Position capturePos = decodeImageCaptureResponse(deviceSession, buf);
@@ -1200,22 +1039,18 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 return capturePos;
 
             case MSG_CHECK_TERMINAL_PARAMETER_RESPONSE:
-                // Section 8.10: Check terminal parameter response (0x0104)
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeTerminalParameterResponse(deviceSession, buf);
 
             case MSG_CHECK_TERMINAL_ATTRIBUTE_RESPONSE:
-                // Section 8.12: Check terminal attribute response (0x0107)
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeTerminalAttributeResponse(deviceSession, buf);
 
             case MSG_MULTIMEDIA_EVENT_INFO:
-                // Section 8.27: Multimedia event information uploading (0x0800)
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeMultimediaEventInfo(deviceSession, buf);
 
             case MSG_MULTIMEDIA_DATA_UPLOAD:
-                // Section 8.28: Multimedia data upload (0x0801)
                 LOGGER.info("RECEIVED MULTIMEDIA DATA UPLOAD (0x0801) - Device: {}, Packet {}/{}",
                         deviceSession.getUniqueId(), packageNo, totalPackages);
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
@@ -1240,7 +1075,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
                 return uploadPos;
 
             case MSG_RETRIEVE_MULTIMEDIA_RESPONSE:
-                // Section 8.33: Response of store multimedia data retrieves (0x0802)
                 sendGeneralResponse(channel, remoteAddress, id, type, index);
                 return decodeMultimediaRetrieveResponse(deviceSession, buf);
 
@@ -1411,9 +1245,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
             if (mediaIds.length() > 0) {
                 position.set("mediaIds", mediaIds.toString());
-
-                // Update event correlation with expected media IDs
-                // Look for recent event correlations for this device
                 for (EventMediaCorrelation correlation : eventMediaMap.values()) {
                     if (correlation.deviceId == position.getDeviceId()
                             && correlation.expectedMediaIds.isEmpty()) {
@@ -1637,11 +1468,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
     }
 
     private final Map<String, EventMediaCorrelation> eventMediaMap = new HashMap<>();
-
-    /**
-     * Clean up old event correlations to prevent memory leaks
-     * Removes correlations older than 1 hour
-     */
     private void cleanupOldCorrelations() {
         long currentTime = System.currentTimeMillis();
         long maxAge = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -1728,8 +1554,6 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
 
         position.set("event", linkedEvent != null ? "alarmMultimedia" : "multimediaDataReceived");
 
-        // Check if this is the LAST packet (per JT/T 808 specification)
-        // Compare packet numbers, NOT buffer bytes to packet count!
         if (packageNo == totalPackages) {
             try {
                 // Determine file extension
@@ -1799,12 +1623,9 @@ public class DC600ProtocolDecoder extends BaseProtocolDecoder {
             }
         }
 
-        // If this multimedia is linked to an alarm event, mark position as valid to ensure event recording
-        // Otherwise, mark as invalid since it's just data transmission
         position.setValid(linkedEvent != null);
         position.setTime(linkedEvent != null ? linkedEvent.eventTime : new Date());
 
-        // Add correlation info for event querying
         if (linkedEvent != null) {
             position.set("correlatedEvent", true);
             position.set("eventMediaCount", linkedEvent.receivedMediaPaths.size());
