@@ -61,7 +61,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                             cached.getSurface(),
                             cached.getCountry(),
                             cached.getState(),
-                            cached.getCity()
+                            cached.getCity(),
+                            cached.getHighway()
                     );
                     LOGGER.debug("Cache hit. Restored region: country={}, state={}, city={}",
                             cached.getCountry(), cached.getState(), cached.getCity());
@@ -124,6 +125,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             String country = null;
             String state = null;
             String city = null;
+            String highway = null;
 
             for (int i = 0; i < elements.size(); i++) {
                 JsonObject element = elements.getJsonObject(i);
@@ -154,6 +156,10 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                 if (surface == null && tags.containsKey("surface")) {
                     surface = tags.getString("surface");
                     LOGGER.debug("Overpass returned surface: " + surface);
+                }
+                if (highway == null && tags.containsKey("highway")) {
+                    highway = tags.getString("highway"); // e.g., "speed_camera", "residential", etc.
+                    LOGGER.debug("Overpass returned highway tag: {}", highway);
                 }
                 if (tags.containsKey("addr:country")) {
                     country = tags.getString("addr:country");
@@ -214,9 +220,10 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     break;
                 }
             }
-            return new TollData(isToll, ref, name, surface, country, state, city);
+            return new TollData(isToll, ref, name, surface, country, state, city, highway);
         } else {
-            return new TollData(false, null, null, null, null, null, null);
+            return new TollData(false, null, null, null, null, null,
+                    null, null);
         }
     }
 
@@ -229,7 +236,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     tollData.getSurface(),
                     tollData.getCountry(),
                     tollData.getState(),
-                    tollData.getCity()
+                    tollData.getCity(),
+                    tollData.getHighway()
             );
 
             String jsonData = objectMapper.writeValueAsString(cached);
@@ -274,11 +282,14 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         @JsonProperty("city")
         private String city;
 
+        @JsonProperty("highway")
+        private String highway;
+
         // Default constructor for Jackson
         private CachedTollData() { }
 
         private CachedTollData(Boolean toll, String ref, String name, String surface,
-                               String country, String state, String city) {
+                               String country, String state, String city, String highway) {
             this.toll = toll;
             this.ref = ref;
             this.name = name;
@@ -286,6 +297,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             this.country = country;
             this.state = state;
             this.city = city;
+            this.highway = highway;
         }
 
         Boolean getToll() {
@@ -308,6 +320,9 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         }
         String getCity() {
             return city;
+        }
+        String getHighway() {
+            return highway;
         }
 
     }

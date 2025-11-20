@@ -9,10 +9,11 @@ public class TollData {
     private final String country;
     private final String state;
     private final String city;
+    private final String highway;
 
     public TollData(
             Boolean toll, String ref, String name, String surface,
-                    String country, String state, String city
+                    String country, String state, String city, String highway
     ) {
         this.toll = toll;
         this.ref = ref;
@@ -21,6 +22,7 @@ public class TollData {
         this.country = country;
         this.state = state;
         this.city = city;
+        this.highway = highway;
     }
 
     public Boolean getToll() {
@@ -43,5 +45,7 @@ public class TollData {
         return state; }
     public String getCity() {
         return city; }
+    public String getHighway() {
+        return highway; }
 
 }

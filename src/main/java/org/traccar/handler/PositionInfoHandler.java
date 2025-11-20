@@ -49,6 +49,10 @@ public class PositionInfoHandler extends BasePositionHandler {
                                 position.set(Position.KEY_CITY, data.getCity());
                                 LOGGER.info("Setting city: {}", data.getCity());
                             }
+                            if (data.getHighway() != null) {
+                                position.set(Position.KEY_HIGHWAY, data.getHighway());
+                                LOGGER.info("Setting highway: {}", data.getHighway());
+                            }
 
                             callback.processed(false);
                         }
