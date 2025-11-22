@@ -76,6 +76,10 @@ public class Event extends Message {
     public static final String TYPE_DRIVER_CHANGED = "driverChanged";
     public static final String TYPE_MEDIA = "media";
 
+    // DC600 media event types
+    public static final String TYPE_ALARM_MEDIA = "alarmMedia";       // Media triggered by alarm (0x9208 request)
+    public static final String TYPE_PERIODIC_MEDIA = "periodicMedia"; // Scheduled media upload (every 5 min)
+
 
     private Date eventTime;
 

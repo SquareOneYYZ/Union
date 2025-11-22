@@ -229,23 +229,47 @@ public class JT1078ProtocolDecoder extends BaseProtocolDecoder {
                 // Reset buffer to beginning
                 buf.resetReaderIndex();
 
-                // Extract device ID from filename
-                String deviceId = extractDeviceIdFromFilename(filename);
+                // Extract device ID from filename (could be database ID or uniqueId/IMEI)
+                String deviceIdStr = extractDeviceIdFromFilename(filename);
 
-                DeviceSession deviceSession;
-                if (deviceId != null) {
-                    // Look up session by device ID (more reliable)
-                    deviceSession = getDeviceSession(channel, remoteAddress, deviceId);
-                    LOGGER.debug("Code stream packet - looked up session by device ID: {}", deviceId);
-                } else {
-                    // Fallback to channel/address lookup
+                DeviceSession deviceSession = null;
+                if (deviceIdStr != null) {
+                    // Try 1: Look up by database ID (for numeric IDs like "3906")
+                    try {
+                        long deviceId = Long.parseLong(deviceIdStr);
+                        deviceSession = getDeviceSession(deviceId);
+                        if (deviceSession != null) {
+                            LOGGER.debug("Code stream packet - found session by database device ID: {}", deviceId);
+                        } else {
+                            LOGGER.debug("Code stream packet - no session found for database device ID: {}", deviceId);
+                        }
+                    } catch (NumberFormatException e) {
+                        LOGGER.debug("Code stream packet - '{}' is not a numeric database ID", deviceIdStr);
+                    }
+
+                    // Try 2: Look up by uniqueId/IMEI (if database ID lookup failed)
+                    if (deviceSession == null) {
+                        deviceSession = getDeviceSession(channel, remoteAddress, deviceIdStr);
+                        if (deviceSession != null) {
+                            LOGGER.debug("Code stream packet - found session by uniqueId: {}", deviceIdStr);
+                        } else {
+                            LOGGER.debug("Code stream packet - no session found for uniqueId: {}", deviceIdStr);
+                        }
+                    }
+                }
+
+                // Try 3: Fallback to channel/address lookup (no ID or both lookups failed)
+                if (deviceSession == null) {
                     deviceSession = getDeviceSession(channel, remoteAddress);
-                    LOGGER.debug("Code stream packet - using channel/address lookup (no device ID extracted)");
+                    if (deviceSession != null) {
+                        LOGGER.debug("Code stream packet - found session by channel/address lookup (extracted ID: {})",
+                                deviceIdStr);
+                    }
                 }
 
                 if (deviceSession == null) {
                     LOGGER.warn("Code stream packet received but no device session found");
-                    LOGGER.warn("  Filename: '{}', Device ID: {}", filename, deviceId);
+                    LOGGER.warn("  Filename: '{}', Extracted Device ID: {}", filename, deviceIdStr);
                     return null;
                 }
 
