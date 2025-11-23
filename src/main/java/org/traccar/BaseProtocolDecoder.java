@@ -138,6 +138,15 @@ public abstract class BaseProtocolDecoder extends ExtendedObjectDecoder {
         }
     }
 
+    /**
+     * Get device session by database device ID.
+     * Used when the database ID is known (e.g., extracted from media filenames)
+     * but the uniqueId (IMEI) is not available.
+     */
+    protected DeviceSession getDeviceSession(long deviceId) {
+        return connectionManager.getDeviceSession(deviceId);
+    }
+
     public void setModelOverride(String modelOverride) {
         this.modelOverride = modelOverride;
     }
