@@ -84,9 +84,9 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
         if (speedLimit == null) {
             LOGGER.debug("Skipping speed camera: No speedLimit provided for deviceId={}, speed={} km/h",
                     deviceId, speedKmh);
-        } else if (highwayTag != null &&
-                allowedHighways.contains(highwayTag.toLowerCase()) &&
-                speedKmh > speedLimit) {
+        } else if (highwayTag != null
+                && allowedHighways.contains(highwayTag.toLowerCase())
+                && speedKmh > speedLimit) {
             LOGGER.debug("Speed camera triggered: highway='{}' matched list={}, speed={} km/h > limit {} km/h",
                     highwayTag, allowedHighways, speedKmh, speedLimit);
 

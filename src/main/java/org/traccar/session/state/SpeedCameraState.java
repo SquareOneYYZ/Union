@@ -43,7 +43,8 @@ public class SpeedCameraState {
                 LOGGER.debug("SpeedCamera event already exists for deviceId={}", position.getDeviceId());
             }
         } else {
-            LOGGER.debug("Detection window not full yet (current size={}, windowSize={})", detectionWindow.size(), windowSize);
+            LOGGER.debug("Detection window not full yet (current size={}, windowSize={})",
+                    detectionWindow.size(), windowSize);
 
         }
     }
