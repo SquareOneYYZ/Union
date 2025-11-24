@@ -35,8 +35,8 @@ public class MediaEventHandler extends BaseEventHandler {
                     Event event = new Event(Event.TYPE_MEDIA, position);
                     event.set("media", type);
                     event.set("file", position.getString(type));
-                    if (position.hasAttribute("multimediaId")) {
-                        Object mediaId = position.getAttributes().get("multimediaId");
+                    if (position.hasAttribute("alarmId")) {
+                        Object mediaId = position.getAttributes().get("alarmId");
                         if (mediaId instanceof Integer) {
                             event.set("mediaId", (Integer) mediaId);
                         } else if (mediaId instanceof Long) {
