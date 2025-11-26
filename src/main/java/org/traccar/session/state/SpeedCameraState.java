@@ -40,9 +40,9 @@ public class SpeedCameraState {
 
         if (detectionWindow.size() == windowSize) {
             long now = position.getFixTime().getTime();
-            if (highwayTag != null &&
-                    highwayTag.equalsIgnoreCase(lastHighway) &&
-                    (now - lastEmitTime) < 60000) { // 60 sec lock
+            if (highwayTag != null
+                    && highwayTag.equalsIgnoreCase(lastHighway)
+                    && (now - lastEmitTime) < 60000) { // 60 sec lock
                 LOGGER.debug("Skipping duplicate speed camera event for deviceId={} highway={}",
                         position.getDeviceId(), highwayTag);
                 return;
@@ -57,7 +57,7 @@ public class SpeedCameraState {
                 lastHighway = highwayTag;
                 lastEmitTime = now;
                 LOGGER.info("SpeedCamera event created for deviceId={} at {} highway='{}' speed={} limit={}",
-                        position.getDeviceId(), position.getFixTime(),highwayTag,speedKmh,speedLimit);
+                        position.getDeviceId(), position.getFixTime(), highwayTag, speedKmh, speedLimit);
             } else {
                 LOGGER.debug("SpeedCamera event already exists for deviceId={}", position.getDeviceId());
             }
