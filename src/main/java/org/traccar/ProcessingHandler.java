@@ -101,6 +101,7 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
                 FuelEventHandler.class,
                 MotionEventHandler.class,
                 GeofenceEventHandler.class,
+                GeofenceDistanceHandler.class,
                 AlarmEventHandler.class,
                 IgnitionEventHandler.class,
                 MaintenanceEventHandler.class,
