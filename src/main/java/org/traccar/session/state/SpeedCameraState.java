@@ -17,12 +17,18 @@ public class SpeedCameraState {
     @JsonProperty
     private List<Long> detectionWindow = new ArrayList<>();
 
+    @JsonProperty
+    private String lastHighway;
+
+    @JsonProperty
+    private long lastEmitTime;
+
     @JsonIgnore
     private Event event;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SpeedCameraState.class);
 
-    public void addDetection(Position position, int windowSize) {
+    public void addDetection(Position position, int windowSize, String highwayTag, double speedKmh, Double speedLimit) {
         LOGGER.debug("Adding detection at time {} to window (current size={})", position.getFixTime(),
                 detectionWindow.size());
         detectionWindow.add(position.getFixTime().getTime());
@@ -33,12 +39,25 @@ public class SpeedCameraState {
         }
 
         if (detectionWindow.size() == windowSize) {
+            long now = position.getFixTime().getTime();
+            if (highwayTag != null &&
+                    highwayTag.equalsIgnoreCase(lastHighway) &&
+                    (now - lastEmitTime) < 60000) { // 60 sec lock
+                LOGGER.debug("Skipping duplicate speed camera event for deviceId={} highway={}",
+                        position.getDeviceId(), highwayTag);
+                return;
+            }
             // Only emit event if not previously emitted for this detection
             if (event == null) {
                 event = new Event(Event.TYPE_SPEED_CAMERA, position);
-                event.set(Position.KEY_HIGHWAY, Event.TYPE_SPEED_CAMERA);
-                LOGGER.info("SpeedCamera event created for deviceId={} at {}", position.getDeviceId(),
-                        position.getFixTime());
+                event.set(Position.KEY_HIGHWAY, highwayTag);
+                event.set(Position.KEY_SPEED_LIMIT, speedLimit);
+                event.set("deviceSpeed", speedKmh);
+
+                lastHighway = highwayTag;
+                lastEmitTime = now;
+                LOGGER.info("SpeedCamera event created for deviceId={} at {} highway='{}' speed={} limit={}",
+                        position.getDeviceId(), position.getFixTime(),highwayTag,speedKmh,speedLimit);
             } else {
                 LOGGER.debug("SpeedCamera event already exists for deviceId={}", position.getDeviceId());
             }

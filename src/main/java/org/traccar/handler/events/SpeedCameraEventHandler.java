@@ -90,7 +90,7 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
             LOGGER.debug("Speed camera triggered: highway='{}' matched list={}, speed={} km/h > limit {} km/h",
                     highwayTag, allowedHighways, speedKmh, speedLimit);
 
-            cameraState.addDetection(position, confidenceWindow);
+            cameraState.addDetection(position, confidenceWindow, highwayTag, speedKmh, speedLimit);
 
         } else {
             LOGGER.debug("Skipping speed camera: highway='{}', allowedList={}, speed={} km/h, limit={}",
