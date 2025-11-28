@@ -308,7 +308,7 @@ public class Device extends GroupedModel implements Disableable, Schedulable {
         this.tollrouteTime = tollrouteTime;
     }
 
-    private long geofenceTrackingId;
+   /* private long geofenceTrackingId;
     private double geofenceStartDistance;
 
     @QueryIgnore
@@ -331,7 +331,7 @@ public class Device extends GroupedModel implements Disableable, Schedulable {
     @JsonIgnore
     public void setGeofenceStartDistance(double geofenceStartDistance) {
         this.geofenceStartDistance = geofenceStartDistance;
-    }
+    }*/
 
 
 

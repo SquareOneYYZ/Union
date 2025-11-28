@@ -11,6 +11,7 @@ import org.traccar.session.cache.CacheManager;
 import org.traccar.session.state.GeofenceDistanceState;
 import org.traccar.storage.Storage;
 import org.traccar.storage.StorageException;
+import org.traccar.storage.localCache.RedisCache;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Request;
@@ -22,7 +23,7 @@ public class GeofenceDistanceHandler extends BaseEventHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(GeofenceDistanceHandler.class);
 
     @Inject
-    private CacheManager cacheManager;
+    private RedisCache redis;
 
     @Inject
     private Storage storage;
@@ -32,65 +33,39 @@ public class GeofenceDistanceHandler extends BaseEventHandler {
 
         long deviceId = position.getDeviceId();
 
-        // Load device to get current state
-        Device device = cacheManager.getObject(Device.class, deviceId);
-        if (device == null) {
-            LOGGER.warn("Device {} not found in cache", deviceId);
+        // TEMPORARY TEST CODE - Simulate geofence transitions for testing
+        if (position.getGeofenceIds() == null || position.getGeofenceIds().isEmpty()) {
+            long step = System.currentTimeMillis() % 3; // just to rotate
+            List<Long> testGeofences = new ArrayList<>();
+            if (step == 0) testGeofences.add(1L);
+            if (step == 1) testGeofences.add(2L);
+            if (step == 2) { testGeofences.add(2L); testGeofences.add(3L); }
+            position.setGeofenceIds(testGeofences);
+            LOGGER.warn("TEST MODE: Simulating geofences {} for testing purposes", testGeofences);
+        }
+        List<Long> geofences = position.getGeofenceIds();
+
+        GeofenceDistanceState state = new GeofenceDistanceState(redis, deviceId);
+
+        if (geofences == null || geofences.isEmpty()) {
+            // No geofence → check if any pending geofence in Redis to close
+            state.handleExitAll(position);
             return;
         }
 
-        GeofenceDistanceState state = new GeofenceDistanceState();
-        state.fromDevice(device);
+        // Handle multi-geofence
+        state.updateState(position, geofences);
 
-         // TEMPORARY TEST CODE - Simulate geofence transitions for testing
-         if (position.getGeofenceIds() == null || position.getGeofenceIds().isEmpty()) {
-            List<Long> testGeofences = new ArrayList<>();
-            // Simulate transition: geofence 1 -> geofence 2 -> geofence 1
-            long simulatedGeofence = (state.getCurrentGeofence() == 0 || state.getCurrentGeofence() == 1) ? 2L : 1L;
-            testGeofences.add(simulatedGeofence);
-            position.setGeofenceIds(testGeofences);
-            LOGGER.warn("TEST MODE: Simulating geofence ID {} (current state: geofence {})", 
-                    simulatedGeofence, state.getCurrentGeofence());
-        }
-        // END TEMPORARY TEST CODE
-
-
-        state.updateState(position);
-
-        // Check if a record was created for saving
+        // Save record if any
         DeviceGeofenceDistance record = state.getRecord();
         if (record != null) {
-            LOGGER.info("Record created - Attempting to save: deviceId={}, geofenceId={}, positionId={}, distance={} km",
-                    record.getDeviceId(), record.getGeofenceId(), record.getPositionId(), record.getDistance());
-
             try {
                 record.setId(storage.addObject(record, new Request(new Columns.Exclude("id"))));
-                LOGGER.info("SUCCESS: Saved DeviceGeofenceDistance to database - id={}, deviceId={}, geofenceId={}, distance={} km",
-                        record.getId(), record.getDeviceId(), record.getGeofenceId(), record.getDistance());
-                state.setRecord(null); // Clear after saving
-            } catch (StorageException e) {
-                LOGGER.error("FAILED: Error saving DeviceGeofenceDistance record for deviceId={}, geofenceId={}, distance={} km. Error: {}",
-                        deviceId, record.getGeofenceId(), record.getDistance(), e.getMessage(), e);
-            }
-        } else {
-            // Log when no record is created (for debugging)
-            List<Long> geofences = position.getGeofenceIds();
-            if (geofences != null && !geofences.isEmpty()) {
-                LOGGER.debug("No record created - Device is in geofence {} but hasn't transitioned yet", geofences.get(0));
+                LOGGER.info("Saved geofence distance: {}", record.getId());
+                state.clearRecord();
+            } catch (Exception e) {
+                LOGGER.error("DB save error", e);
             }
         }
-
-        // Save state back to device
-        state.toDevice(device);
-        try {
-            storage.updateObject(device, new Request(
-                    new Columns.Include("geofenceTrackingId", "geofenceStartDistance"),
-                    new Condition.Equals("id", deviceId)));
-        } catch (StorageException e) {
-            LOGGER.warn("Failed to update device geofence state for deviceId={}", deviceId, e);
-        }
-
-        LOGGER.info("Updated geofence distance state: dev={}, geo={}, km={}",
-                deviceId, state.getCurrentGeofence(), state.getTravelledDistance());
     }
 }

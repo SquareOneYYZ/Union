@@ -6,117 +6,108 @@ import org.traccar.model.Device;
 import org.traccar.model.DeviceGeofenceDistance;
 import org.traccar.model.Event;
 import org.traccar.model.Position;
+import org.traccar.storage.localCache.RedisCache;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class GeofenceDistanceState {
     private static final Logger LOGGER = LoggerFactory.getLogger(GeofenceDistanceState.class);
 
-    private long currentGeofence;
-    private double startDistance;
-    private double entryDistance;
-    private double travelledDistance;
-    private Event event;
+    private final RedisCache redis;
+    private final long deviceId;
     private DeviceGeofenceDistance record;
 
-    public void updateState(Position position) {
-        List<Long> geofences = position.getGeofenceIds();
+    public GeofenceDistanceState(RedisCache redis, long deviceId) {
+        this.redis = redis;
+        this.deviceId = deviceId;
+    }
 
-        // No geofence = reset state
-        if (geofences == null || geofences.isEmpty()) {
-            LOGGER.info("No geofence present → resetting state to 0");
-            this.currentGeofence = 0L;
-            this.startDistance = 0.0;
-            this.entryDistance = 0.0;
-            return;
+    private String redisKey(long geofenceId) {
+        return "geo:dev:" + deviceId + ":" + geofenceId;
+    }
+
+    public void updateState(Position position, List<Long> currentGeofences) {
+
+        double totalDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
+
+        // 1. Find previous geofences from redis (those keys that exist)
+        Set<Long> previous = new HashSet<>();
+
+        for (Long geo : currentGeofences) {
+            String key = redisKey(geo);
+            // Just to detect active entries we have stored
+            if (redis.exists(key)) {
+                previous.add(geo);
+            }
         }
 
-        long newGeofence = geofences.get(0); // If multiple, pick first
-
-        if (this.currentGeofence == 0) {
-            double entryDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
-            LOGGER.info("Entering geofence {} for first time, entry total distance = {}",
-                    newGeofence, entryDist);
-            this.currentGeofence = newGeofence;
-            this.startDistance = entryDist;
-            this.entryDistance = entryDist;
-            return;
+        // 2. Handle Entry for new geofences
+        for (Long geoId : currentGeofences) {
+            if (!redis.exists(redisKey(geoId))) {
+                LOGGER.info("ENTER geofence {} totalDist={}", geoId, totalDist);
+                redis.set(redisKey(geoId), String.valueOf(totalDist));
+            }
         }
 
-        if (this.currentGeofence != newGeofence) {
-            // EXITED old + ENTERED new
-            double exitDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
-            double km = (exitDist - this.startDistance);
-            LOGGER.info("Exited geofence {} → Entered {} → entry={}, exit={}, travelled={} km",
-                    this.currentGeofence, newGeofence, this.entryDistance, exitDist, km);
-
-            DeviceGeofenceDistance record = new DeviceGeofenceDistance();
-            record.setDeviceId(position.getDeviceId());
-            record.setPositionId(position.getId());
-            record.setGeofenceId(this.currentGeofence);
-            record.setDistance(km);
-            record.setEntryTotalDistance(this.entryDistance);
-            record.setExitTotalDistance(exitDist);
-            this.record = record;
-
-            // reset for new geofence
-            this.currentGeofence = newGeofence;
-            this.startDistance = exitDist;
-            this.entryDistance = exitDist;
-
+        // 3. Handle Exit for geofences not in current list
+        // (exit = keys that exist in redis but not in currentGeofences)
+        for (String key : redisKeysForDevice()) {
+            long geoId = extractGeofenceIdFromKey(key);
+            if (!currentGeofences.contains(geoId)) {
+                handleExit(geoId, totalDist, position.getId());
+                redis.delete(key);
+            }
         }
     }
 
-    public void fromDevice(Device device) {
-        LOGGER.info("Loading state from device: geofence={}, startDist={}",
-                device.getGeofenceTrackingId(), device.getGeofenceStartDistance());
-        this.currentGeofence = device.getGeofenceTrackingId();
-        this.startDistance = device.getGeofenceStartDistance();
-        this.entryDistance = device.getGeofenceStartDistance();
+    public void handleExitAll(Position position) {
+        double totalDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
+        for (String key : redisKeysForDevice()) {
+            long geoId = extractGeofenceIdFromKey(key);
+            handleExit(geoId, totalDist, position.getId());
+            redis.delete(key);
+        }
     }
 
-    public void toDevice(Device device) {
-        device.setGeofenceTrackingId(currentGeofence);
-        device.setGeofenceStartDistance(startDistance);
+    private void handleExit(long geoId, double exitDist, long positionId) {
+        String key = redisKey(geoId);
+        String entryValue = redis.get(key);
+
+        if (entryValue != null) {
+            double entryDist = Double.parseDouble(entryValue);
+            double km = exitDist - entryDist;
+
+            LOGGER.info("EXIT geofence {} entry={} exit={} km={}", geoId, entryDist, exitDist, km);
+
+            DeviceGeofenceDistance r = new DeviceGeofenceDistance();
+            r.setDeviceId(deviceId);
+            r.setGeofenceId(geoId);
+            r.setPositionId(positionId);
+            r.setEntryTotalDistance(entryDist);
+            r.setExitTotalDistance(exitDist);
+            r.setDistance(km);
+
+            this.record = r;
+        }
     }
 
-    public long getCurrentGeofence() {
-        return currentGeofence;
+    // Helper to list redis keys for this device
+    private Set<String> redisKeysForDevice() {
+        // jedis.keys is heavy, but for your case OK
+        return redis.scanKeys("geo:dev:" + deviceId + ":*");
     }
 
-    public void setCurrentGeofence(long currentGeofence) {
-        this.currentGeofence = currentGeofence;
-    }
-
-    public double getStartDistance() {
-        return startDistance;
-    }
-
-    public void setStartDistance(double startDistance) {
-        this.startDistance = startDistance;
-    }
-
-    public double getTravelledDistance() {
-        return travelledDistance;
-    }
-
-    public void setTravelledDistance(double travelledDistance) {
-        this.travelledDistance = travelledDistance;
-    }
-
-    public Event getEvent() {
-        return event;
-    }
-
-    public void setEvent(Event event) {
-        this.event = event;
+    private long extractGeofenceIdFromKey(String key) {
+        return Long.parseLong(key.substring(key.lastIndexOf(":") + 1));
     }
 
     public DeviceGeofenceDistance getRecord() {
         return record;
     }
 
-    public void setRecord(DeviceGeofenceDistance record) {
-        this.record = record;
+    public void clearRecord() {
+        record = null;
     }
 }

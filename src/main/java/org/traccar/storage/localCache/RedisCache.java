@@ -6,7 +6,11 @@ import jakarta.inject.Singleton;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.params.ScanParams;
+import redis.clients.jedis.resps.ScanResult;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -115,4 +119,25 @@ public class RedisCache {
     public void shutdown() {
         scheduler.shutdown();
     }
+
+    public Set<String> scanKeys(String pattern) {
+        Set<String> keys = new HashSet<>();
+        if (!redisAvailable) {
+            return keys;
+        }
+        try {
+            String cursor = ScanParams.SCAN_POINTER_START;
+            ScanParams params = new ScanParams().match(pattern).count(100);
+            do {
+                ScanResult<String> scanResult = jedis.scan(cursor, params);
+                keys.addAll(scanResult.getResult());
+                cursor = scanResult.getCursor();
+            } while (!cursor.equals(ScanParams.SCAN_POINTER_START));
+        } catch (Exception e) {
+            System.err.println(" Redis scanKeys failed: " + e.getMessage());
+            redisAvailable = false;
+        }
+        return keys;
+    }
+
 }
