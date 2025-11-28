@@ -8,6 +8,8 @@ public class DeviceGeofenceDistance extends BaseModel{
     private long positionId;
     private long geofenceId;
     private double distance;
+    private double entryTotalDistance;
+    private double exitTotalDistance;
 
     public long getDeviceId() { return deviceId; }
     public void setDeviceId(long deviceId) { this.deviceId = deviceId; }
@@ -20,4 +22,14 @@ public class DeviceGeofenceDistance extends BaseModel{
 
     public double getDistance() { return distance; }
     public void setDistance(double distance) { this.distance = distance; }
+
+    public double getEntryTotalDistance() { return entryTotalDistance; }
+    public void setEntryTotalDistance(double entryTotalDistance) { 
+        this.entryTotalDistance = entryTotalDistance; 
+    }
+
+    public double getExitTotalDistance() { return exitTotalDistance; }
+    public void setExitTotalDistance(double exitTotalDistance) { 
+        this.exitTotalDistance = exitTotalDistance; 
+    }
 }
