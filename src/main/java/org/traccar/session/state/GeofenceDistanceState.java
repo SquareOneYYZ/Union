@@ -31,19 +31,14 @@ public class GeofenceDistanceState {
     public void updateState(Position position, List<Long> currentGeofences) {
 
         double totalDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
-
-        // 1. Find previous geofences from redis (those keys that exist)
         Set<Long> previous = new HashSet<>();
-
         for (Long geo : currentGeofences) {
             String key = redisKey(geo);
-            // Just to detect active entries we have stored
             if (redis.exists(key)) {
                 previous.add(geo);
             }
         }
 
-        // 2. Handle Entry for new geofences
         for (Long geoId : currentGeofences) {
             if (!redis.exists(redisKey(geoId))) {
                 LOGGER.info("ENTER geofence {} totalDist={}", geoId, totalDist);
@@ -51,8 +46,6 @@ public class GeofenceDistanceState {
             }
         }
 
-        // 3. Handle Exit for geofences not in current list
-        // (exit = keys that exist in redis but not in currentGeofences)
         for (String key : redisKeysForDevice()) {
             long geoId = extractGeofenceIdFromKey(key);
             if (!currentGeofences.contains(geoId)) {
@@ -93,9 +86,7 @@ public class GeofenceDistanceState {
         }
     }
 
-    // Helper to list redis keys for this device
     private Set<String> redisKeysForDevice() {
-        // jedis.keys is heavy, but for your case OK
         return redis.scanKeys("geo:dev:" + deviceId + ":*");
     }
 

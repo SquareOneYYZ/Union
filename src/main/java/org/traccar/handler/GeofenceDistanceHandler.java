@@ -32,31 +32,16 @@ public class GeofenceDistanceHandler extends BaseEventHandler {
     public void onPosition(Position position, Callback callback) {
 
         long deviceId = position.getDeviceId();
-
-        // TEMPORARY TEST CODE - Simulate geofence transitions for testing
-        if (position.getGeofenceIds() == null || position.getGeofenceIds().isEmpty()) {
-            long step = System.currentTimeMillis() % 3; // just to rotate
-            List<Long> testGeofences = new ArrayList<>();
-            if (step == 0) testGeofences.add(1L);
-            if (step == 1) testGeofences.add(2L);
-            if (step == 2) { testGeofences.add(2L); testGeofences.add(3L); }
-            position.setGeofenceIds(testGeofences);
-            LOGGER.warn("TEST MODE: Simulating geofences {} for testing purposes", testGeofences);
-        }
         List<Long> geofences = position.getGeofenceIds();
 
         GeofenceDistanceState state = new GeofenceDistanceState(redis, deviceId);
-
         if (geofences == null || geofences.isEmpty()) {
-            // No geofence → check if any pending geofence in Redis to close
             state.handleExitAll(position);
             return;
         }
 
-        // Handle multi-geofence
         state.updateState(position, geofences);
 
-        // Save record if any
         DeviceGeofenceDistance record = state.getRecord();
         if (record != null) {
             try {
