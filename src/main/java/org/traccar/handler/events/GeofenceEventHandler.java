@@ -62,6 +62,7 @@ public class GeofenceEventHandler extends BaseEventHandler {
                 if (calendar == null || calendar.checkMoment(position.getFixTime())) {
                     Event event = new Event(Event.TYPE_GEOFENCE_EXIT, position);
                     event.setGeofenceId(geofenceId);
+                    event.set(Position.KEY_TOTAL_DISTANCE, position.getDouble(Position.KEY_TOTAL_DISTANCE));
                     callback.eventDetected(event);
                 }
             }
@@ -72,6 +73,7 @@ public class GeofenceEventHandler extends BaseEventHandler {
             if (calendar == null || calendar.checkMoment(position.getFixTime())) {
                 Event event = new Event(Event.TYPE_GEOFENCE_ENTER, position);
                 event.setGeofenceId(geofenceId);
+                event.set(Position.KEY_TOTAL_DISTANCE, position.getDouble(Position.KEY_TOTAL_DISTANCE));
                 callback.eventDetected(event);
             }
         }

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+        logicalFilePath="changelog-6.6.4">
+
+    <changeSet author="author" id="changelog-6.6.4">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_device_geofence_distance"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_device_geofence_distance">
+            <column autoIncrement="true" name="id" type="INT">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="deviceid" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="positionid" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="geofenceid" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="distance" type="DOUBLE">
+                <constraints nullable="false" />
+            </column>
+            <column name="entrytotaldistance" type="DOUBLE">
+                <constraints nullable="true" />
+            </column>
+            <column name="exittotaldistance" type="DOUBLE">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+
+    </changeSet>
+
+</databaseChangeLog>
