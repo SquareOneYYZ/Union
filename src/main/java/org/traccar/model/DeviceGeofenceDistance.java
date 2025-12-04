@@ -7,9 +7,8 @@ public class DeviceGeofenceDistance extends BaseModel{
     private long deviceId;
     private long positionId;
     private long geofenceId;
-    private double distance;
-    private double entryTotalDistance;
-    private double exitTotalDistance;
+    private String type;
+    private double totalDistance;
 
     public long getDeviceId() { return deviceId; }
     public void setDeviceId(long deviceId) { this.deviceId = deviceId; }
@@ -20,16 +19,9 @@ public class DeviceGeofenceDistance extends BaseModel{
     public long getGeofenceId() { return geofenceId; }
     public void setGeofenceId(long geofenceId) { this.geofenceId = geofenceId; }
 
-    public double getDistance() { return distance; }
-    public void setDistance(double distance) { this.distance = distance; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
 
-    public double getEntryTotalDistance() { return entryTotalDistance; }
-    public void setEntryTotalDistance(double entryTotalDistance) { 
-        this.entryTotalDistance = entryTotalDistance; 
-    }
-
-    public double getExitTotalDistance() { return exitTotalDistance; }
-    public void setExitTotalDistance(double exitTotalDistance) { 
-        this.exitTotalDistance = exitTotalDistance; 
-    }
+    public double getTotalDistance() { return totalDistance; }
+    public void setTotalDistance(double totalDistance) { this.totalDistance = totalDistance; }
 }

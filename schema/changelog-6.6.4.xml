@@ -27,14 +27,11 @@
             <column name="geofenceid" type="INT">
                 <constraints nullable="false" />
             </column>
-            <column name="distance" type="DOUBLE">
+            <column name="type" type="VARCHAR(128)">
                 <constraints nullable="false" />
             </column>
-            <column name="entrytotaldistance" type="DOUBLE">
-                <constraints nullable="true" />
-            </column>
-            <column name="exittotaldistance" type="DOUBLE">
-                <constraints nullable="true" />
+            <column name="totaldistance" type="DOUBLE">
+                <constraints nullable="false" />
             </column>
         </createTable>
 

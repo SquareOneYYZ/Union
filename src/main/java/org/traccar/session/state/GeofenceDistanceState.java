@@ -8,6 +8,7 @@ import org.traccar.model.Event;
 import org.traccar.model.Position;
 import org.traccar.storage.localCache.RedisCache;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -17,7 +18,7 @@ public class GeofenceDistanceState {
 
     private final RedisCache redis;
     private final long deviceId;
-    private DeviceGeofenceDistance record;
+    private List<DeviceGeofenceDistance> records = new ArrayList<>();
 
     public GeofenceDistanceState(RedisCache redis, long deviceId) {
         this.redis = redis;
@@ -31,21 +32,17 @@ public class GeofenceDistanceState {
     public void updateState(Position position, List<Long> currentGeofences) {
 
         double totalDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
-        Set<Long> previous = new HashSet<>();
-        for (Long geo : currentGeofences) {
-            String key = redisKey(geo);
-            if (redis.exists(key)) {
-                previous.add(geo);
-            }
-        }
 
+        // Check for new entries
         for (Long geoId : currentGeofences) {
             if (!redis.exists(redisKey(geoId))) {
                 LOGGER.info("ENTER geofence {} totalDist={}", geoId, totalDist);
                 redis.set(redisKey(geoId), String.valueOf(totalDist));
+                addRecord(geoId, position.getId(), "enter", totalDist);
             }
         }
 
+        // Check for exits
         for (String key : redisKeysForDevice()) {
             long geoId = extractGeofenceIdFromKey(key);
             if (!currentGeofences.contains(geoId)) {
@@ -65,25 +62,18 @@ public class GeofenceDistanceState {
     }
 
     private void handleExit(long geoId, double exitDist, long positionId) {
-        String key = redisKey(geoId);
-        String entryValue = redis.get(key);
+        LOGGER.info("EXIT geofence {} exit={}", geoId, exitDist);
+        addRecord(geoId, positionId, "exit", exitDist);
+    }
 
-        if (entryValue != null) {
-            double entryDist = Double.parseDouble(entryValue);
-            double km = exitDist - entryDist;
-
-            LOGGER.info("EXIT geofence {} entry={} exit={} km={}", geoId, entryDist, exitDist, km);
-
-            DeviceGeofenceDistance r = new DeviceGeofenceDistance();
-            r.setDeviceId(deviceId);
-            r.setGeofenceId(geoId);
-            r.setPositionId(positionId);
-            r.setEntryTotalDistance(entryDist);
-            r.setExitTotalDistance(exitDist);
-            r.setDistance(km);
-
-            this.record = r;
-        }
+    private void addRecord(long geoId, long positionId, String type, double totalDist) {
+        DeviceGeofenceDistance r = new DeviceGeofenceDistance();
+        r.setDeviceId(deviceId);
+        r.setGeofenceId(geoId);
+        r.setPositionId(positionId);
+        r.setType(type);
+        r.setTotalDistance(totalDist);
+        records.add(r);
     }
 
     private Set<String> redisKeysForDevice() {
@@ -91,14 +81,20 @@ public class GeofenceDistanceState {
     }
 
     private long extractGeofenceIdFromKey(String key) {
-        return Long.parseLong(key.substring(key.lastIndexOf(":") + 1));
+        try {
+            return Long.parseLong(key.substring(key.lastIndexOf(":") + 1));
+        } catch (NumberFormatException e) {
+            LOGGER.warn("Invalid geofence key format (old data?): {}", key);
+            redis.delete(key);
+            return -1;
+        }
     }
 
-    public DeviceGeofenceDistance getRecord() {
-        return record;
+    public List<DeviceGeofenceDistance> getRecords() {
+        return records;
     }
 
-    public void clearRecord() {
-        record = null;
+    public void clearRecords() {
+        records.clear();
     }
 }
