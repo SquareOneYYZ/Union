@@ -16,13 +16,16 @@
 package org.traccar.api.resource;
 
 import org.traccar.api.BaseResource;
+import org.traccar.api.service.DeviceGeofenceDistanceService;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceGeofenceDistance;
+import org.traccar.model.DeviceGeofenceDistanceDto;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Request;
 
+import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -40,29 +43,35 @@ import java.util.LinkedList;
 @Consumes(MediaType.APPLICATION_JSON)
 public class DeviceGeofenceDistanceResource extends BaseResource {
 
+    @Inject
+    private DeviceGeofenceDistanceService distanceService;
+
     @GET
-    public Collection<DeviceGeofenceDistance> get(
+    public Collection<DeviceGeofenceDistanceDto> get(
             @QueryParam("deviceId") long deviceId,
             @QueryParam("geofenceId") long geofenceId) throws StorageException {
         
         if (deviceId > 0) {
             permissionsService.checkPermission(Device.class, getUserId(), deviceId);
             
+            Collection<DeviceGeofenceDistance> records;
             if (geofenceId > 0) {
                 var conditions = new LinkedList<Condition>();
                 conditions.add(new Condition.Equals("deviceId", deviceId));
                 conditions.add(new Condition.Equals("geofenceId", geofenceId));
-                return storage.getObjects(DeviceGeofenceDistance.class, new Request(
+                records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
                         new Columns.All(), Condition.merge(conditions)));
             } else {
-                return storage.getObjects(DeviceGeofenceDistance.class, new Request(
+                records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
                         new Columns.All(), new Condition.Equals("deviceId", deviceId)));
             }
+            
+            return distanceService.calculateDistances(records);
         } else if (geofenceId > 0) {
-            Collection<DeviceGeofenceDistance> results = storage.getObjects(DeviceGeofenceDistance.class, new Request(
+            Collection<DeviceGeofenceDistance> records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
                     new Columns.All(), new Condition.Equals("geofenceId", geofenceId)));
             
-            results.removeIf(distance -> {
+            records.removeIf(distance -> {
                 try {
                     permissionsService.checkPermission(Device.class, getUserId(), distance.getDeviceId());
                     return false;
@@ -71,7 +80,7 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
                 }
             });
             
-            return results;
+            return distanceService.calculateDistances(records);
         } else {
             throw new WebApplicationException(
                     Response.status(Response.Status.BAD_REQUEST)
@@ -82,7 +91,7 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
 
     @Path("{id}")
     @GET
-    public DeviceGeofenceDistance getSingle(@PathParam("id") long id) throws StorageException {
+    public DeviceGeofenceDistanceDto getSingle(@PathParam("id") long id) throws StorageException {
         DeviceGeofenceDistance distance = storage.getObject(DeviceGeofenceDistance.class, new Request(
                 new Columns.All(), new Condition.Equals("id", id)));
         
@@ -91,7 +100,16 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
         }
         
         permissionsService.checkPermission(Device.class, getUserId(), distance.getDeviceId());
-        return distance;
+        
+        // Fetch all related records for the same device and geofence to calculate distances
+        var conditions = new LinkedList<Condition>();
+        conditions.add(new Condition.Equals("deviceId", distance.getDeviceId()));
+        conditions.add(new Condition.Equals("geofenceId", distance.getGeofenceId()));
+        Collection<DeviceGeofenceDistance> relatedRecords = storage.getObjects(
+                DeviceGeofenceDistance.class, 
+                new Request(new Columns.All(), Condition.merge(conditions)));
+        
+        return distanceService.calculateDistanceForSingle(distance, relatedRecords);
     }
 
 }
