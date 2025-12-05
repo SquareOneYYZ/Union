@@ -3,7 +3,7 @@ package org.traccar.model;
 import org.traccar.storage.StorageName;
 
 @StorageName("tc_device_geofence_distance")
-public class DeviceGeofenceDistance extends BaseModel{
+public class DeviceGeofenceDistance extends BaseModel {
     private long deviceId;
     private long positionId;
     private long geofenceId;
