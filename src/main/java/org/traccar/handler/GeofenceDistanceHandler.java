@@ -4,19 +4,13 @@ import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.handler.events.BaseEventHandler;
-import org.traccar.model.Device;
 import org.traccar.model.DeviceGeofenceDistance;
 import org.traccar.model.Position;
-import org.traccar.session.cache.CacheManager;
 import org.traccar.session.state.GeofenceDistanceState;
 import org.traccar.storage.Storage;
-import org.traccar.storage.StorageException;
 import org.traccar.storage.localCache.RedisCache;
 import org.traccar.storage.query.Columns;
-import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Request;
-
-import java.util.ArrayList;
 import java.util.List;
 
 public class GeofenceDistanceHandler extends BaseEventHandler {

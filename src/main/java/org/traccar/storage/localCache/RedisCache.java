@@ -144,7 +144,9 @@ public class RedisCache {
 
 
     public Map<String, String> hgetAll(String key) {
-        if (!redisAvailable) return Collections.emptyMap();
+        if (!redisAvailable) {
+            return Collections.emptyMap();
+        }
         try {
             return jedis.hgetAll(key);
         } catch (Exception e) {
@@ -155,7 +157,9 @@ public class RedisCache {
     }
 
     public void hset(String key, String field, String value) {
-        if (!redisAvailable) return;
+        if (!redisAvailable) {
+            return;
+        }
         try {
             jedis.hset(key, field, value);
         } catch (Exception e) {
@@ -165,7 +169,9 @@ public class RedisCache {
     }
 
     public void hdel(String key, String field) {
-        if (!redisAvailable) return;
+        if (!redisAvailable) {
+            return;
+        }
         try {
             jedis.hdel(key, field);
         } catch (Exception e) {

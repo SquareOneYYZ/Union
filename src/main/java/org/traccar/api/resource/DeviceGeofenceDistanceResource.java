@@ -50,10 +50,8 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
     public Collection<DeviceGeofenceDistanceDto> get(
             @QueryParam("deviceId") long deviceId,
             @QueryParam("geofenceId") long geofenceId) throws StorageException {
-        
         if (deviceId > 0) {
             permissionsService.checkPermission(Device.class, getUserId(), deviceId);
-            
             Collection<DeviceGeofenceDistance> records;
             if (geofenceId > 0) {
                 var conditions = new LinkedList<Condition>();
@@ -65,12 +63,10 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
                 records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
                         new Columns.All(), new Condition.Equals("deviceId", deviceId)));
             }
-            
             return distanceService.calculateDistances(records);
         } else if (geofenceId > 0) {
             Collection<DeviceGeofenceDistance> records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
                     new Columns.All(), new Condition.Equals("geofenceId", geofenceId)));
-            
             records.removeIf(distance -> {
                 try {
                     permissionsService.checkPermission(Device.class, getUserId(), distance.getDeviceId());
@@ -79,7 +75,6 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
                     return true;
                 }
             });
-            
             return distanceService.calculateDistances(records);
         } else {
             throw new WebApplicationException(
@@ -94,20 +89,16 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
     public DeviceGeofenceDistanceDto getSingle(@PathParam("id") long id) throws StorageException {
         DeviceGeofenceDistance distance = storage.getObject(DeviceGeofenceDistance.class, new Request(
                 new Columns.All(), new Condition.Equals("id", id)));
-        
         if (distance == null) {
             throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
         }
-        
         permissionsService.checkPermission(Device.class, getUserId(), distance.getDeviceId());
-        
         var conditions = new LinkedList<Condition>();
         conditions.add(new Condition.Equals("deviceId", distance.getDeviceId()));
         conditions.add(new Condition.Equals("geofenceId", distance.getGeofenceId()));
         Collection<DeviceGeofenceDistance> relatedRecords = storage.getObjects(
-                DeviceGeofenceDistance.class, 
+                DeviceGeofenceDistance.class,
                 new Request(new Columns.All(), Condition.merge(conditions)));
-        
         return distanceService.calculateDistanceForSingle(distance, relatedRecords);
     }
 

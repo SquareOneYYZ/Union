@@ -23,27 +23,59 @@ public class DeviceGeofenceDistanceDto {
     public DeviceGeofenceDistanceDto() {
     }
 
-    public long getId() { return id; }
-    public void setId(long id) { this.id = id; }
+    public long getId() {
+        return id;
+    }
+    public void setId(long id) {
+        this.id = id;
+    }
 
-    public long getDeviceId() { return deviceId; }
-    public void setDeviceId(long deviceId) { this.deviceId = deviceId; }
+    public long getDeviceId() {
+        return deviceId;
+    }
+    public void setDeviceId(long deviceId) {
+        this.deviceId = deviceId;
+    }
 
-    public long getPositionId() { return positionId; }
-    public void setPositionId(long positionId) { this.positionId = positionId; }
+    public long getPositionId() {
+        return positionId;
+    }
+    public void setPositionId(long positionId) {
+        this.positionId = positionId;
+    }
 
-    public long getGeofenceId() { return geofenceId; }
-    public void setGeofenceId(long geofenceId) { this.geofenceId = geofenceId; }
+    public long getGeofenceId() {
+        return geofenceId;
+    }
+    public void setGeofenceId(long geofenceId) {
+        this.geofenceId = geofenceId;
+    }
 
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
+    public String getType() {
+        return type;
+    }
+    public void setType(String type) {
+        this.type = type;
+    }
 
-    public double getTotalDistance() { return totalDistance; }
-    public void setTotalDistance(double totalDistance) { this.totalDistance = totalDistance; }
+    public double getTotalDistance() {
+        return totalDistance;
+    }
+    public void setTotalDistance(double totalDistance) {
+        this.totalDistance = totalDistance;
+    }
 
-    public Double getDistanceInside() { return distanceInside; }
-    public void setDistanceInside(Double distanceInside) { this.distanceInside = distanceInside; }
+    public Double getDistanceInside() {
+        return distanceInside;
+    }
+    public void setDistanceInside(Double distanceInside) {
+        this.distanceInside = distanceInside;
+    }
 
-    public Double getDistanceOutside() { return distanceOutside; }
-    public void setDistanceOutside(Double distanceOutside) { this.distanceOutside = distanceOutside; }
+    public Double getDistanceOutside() {
+        return distanceOutside;
+    }
+    public void setDistanceOutside(Double distanceOutside) {
+        this.distanceOutside = distanceOutside;
+    }
 }

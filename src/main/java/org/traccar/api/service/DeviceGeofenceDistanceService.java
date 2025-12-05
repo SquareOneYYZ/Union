@@ -101,9 +101,8 @@ public class DeviceGeofenceDistanceService {
     public DeviceGeofenceDistanceDto calculateDistanceForSingle(
             DeviceGeofenceDistance record,
             Collection<DeviceGeofenceDistance> allRelatedRecords) {
-        
         List<DeviceGeofenceDistance> relatedRecords = allRelatedRecords.stream()
-                .filter(r -> r.getDeviceId() == record.getDeviceId() 
+                .filter(r -> r.getDeviceId() == record.getDeviceId()
                         && r.getGeofenceId() == record.getGeofenceId())
                 .sorted(Comparator.comparingLong(DeviceGeofenceDistance::getPositionId))
                 .collect(Collectors.toList());
