@@ -8,62 +8,64 @@ import org.traccar.model.Event;
 import org.traccar.model.Position;
 import org.traccar.storage.localCache.RedisCache;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class GeofenceDistanceState {
     private static final Logger LOGGER = LoggerFactory.getLogger(GeofenceDistanceState.class);
 
     private final RedisCache redis;
     private final long deviceId;
+    private final String REDIS_KEY;
     private List<DeviceGeofenceDistance> records = new ArrayList<>();
 
     public GeofenceDistanceState(RedisCache redis, long deviceId) {
         this.redis = redis;
         this.deviceId = deviceId;
-    }
-
-    private String redisKey(long geofenceId) {
-        return "geo:dev:" + deviceId + ":" + geofenceId;
+        this.REDIS_KEY = "geo:dev:" + deviceId + ":gf";
     }
 
     public void updateState(Position position, List<Long> currentGeofences) {
-
         double totalDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
 
-        // Check for new entries
+        Map<String, String> active = redis.hgetAll(REDIS_KEY);
+        Set<Long> activeIds = new HashSet<>();
+
+        for (String geoStr : active.keySet()) {
+            try {
+                activeIds.add(Long.parseLong(geoStr));
+            } catch (Exception ignored) {}
+        }
+
         for (Long geoId : currentGeofences) {
-            if (!redis.exists(redisKey(geoId))) {
+            if (!activeIds.contains(geoId)) {
                 LOGGER.info("ENTER geofence {} totalDist={}", geoId, totalDist);
-                redis.set(redisKey(geoId), String.valueOf(totalDist));
+                redis.hset(REDIS_KEY, String.valueOf(geoId), String.valueOf(totalDist));
                 addRecord(geoId, position.getId(), "enter", totalDist);
             }
         }
 
-        // Check for exits
-        for (String key : redisKeysForDevice()) {
-            long geoId = extractGeofenceIdFromKey(key);
-            if (!currentGeofences.contains(geoId)) {
-                handleExit(geoId, totalDist, position.getId());
-                redis.delete(key);
+        for (Long oldGeoId : activeIds) {
+            if (!currentGeofences.contains(oldGeoId)) {
+
+                LOGGER.info("EXIT geofence {} exit={}", oldGeoId, totalDist);
+                addRecord(oldGeoId, position.getId(), "exit", totalDist);
+                redis.hdel(REDIS_KEY, String.valueOf(oldGeoId));
             }
         }
     }
 
     public void handleExitAll(Position position) {
         double totalDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
-        for (String key : redisKeysForDevice()) {
-            long geoId = extractGeofenceIdFromKey(key);
-            handleExit(geoId, totalDist, position.getId());
-            redis.delete(key);
-        }
-    }
+        Map<String, String> active = redis.hgetAll(REDIS_KEY);
 
-    private void handleExit(long geoId, double exitDist, long positionId) {
-        LOGGER.info("EXIT geofence {} exit={}", geoId, exitDist);
-        addRecord(geoId, positionId, "exit", exitDist);
+        for (String geoStr : active.keySet()) {
+            try {
+                long geoId = Long.parseLong(geoStr);
+                LOGGER.info("EXIT ALL geofence {} at {}", geoId, totalDist);
+                addRecord(geoId, position.getId(), "exit", totalDist);
+            } catch (Exception ignored) {}
+        }
+        redis.delete(REDIS_KEY);
     }
 
     private void addRecord(long geoId, long positionId, String type, double totalDist) {
@@ -74,20 +76,6 @@ public class GeofenceDistanceState {
         r.setType(type);
         r.setTotalDistance(totalDist);
         records.add(r);
-    }
-
-    private Set<String> redisKeysForDevice() {
-        return redis.scanKeys("geo:dev:" + deviceId + ":*");
-    }
-
-    private long extractGeofenceIdFromKey(String key) {
-        try {
-            return Long.parseLong(key.substring(key.lastIndexOf(":") + 1));
-        } catch (NumberFormatException e) {
-            LOGGER.warn("Invalid geofence key format (old data?): {}", key);
-            redis.delete(key);
-            return -1;
-        }
     }
 
     public List<DeviceGeofenceDistance> getRecords() {

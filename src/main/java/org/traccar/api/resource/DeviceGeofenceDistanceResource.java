@@ -101,7 +101,6 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
         
         permissionsService.checkPermission(Device.class, getUserId(), distance.getDeviceId());
         
-        // Fetch all related records for the same device and geofence to calculate distances
         var conditions = new LinkedList<Condition>();
         conditions.add(new Condition.Equals("deviceId", distance.getDeviceId()));
         conditions.add(new Condition.Equals("geofenceId", distance.getGeofenceId()));

@@ -33,7 +33,7 @@ public class GeofenceDistanceHandler extends BaseEventHandler {
 
         long deviceId = position.getDeviceId();
 
-        /*// TEMPORARY TEST CODE - Simulate geofence transitions for testing
+         /*// TEMPORARY TEST CODE - Simulate geofence transitions for testing
         if (position.getGeofenceIds() == null || position.getGeofenceIds().isEmpty()) {
             long step = System.currentTimeMillis() % 3; // just to rotate
             List<Long> testGeofences = new ArrayList<>();
@@ -43,15 +43,16 @@ public class GeofenceDistanceHandler extends BaseEventHandler {
             position.setGeofenceIds(testGeofences);
             LOGGER.warn("TEST MODE: Simulating geofences {} for testing purposes", testGeofences);
         }*/
+
         List<Long> geofences = position.getGeofenceIds();
 
         GeofenceDistanceState state = new GeofenceDistanceState(redis, deviceId);
+
         if (geofences == null || geofences.isEmpty()) {
             state.handleExitAll(position);
-            return;
+        } else {
+            state.updateState(position, geofences);
         }
-
-        state.updateState(position, geofences);
 
         List<DeviceGeofenceDistance> records = state.getRecords();
         if (records != null && !records.isEmpty()) {
