@@ -15,24 +15,43 @@
  */
 package org.traccar.handler.events;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.inject.Inject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.helper.model.PositionUtil;
 import org.traccar.model.Calendar;
+import org.traccar.model.DeviceGeofenceDistance;
 import org.traccar.model.Event;
 import org.traccar.model.Geofence;
 import org.traccar.model.Position;
 import org.traccar.session.cache.CacheManager;
+import org.traccar.session.state.GeofenceDistanceState;
+import org.traccar.storage.Storage;
+import org.traccar.storage.localCache.RedisCache;
+import org.traccar.storage.query.Columns;
+import org.traccar.storage.query.Request;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GeofenceEventHandler extends BaseEventHandler {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(GeofenceEventHandler.class);
+
     private final CacheManager cacheManager;
+    private final RedisCache redis;
+    private final Storage storage;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Map<String, String> localCache = new ConcurrentHashMap<>();
 
     @Inject
-    public GeofenceEventHandler(CacheManager cacheManager) {
+    public GeofenceEventHandler(CacheManager cacheManager, RedisCache redis, Storage storage) {
         this.cacheManager = cacheManager;
+        this.redis = redis;
+        this.storage = storage;
     }
 
     @Override
@@ -41,17 +60,21 @@ public class GeofenceEventHandler extends BaseEventHandler {
             return;
         }
 
+        long deviceId = position.getDeviceId();
+        List<Long> currentGeofences = position.getGeofenceIds();
+
+        // Handle geofence events
         List<Long> oldGeofences = new ArrayList<>();
-        Position lastPosition = cacheManager.getPosition(position.getDeviceId());
+        Position lastPosition = cacheManager.getPosition(deviceId);
         if (lastPosition != null && lastPosition.getGeofenceIds() != null) {
             oldGeofences.addAll(lastPosition.getGeofenceIds());
         }
 
         List<Long> newGeofences = new ArrayList<>();
-        if (position.getGeofenceIds() != null) {
-            newGeofences.addAll(position.getGeofenceIds());
+        if (currentGeofences != null) {
+            newGeofences.addAll(currentGeofences);
             newGeofences.removeAll(oldGeofences);
-            oldGeofences.removeAll(position.getGeofenceIds());
+            oldGeofences.removeAll(currentGeofences);
         }
 
         for (long geofenceId : oldGeofences) {
@@ -76,6 +99,58 @@ public class GeofenceEventHandler extends BaseEventHandler {
                 event.set(Position.KEY_TOTAL_DISTANCE, position.getDouble(Position.KEY_TOTAL_DISTANCE));
                 callback.eventDetected(event);
             }
+        }
+
+        // Handle geofence distance tracking
+        String cacheKey = "geo:dev:" + deviceId + ":gf";
+        GeofenceDistanceState state = null;
+
+        try {
+            if (redis.isAvailable() && redis.exists(cacheKey)) {
+                String json = redis.get(cacheKey);
+                LOGGER.debug("Redis hit for geofencedistance deviceId={}", deviceId);
+                state = objectMapper.readValue(json, GeofenceDistanceState.class);
+            } else if (!redis.isAvailable() && localCache.containsKey(cacheKey)) {
+                String json = localCache.get(cacheKey);
+                LOGGER.debug("Local cache hit for geofencedistance deviceId={}", deviceId);
+                state = objectMapper.readValue(json, GeofenceDistanceState.class);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Error reading GeofenceDistanceState from cache for deviceId={}", deviceId, e);
+        }
+
+        if (state == null) {
+            state = new GeofenceDistanceState(deviceId);
+        }
+
+        if (currentGeofences == null || currentGeofences.isEmpty()) {
+            state.handleExitAll(position);
+        } else {
+            state.updateState(position, currentGeofences);
+        }
+
+        try {
+            String updatedJson = objectMapper.writeValueAsString(state);
+            if (redis.isAvailable()) {
+                redis.set(cacheKey, updatedJson);
+            } else {
+                localCache.put(cacheKey, updatedJson);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Error writing GeofenceDistanceState to cache for deviceId={}", deviceId, e);
+        }
+
+        List<DeviceGeofenceDistance> records = state.getRecords();
+        if (records != null && !records.isEmpty()) {
+            for (DeviceGeofenceDistance record : records) {
+                try {
+                    record.setId(storage.addObject(record, new Request(new Columns.Exclude("id"))));
+                    LOGGER.info("Saved geofence distance: {}", record.getId());
+                } catch (Exception e) {
+                    LOGGER.error("DB save error", e);
+                }
+            }
+            state.clearRecords();
         }
     }
 }
