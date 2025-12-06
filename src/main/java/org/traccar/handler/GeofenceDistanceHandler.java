@@ -1,5 +1,6 @@
 package org.traccar.handler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,8 @@ import org.traccar.storage.localCache.RedisCache;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Request;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GeofenceDistanceHandler extends BaseEventHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(GeofenceDistanceHandler.class);
@@ -21,6 +24,9 @@ public class GeofenceDistanceHandler extends BaseEventHandler {
 
     @Inject
     private Storage storage;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Map<String, String> localCache = new ConcurrentHashMap<>();
 
     @Override
     public void onPosition(Position position, Callback callback) {
@@ -40,12 +46,42 @@ public class GeofenceDistanceHandler extends BaseEventHandler {
 
         List<Long> geofences = position.getGeofenceIds();
 
-        GeofenceDistanceState state = new GeofenceDistanceState(redis, deviceId);
+        String cacheKey = "geo:dev:" + deviceId + ":gf";
+        GeofenceDistanceState state = null;
+
+        try {
+            if (redis.isAvailable() && redis.exists(cacheKey)) {
+                String json = redis.get(cacheKey);
+                LOGGER.debug("Redis hit for geofencedistance deviceId={}", deviceId);
+                state = objectMapper.readValue(json, GeofenceDistanceState.class);
+            } else if (!redis.isAvailable() && localCache.containsKey(cacheKey)) {
+                String json = localCache.get(cacheKey);
+                LOGGER.debug("Local cache hit for geofencedistance deviceId={}", deviceId);
+                state = objectMapper.readValue(json, GeofenceDistanceState.class);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Error reading GeofenceDistanceState from cache for deviceId={}", deviceId, e);
+        }
+
+        if (state == null) {
+            state = new GeofenceDistanceState(deviceId);
+        }
 
         if (geofences == null || geofences.isEmpty()) {
             state.handleExitAll(position);
         } else {
             state.updateState(position, geofences);
+        }
+
+        try {
+            String updatedJson = objectMapper.writeValueAsString(state);
+            if (redis.isAvailable()) {
+                redis.set(cacheKey, updatedJson);
+            } else {
+                localCache.put(cacheKey, updatedJson);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Error writing GeofenceDistanceState to cache for deviceId={}", deviceId, e);
         }
 
         List<DeviceGeofenceDistance> records = state.getRecords();

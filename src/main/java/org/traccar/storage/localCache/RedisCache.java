@@ -142,43 +142,5 @@ public class RedisCache {
         return keys;
     }
 
-
-    public Map<String, String> hgetAll(String key) {
-        if (!redisAvailable) {
-            return Collections.emptyMap();
-        }
-        try {
-            return jedis.hgetAll(key);
-        } catch (Exception e) {
-            System.err.println(" Redis hgetAll failed: " + e.getMessage());
-            redisAvailable = false;
-            return Collections.emptyMap();
-        }
-    }
-
-    public void hset(String key, String field, String value) {
-        if (!redisAvailable) {
-            return;
-        }
-        try {
-            jedis.hset(key, field, value);
-        } catch (Exception e) {
-            System.err.println(" Redis hset failed: " + e.getMessage());
-            redisAvailable = false;
-        }
-    }
-
-    public void hdel(String key, String field) {
-        if (!redisAvailable) {
-            return;
-        }
-        try {
-            jedis.hdel(key, field);
-        } catch (Exception e) {
-            System.err.println(" Redis hdel failed: " + e.getMessage());
-            redisAvailable = false;
-        }
-    }
-
-
 }
+

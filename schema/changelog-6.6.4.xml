@@ -18,13 +18,13 @@
             <column autoIncrement="true" name="id" type="INT">
                 <constraints primaryKey="true" />
             </column>
-            <column name="deviceid" type="INT">
+            <column name="deviceid" type="BIGINT">
                 <constraints nullable="false" />
             </column>
-            <column name="positionid" type="INT">
+            <column name="positionid" type="BIGINT">
                 <constraints nullable="false" />
             </column>
-            <column name="geofenceid" type="INT">
+            <column name="geofenceid" type="BIGINT">
                 <constraints nullable="false" />
             </column>
             <column name="type" type="VARCHAR(128)">
@@ -34,6 +34,32 @@
                 <constraints nullable="false" />
             </column>
         </createTable>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.4-indexes-device-geofence-distance">
+
+        <createIndex tableName="tc_device_geofence_distance" indexName="idx_device_geofence_distance_deviceid">
+            <column name="deviceid" />
+        </createIndex>
+
+        <createIndex tableName="tc_device_geofence_distance" indexName="idx_device_geofence_distance_deviceid_geofenceid">
+            <column name="deviceid" />
+            <column name="geofenceid" />
+        </createIndex>
+
+        <createIndex tableName="tc_device_geofence_distance" indexName="idx_device_geofence_distance_geofenceid">
+            <column name="geofenceid" />
+        </createIndex>
+
+        <createIndex tableName="tc_device_geofence_distance" indexName="idx_device_geofence_distance_positionid">
+            <column name="positionid" />
+        </createIndex>
+
+        <createIndex tableName="tc_device_geofence_distance" indexName="idx_device_geofence_distance_deviceid_type">
+            <column name="deviceid" />
+            <column name="type" />
+        </createIndex>
 
     </changeSet>
 

@@ -1,69 +1,80 @@
 package org.traccar.session.state;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.model.DeviceGeofenceDistance;
 import org.traccar.model.Position;
-import org.traccar.storage.localCache.RedisCache;
 
 import java.util.*;
 
 public class GeofenceDistanceState {
     private static final Logger LOGGER = LoggerFactory.getLogger(GeofenceDistanceState.class);
 
-    private final RedisCache redis;
-    private final long deviceId;
-    private final String redisKey;
+    @JsonProperty
+    private long deviceId;
+
+    @JsonProperty
+    private Map<Long, Double> activeGeofences = new HashMap<>();
+
+    @JsonIgnore
     private List<DeviceGeofenceDistance> records = new ArrayList<>();
 
-    public GeofenceDistanceState(RedisCache redis, long deviceId) {
-        this.redis = redis;
+    public GeofenceDistanceState() {
+    }
+
+    public GeofenceDistanceState(long deviceId) {
         this.deviceId = deviceId;
-        this.redisKey = "geo:dev:" + deviceId + ":gf";
+    }
+
+    public long getDeviceId() {
+        return deviceId;
+    }
+
+    public void setDeviceId(long deviceId) {
+        this.deviceId = deviceId;
+    }
+
+    public Map<Long, Double> getActiveGeofences() {
+        return activeGeofences;
+    }
+
+    public void setActiveGeofences(Map<Long, Double> activeGeofences) {
+        this.activeGeofences = activeGeofences;
     }
 
     public void updateState(Position position, List<Long> currentGeofences) {
         double totalDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
 
-        Map<String, String> active = redis.hgetAll(redisKey);
-        Set<Long> activeIds = new HashSet<>();
-
-        for (String geoStr : active.keySet()) {
-            try {
-                activeIds.add(Long.parseLong(geoStr));
-            } catch (Exception ignored) { }
-        }
+        Set<Long> activeIds = new HashSet<>(activeGeofences.keySet());
 
         for (Long geoId : currentGeofences) {
             if (!activeIds.contains(geoId)) {
                 LOGGER.info("ENTER geofence {} totalDist={}", geoId, totalDist);
-                redis.hset(redisKey, String.valueOf(geoId), String.valueOf(totalDist));
+                activeGeofences.put(geoId, totalDist);
                 addRecord(geoId, position.getId(), "enter", totalDist);
             }
         }
 
         for (Long oldGeoId : activeIds) {
             if (!currentGeofences.contains(oldGeoId)) {
-
                 LOGGER.info("EXIT geofence {} exit={}", oldGeoId, totalDist);
                 addRecord(oldGeoId, position.getId(), "exit", totalDist);
-                redis.hdel(redisKey, String.valueOf(oldGeoId));
+                activeGeofences.remove(oldGeoId);
             }
         }
     }
 
     public void handleExitAll(Position position) {
         double totalDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
-        Map<String, String> active = redis.hgetAll(redisKey);
 
-        for (String geoStr : active.keySet()) {
-            try {
-                long geoId = Long.parseLong(geoStr);
-                LOGGER.info("EXIT ALL geofence {} at {}", geoId, totalDist);
-                addRecord(geoId, position.getId(), "exit", totalDist);
-            } catch (Exception ignored) { }
+        for (Map.Entry<Long, Double> entry : activeGeofences.entrySet()) {
+            long geoId = entry.getKey();
+            LOGGER.info("EXIT ALL geofence {} at {}", geoId, totalDist);
+            addRecord(geoId, position.getId(), "exit", totalDist);
         }
-        redis.delete(redisKey);
+        activeGeofences.clear();
     }
 
     private void addRecord(long geoId, long positionId, String type, double totalDist) {
