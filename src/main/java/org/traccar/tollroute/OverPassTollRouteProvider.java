@@ -40,7 +40,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         this.roundingDecimals = config.getInteger(Keys.TOLL_ROUTE_ROUNDING_DECIMALS);
 //        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
         //for cash toll
-        this.url = baseurl + "?data=[out:json];(node(around:" + accuracy + ",%f,%f);way(around:" + accuracy + ",%f,%f););out%%20tags;";
+        this.url = baseurl + "?data=[out:json];(node(around:" + accuracy + ",%f,%f);" +
+                "way(around:" + accuracy + ",%f,%f););out%%20tags;";
        //for region
 //        this.url = baseurl + "?data=[out:json];is_in(%f,%f);out%%20tags;";
 
@@ -161,13 +162,11 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     surface = tags.getString("surface");
                     LOGGER.info("Surface type detected: {}", surface);
                 }
-                
                 // Detect barrier type (toll_booth, toll_gantry, etc.)
                 if (barrierType == null && tags.containsKey("barrier")) {
                     barrierType = tags.getString("barrier");
                     LOGGER.info("Detected barrier type: {}", barrierType);
                 }
-                
                 // Detect payment methods
                 if (cashPayment == null && tags.containsKey("payment:cash")) {
                     String cashValue = tags.getString("payment:cash");
@@ -237,8 +236,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     break;
                 }
             }
-            
-            LOGGER.info("Final TollData: isToll={}, ref={}, name={}, surface={}, barrierType={}, cashPayment={}, country={}, state={}, city={}",
+            LOGGER.info("Final TollData: isToll={}, ref={}, name={}, surface={}, barrierType={}, cashPayment={}," +
+                            " country={}, state={}, city={}",
                 isToll, ref, name, surface, barrierType, cashPayment, country, state, city);
             return new TollData(isToll, ref, name, surface, country, state, city, barrierType, cashPayment);
         } else {

@@ -92,7 +92,6 @@ public class TollRouteState {
 
     @JsonProperty
     private String lastCustomTollName;
-    
     @JsonProperty
     private boolean lastCashTollBooth;
 
@@ -129,11 +128,9 @@ public class TollRouteState {
     public void setLastCustomTollName(String tollName) {
         this.lastCustomTollName = tollName;
     }
-    
     public boolean isLastCashTollBooth() {
         return lastCashTollBooth;
     }
-    
     public void setLastCashTollBooth(boolean lastCashTollBooth) {
         this.lastCashTollBooth = lastCashTollBooth;
     }
