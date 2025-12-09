@@ -92,6 +92,9 @@ public class TollRouteState {
 
     @JsonProperty
     private String lastCustomTollName;
+    
+    @JsonProperty
+    private boolean lastCashTollBooth;
 
     public void addOnCustomToll(boolean match, int duration) {
         if (this.customTollWindow == null) {
@@ -125,6 +128,14 @@ public class TollRouteState {
 
     public void setLastCustomTollName(String tollName) {
         this.lastCustomTollName = tollName;
+    }
+    
+    public boolean isLastCashTollBooth() {
+        return lastCashTollBooth;
+    }
+    
+    public void setLastCashTollBooth(boolean lastCashTollBooth) {
+        this.lastCashTollBooth = lastCashTollBooth;
     }
 
 

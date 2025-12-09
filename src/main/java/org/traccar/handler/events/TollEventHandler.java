@@ -150,6 +150,29 @@ public class TollEventHandler extends BaseEventHandler {
             }
         }
 
+        // Detect cash toll booth
+        String positionBarrierType = position.getString(Position.KEY_TOLL_BARRIER_TYPE);
+        Boolean positionCashPayment = position.getBoolean(Position.KEY_TOLL_PAYMENT_CASH);
+        
+        boolean isCashTollBooth = positionBarrierType != null 
+            && positionBarrierType.equals("toll_booth")
+            && positionCashPayment != null 
+            && positionCashPayment;
+        
+        if (isCashTollBooth && !tollState.isLastCashTollBooth()) {
+            Event event = new Event(Event.TYPE_DEVICE_CASH_TOLL_BOOTH, position);
+            event.set("tollName", positionTollName);
+            event.set("tollRef", positionTollRef);
+            event.set("barrierType", positionBarrierType);
+            tollState.setLastCashTollBooth(true);
+            tollState.setEvent(event);
+            
+            LOGGER.info("Cash toll booth detected: name={}, ref={}, barrier={}", 
+                positionTollName, positionTollRef, positionBarrierType);
+        } else if (!isCashTollBooth) {
+            tollState.setLastCashTollBooth(false);
+        }
+
 
         Boolean tollConfidence = tollState.isOnToll(minimalDuration);
         if (tollConfidence != null || positionIsToll != null) {
