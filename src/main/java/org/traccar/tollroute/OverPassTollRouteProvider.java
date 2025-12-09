@@ -40,8 +40,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         this.roundingDecimals = config.getInteger(Keys.TOLL_ROUTE_ROUNDING_DECIMALS);
 //        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
         //for cash toll
-        this.url = baseurl + "?data=[out:json];(node(around:" + accuracy + ",%f,%f);" +
-                "way(around:" + accuracy + ",%f,%f););out%%20tags;";
+        this.url = baseurl + "?data=[out:json];(node(around:" + accuracy + ",%f,%f);"
+                + "way(around:" + accuracy + ",%f,%f););out%%20tags;";
        //for region
 //        this.url = baseurl + "?data=[out:json];is_in(%f,%f);out%%20tags;";
 
@@ -236,8 +236,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     break;
                 }
             }
-            LOGGER.info("Final TollData: isToll={}, ref={}, name={}, surface={}, barrierType={}, cashPayment={}," +
-                            " country={}, state={}, city={}",
+            LOGGER.info("Final TollData: isToll={}, ref={}, name={}, surface={}, barrierType={}, cashPayment={},"
+                            + " country={}, state={}, city={}",
                 isToll, ref, name, surface, barrierType, cashPayment, country, state, city);
             return new TollData(isToll, ref, name, surface, country, state, city, barrierType, cashPayment);
         } else {
