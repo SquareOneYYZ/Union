@@ -58,26 +58,21 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
             Collection<DeviceGeofenceDistance> records;
             var conditions = new LinkedList<Condition>();
             conditions.add(new Condition.Equals("deviceId", deviceId));
-            
             if (geofenceId > 0) {
                 conditions.add(new Condition.Equals("geofenceId", geofenceId));
             }
-            
             if (from != null && to != null) {
                 conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
             }
-            
             records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
                     new Columns.All(), Condition.merge(conditions)));
             return distanceService.calculateDistances(records);
         } else if (geofenceId > 0) {
             var conditions = new LinkedList<Condition>();
             conditions.add(new Condition.Equals("geofenceId", geofenceId));
-            
             if (from != null && to != null) {
                 conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
             }
-            
             Collection<DeviceGeofenceDistance> records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
                     new Columns.All(), Condition.merge(conditions)));
             records.removeIf(distance -> {
@@ -112,11 +107,9 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
         var conditions = new LinkedList<Condition>();
         conditions.add(new Condition.Equals("deviceId", distance.getDeviceId()));
         conditions.add(new Condition.Equals("geofenceId", distance.getGeofenceId()));
-        
         if (from != null && to != null) {
             conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
         }
-        
         Collection<DeviceGeofenceDistance> relatedRecords = storage.getObjects(
                 DeviceGeofenceDistance.class,
                 new Request(new Columns.All(), Condition.merge(conditions)));
