@@ -2,6 +2,8 @@ package org.traccar.model;
 
 import org.traccar.storage.StorageName;
 
+import java.util.Date;
+
 @StorageName("tc_device_geofence_distance")
 public class DeviceGeofenceDistance extends BaseModel {
     private long deviceId;
@@ -9,6 +11,7 @@ public class DeviceGeofenceDistance extends BaseModel {
     private long geofenceId;
     private String type;
     private double totalDistance;
+    private Date deviceTime;
 
     public long getDeviceId() {
         return deviceId;
@@ -43,5 +46,11 @@ public class DeviceGeofenceDistance extends BaseModel {
     }
     public void setTotalDistance(double totalDistance) {
         this.totalDistance = totalDistance;
+    }
+    public Date getDeviceTime() {
+        return deviceTime;
+    }
+    public void setDeviceTime(Date deviceTime) {
+        this.deviceTime = deviceTime;
     }
 }

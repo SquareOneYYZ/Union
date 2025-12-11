@@ -53,14 +53,14 @@ public class GeofenceDistanceState {
             if (!activeIds.contains(geoId)) {
                 LOGGER.info("ENTER geofence {} totalDist={}", geoId, totalDist);
                 activeGeofences.put(geoId, totalDist);
-                addRecord(geoId, position.getId(), "enter", totalDist);
+                addRecord(geoId, position.getId(), "enter", totalDist, position);
             }
         }
 
         for (Long oldGeoId : activeIds) {
             if (!currentGeofences.contains(oldGeoId)) {
                 LOGGER.info("EXIT geofence {} exit={}", oldGeoId, totalDist);
-                addRecord(oldGeoId, position.getId(), "exit", totalDist);
+                addRecord(oldGeoId, position.getId(), "exit", totalDist, position);
                 activeGeofences.remove(oldGeoId);
             }
         }
@@ -72,18 +72,19 @@ public class GeofenceDistanceState {
         for (Map.Entry<Long, Double> entry : activeGeofences.entrySet()) {
             long geoId = entry.getKey();
             LOGGER.info("EXIT ALL geofence {} at {}", geoId, totalDist);
-            addRecord(geoId, position.getId(), "exit", totalDist);
+            addRecord(geoId, position.getId(), "exit", totalDist, position);
         }
         activeGeofences.clear();
     }
 
-    private void addRecord(long geoId, long positionId, String type, double totalDist) {
+    private void addRecord(long geoId, long positionId, String type, double totalDist, Position position) {
         DeviceGeofenceDistance r = new DeviceGeofenceDistance();
         r.setDeviceId(deviceId);
         r.setGeofenceId(geoId);
         r.setPositionId(positionId);
         r.setType(type);
         r.setTotalDistance(totalDist);
+        r.setDeviceTime(position.getDeviceTime());
         records.add(r);
     }
 
