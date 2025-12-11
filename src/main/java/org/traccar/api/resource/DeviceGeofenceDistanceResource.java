@@ -36,6 +36,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Collection;
+import java.util.Date;
 import java.util.LinkedList;
 
 @Path("devicegeofencedistances")
@@ -49,24 +50,36 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
     @GET
     public Collection<DeviceGeofenceDistanceDto> get(
             @QueryParam("deviceId") long deviceId,
-            @QueryParam("geofenceId") long geofenceId) throws StorageException {
+            @QueryParam("geofenceId") long geofenceId,
+            @QueryParam("from") Date from,
+            @QueryParam("to") Date to) throws StorageException {
         if (deviceId > 0) {
             permissionsService.checkPermission(Device.class, getUserId(), deviceId);
             Collection<DeviceGeofenceDistance> records;
+            var conditions = new LinkedList<Condition>();
+            conditions.add(new Condition.Equals("deviceId", deviceId));
+            
             if (geofenceId > 0) {
-                var conditions = new LinkedList<Condition>();
-                conditions.add(new Condition.Equals("deviceId", deviceId));
                 conditions.add(new Condition.Equals("geofenceId", geofenceId));
-                records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
-                        new Columns.All(), Condition.merge(conditions)));
-            } else {
-                records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
-                        new Columns.All(), new Condition.Equals("deviceId", deviceId)));
             }
+            
+            if (from != null && to != null) {
+                conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
+            }
+            
+            records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
+                    new Columns.All(), Condition.merge(conditions)));
             return distanceService.calculateDistances(records);
         } else if (geofenceId > 0) {
+            var conditions = new LinkedList<Condition>();
+            conditions.add(new Condition.Equals("geofenceId", geofenceId));
+            
+            if (from != null && to != null) {
+                conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
+            }
+            
             Collection<DeviceGeofenceDistance> records = storage.getObjects(DeviceGeofenceDistance.class, new Request(
-                    new Columns.All(), new Condition.Equals("geofenceId", geofenceId)));
+                    new Columns.All(), Condition.merge(conditions)));
             records.removeIf(distance -> {
                 try {
                     permissionsService.checkPermission(Device.class, getUserId(), distance.getDeviceId());
@@ -86,7 +99,10 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
 
     @Path("{id}")
     @GET
-    public DeviceGeofenceDistanceDto getSingle(@PathParam("id") long id) throws StorageException {
+    public DeviceGeofenceDistanceDto getSingle(
+            @PathParam("id") long id,
+            @QueryParam("from") Date from,
+            @QueryParam("to") Date to) throws StorageException {
         DeviceGeofenceDistance distance = storage.getObject(DeviceGeofenceDistance.class, new Request(
                 new Columns.All(), new Condition.Equals("id", id)));
         if (distance == null) {
@@ -96,6 +112,11 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
         var conditions = new LinkedList<Condition>();
         conditions.add(new Condition.Equals("deviceId", distance.getDeviceId()));
         conditions.add(new Condition.Equals("geofenceId", distance.getGeofenceId()));
+        
+        if (from != null && to != null) {
+            conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
+        }
+        
         Collection<DeviceGeofenceDistance> relatedRecords = storage.getObjects(
                 DeviceGeofenceDistance.class,
                 new Request(new Columns.All(), Condition.merge(conditions)));

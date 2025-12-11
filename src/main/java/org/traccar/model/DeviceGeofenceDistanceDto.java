@@ -1,5 +1,7 @@
 package org.traccar.model;
 
+import java.util.Date;
+
 public class DeviceGeofenceDistanceDto {
     private long id;
     private long deviceId;
@@ -7,6 +9,7 @@ public class DeviceGeofenceDistanceDto {
     private long geofenceId;
     private String type;
     private double totalDistance;
+    private Date deviceTime;
     private Double distanceInside;
     private Double distanceOutside;
 
@@ -18,6 +21,7 @@ public class DeviceGeofenceDistanceDto {
         this.geofenceId = record.getGeofenceId();
         this.type = record.getType();
         this.totalDistance = record.getTotalDistance();
+        this.deviceTime = record.getDeviceTime();
     }
 
     public DeviceGeofenceDistanceDto() {
@@ -63,6 +67,13 @@ public class DeviceGeofenceDistanceDto {
     }
     public void setTotalDistance(double totalDistance) {
         this.totalDistance = totalDistance;
+    }
+
+    public Date getDeviceTime() {
+        return deviceTime;
+    }
+    public void setDeviceTime(Date deviceTime) {
+        this.deviceTime = deviceTime;
     }
 
     public Double getDistanceInside() {
