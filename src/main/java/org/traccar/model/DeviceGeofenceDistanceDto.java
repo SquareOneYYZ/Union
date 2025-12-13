@@ -10,8 +10,7 @@ public class DeviceGeofenceDistanceDto {
     private String type;
     private double totalDistance;
     private Date deviceTime;
-    private Double distanceInside;
-    private Double distanceOutside;
+    private Double distanceTravelled;
 
     // Constructor from DeviceGeofenceDistance
     public DeviceGeofenceDistanceDto(DeviceGeofenceDistance record) {
@@ -76,17 +75,10 @@ public class DeviceGeofenceDistanceDto {
         this.deviceTime = deviceTime;
     }
 
-    public Double getDistanceInside() {
-        return distanceInside;
+    public Double getDistanceTravelled() {
+        return distanceTravelled;
     }
-    public void setDistanceInside(Double distanceInside) {
-        this.distanceInside = distanceInside;
-    }
-
-    public Double getDistanceOutside() {
-        return distanceOutside;
-    }
-    public void setDistanceOutside(Double distanceOutside) {
-        this.distanceOutside = distanceOutside;
+    public void setDistanceTravelled(Double distanceTravelled) {
+        this.distanceTravelled = distanceTravelled;
     }
 }

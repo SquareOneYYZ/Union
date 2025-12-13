@@ -41,47 +41,31 @@ public class DeviceGeofenceDistanceService {
     }
 
     private void processGroup(List<DeviceGeofenceDistance> group, List<DeviceGeofenceDistanceDto> result) {
-        DeviceGeofenceDistance previousExit = null;
-
         for (int i = 0; i < group.size(); i++) {
             DeviceGeofenceDistance current = group.get(i);
             DeviceGeofenceDistanceDto dto = new DeviceGeofenceDistanceDto(current);
 
             if ("enter".equals(current.getType())) {
+                DeviceGeofenceDistance previousExit = findPreviousExit(group, i);
                 if (previousExit != null) {
-                    double distanceOutside = current.getTotalDistance() - previousExit.getTotalDistance();
-
-                    for (int j = result.size() - 1; j >= 0; j--) {
-                        DeviceGeofenceDistanceDto exitDto = result.get(j);
-                        if (exitDto.getId() == previousExit.getId()) {
-                            exitDto.setDistanceOutside(distanceOutside);
-                            break;
-                        }
-                    }
-                }
-
-                DeviceGeofenceDistance nextExit = findNextExit(group, i);
-                if (nextExit != null) {
-                    double distanceInside = nextExit.getTotalDistance() - current.getTotalDistance();
-                    dto.setDistanceInside(distanceInside);
+                    double distanceTravelled = current.getTotalDistance() - previousExit.getTotalDistance();
+                    dto.setDistanceTravelled(distanceTravelled);
                 }
 
             } else if ("exit".equals(current.getType())) {
                 DeviceGeofenceDistance previousEnter = findPreviousEnter(group, i);
                 if (previousEnter != null) {
-                    double distanceInside = current.getTotalDistance() - previousEnter.getTotalDistance();
-                    dto.setDistanceInside(distanceInside);
+                    double distanceTravelled = current.getTotalDistance() - previousEnter.getTotalDistance();
+                    dto.setDistanceTravelled(distanceTravelled);
                 }
-
-                previousExit = current;
             }
 
             result.add(dto);
         }
     }
 
-    private DeviceGeofenceDistance findNextExit(List<DeviceGeofenceDistance> group, int currentIndex) {
-        for (int i = currentIndex + 1; i < group.size(); i++) {
+    private DeviceGeofenceDistance findPreviousExit(List<DeviceGeofenceDistance> group, int currentIndex) {
+        for (int i = currentIndex - 1; i >= 0; i--) {
             if ("exit".equals(group.get(i).getType())) {
                 return group.get(i);
             }
