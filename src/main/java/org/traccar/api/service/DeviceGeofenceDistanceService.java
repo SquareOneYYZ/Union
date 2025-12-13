@@ -48,15 +48,15 @@ public class DeviceGeofenceDistanceService {
             if ("enter".equals(current.getType())) {
                 DeviceGeofenceDistance previousExit = findPreviousExit(group, i);
                 if (previousExit != null) {
-                    double distanceTravelled = current.getTotalDistance() - previousExit.getTotalDistance();
-                    dto.setDistanceTravelled(distanceTravelled);
+                    dto.setStartDistance(previousExit.getTotalDistance());
+                    dto.setEndDistance(current.getTotalDistance());
                 }
 
             } else if ("exit".equals(current.getType())) {
                 DeviceGeofenceDistance previousEnter = findPreviousEnter(group, i);
                 if (previousEnter != null) {
-                    double distanceTravelled = current.getTotalDistance() - previousEnter.getTotalDistance();
-                    dto.setDistanceTravelled(distanceTravelled);
+                    dto.setStartDistance(previousEnter.getTotalDistance());
+                    dto.setEndDistance(current.getTotalDistance());
                 }
             }
 
