@@ -142,7 +142,13 @@ public class TollEventHandler extends BaseEventHandler {
             String lastCustom = tollState.getLastCustomTollName();
             if (lastCustom == null || !lastCustom.equals(positionTollName)) {
                 Event event = new Event(Event.TYPE_DEVICE_CUSTOM_TOLL, position);
-                event.set("tollName", positionTollName);
+                event.set(Position.KEY_TOLL_REF, tollState.getTollRef());
+                event.set(Position.KEY_TOLL_NAME, positionTollName);
+                event.set(Position.KEY_TOTAL_DISTANCE, position.getDouble(Position.KEY_TOTAL_DISTANCE));
+                event.set("deviceId", position.getDeviceId());
+                event.set("latitude", position.getLatitude());
+                event.set("longitude", position.getLongitude());
+
                 tollState.setLastCustomTollName(positionTollName);
                 tollState.setEvent(event);
 
