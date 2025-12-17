@@ -24,17 +24,24 @@ import org.traccar.api.BaseObjectResource;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.helper.LogAction;
+import org.traccar.helper.PasswordGenerator;
 import org.traccar.helper.SessionHelper;
+import org.traccar.helper.TotpHelper;
 import org.traccar.helper.model.UserUtil;
+import org.traccar.mail.MailManager;
 import org.traccar.model.Device;
 import org.traccar.model.ManagedUser;
 import org.traccar.model.Permission;
 import org.traccar.model.User;
+import org.traccar.notification.TextTemplateFormatter;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
@@ -54,8 +61,16 @@ import java.util.LinkedList;
 @Consumes(MediaType.APPLICATION_JSON)
 public class UserResource extends BaseObjectResource<User> {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserResource.class);
+
     @Inject
     private Config config;
+
+    @Inject
+    private MailManager mailManager;
+
+    @Inject
+    private TextTemplateFormatter textTemplateFormatter;
 
     @Context
     private HttpServletRequest request;
@@ -87,9 +102,12 @@ public class UserResource extends BaseObjectResource<User> {
     @POST
     public Response add(User entity) throws StorageException {
         User currentUser = getUserId() > 0 ? permissionsService.getUser(getUserId()) : null;
+        boolean isSubaccountAdmin = currentUser != null && currentUser.getUserLimit() != 0;
+        String temporaryPassword = null;
+        
         if (currentUser == null || !currentUser.getAdministrator()) {
             permissionsService.checkUserUpdate(getUserId(), new User(), entity);
-            if (currentUser != null && currentUser.getUserLimit() != 0) {
+            if (isSubaccountAdmin) {
                 int userLimit = currentUser.getUserLimit();
                 if (userLimit > 0) {
                     int userCount = storage.getObjects(baseClass, new Request(
@@ -100,6 +118,20 @@ public class UserResource extends BaseObjectResource<User> {
                         throw new SecurityException("Manager user limit reached");
                     }
                 }
+                
+                // Generate temporary password and TOTP for subaccount admin created users
+                temporaryPassword = PasswordGenerator.generate();
+                entity.setPassword(temporaryPassword);
+                
+                // Generate TOTP secret if not already provided
+                if (entity.getTotpKey() == null) {
+                    String totpSecret = new GoogleAuthenticator().createCredentials().getKey();
+                    entity.setTotpKey(totpSecret);
+                }
+                
+                // Mark user as temporary to force password reset on first login
+                entity.setTemporary(true);
+                
             } else {
                 if (UserUtil.isEmpty(storage)) {
                     entity.setAdministrator(true);
@@ -116,16 +148,45 @@ public class UserResource extends BaseObjectResource<User> {
 
         entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
         storage.updateObject(entity, new Request(
-                new Columns.Include("hashedPassword", "salt"),
+                new Columns.Include("hashedPassword", "salt", "totpKey", "temporary"),
                 new Condition.Equals("id", entity.getId())));
 
         LogAction.create(getUserId(), entity);
 
-        if (currentUser != null && currentUser.getUserLimit() != 0) {
+        if (isSubaccountAdmin) {
             storage.addPermission(new Permission(User.class, getUserId(), ManagedUser.class, entity.getId()));
             LogAction.link(getUserId(), User.class, getUserId(), ManagedUser.class, entity.getId());
+            
+            // Send onboarding email with credentials
+            if (temporaryPassword != null && entity.getEmail() != null && !entity.getEmail().isEmpty()) {
+                try {
+                    sendOnboardingEmail(entity, temporaryPassword);
+                    LogAction.emailDispatched(getUserId(), "userOnboarding", entity.getEmail());
+                } catch (Exception e) {
+                    LOGGER.error("Failed to send onboarding email to user: " + entity.getEmail(), e);
+                    // Continue despite email failure - user is already created
+                }
+            }
         }
         return Response.ok(entity).build();
+    }
+    
+    private void sendOnboardingEmail(User user, String temporaryPassword) throws Exception {
+        var velocityContext = textTemplateFormatter.prepareContext(permissionsService.getServer(), user);
+        
+        // Add temporary password to context
+        velocityContext.put("temporaryPassword", temporaryPassword);
+        
+        // Generate TOTP QR code URL
+        String totpQrCodeUrl = TotpHelper.generateQrCodeUrl(
+            user.getEmail(),
+            user.getTotpKey(),
+            "RidesIQ"
+        );
+        velocityContext.put("totpQrCodeUrl", totpQrCodeUrl);
+        
+        var fullMessage = textTemplateFormatter.formatMessage(velocityContext, "userOnboarding", "full");
+        mailManager.sendMessage(user, true, fullMessage.getSubject(), fullMessage.getBody());
     }
 
     @Path("{id}")
