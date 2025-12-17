@@ -47,16 +47,12 @@ public class DeviceStatusResource extends BaseResource {
             @QueryParam("type") String type,
             @QueryParam("deviceName") String deviceNameFilter,
             @QueryParam("imeiSerialNumber") String imeiFilter) throws StorageException {
-        
         List<Map<String, Object>> result = new ArrayList<>();
-        
         if ("inactive".equals(type)) {
             Date twentyFourHoursAgo = new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000);
-            
             Collection<Device> devices = storage.getObjects(Device.class, new Request(
                     new Columns.All(),
                     new Condition.Permission(User.class, getUserId(), Device.class)));
-            
             for (Device device : devices) {
                 if (device.getLastUpdate() != null && device.getLastUpdate().before(twentyFourHoursAgo)) {
                     if (deviceNameFilter != null && !device.getName().toLowerCase().
@@ -67,14 +63,12 @@ public class DeviceStatusResource extends BaseResource {
                             contains(imeiFilter.toLowerCase())) {
                         continue;
                     }
-                    
                     Map<String, Object> deviceInfo = new HashMap<>();
                     deviceInfo.put("deviceName", device.getName());
                     deviceInfo.put("type", "inactive");
                     deviceInfo.put("imeiSerialNumber", device.getUniqueId());
 //                    deviceInfo.put("deviceId", device.getId());
                     deviceInfo.put("lastCommunication", device.getLastUpdate());
-                    
                     if (device.getGroupId() > 0) {
                         Group group = storage.getObject(Group.class, new Request(
                                 new Columns.All(),
@@ -87,22 +81,18 @@ public class DeviceStatusResource extends BaseResource {
                     } else {
                         deviceInfo.put("assignedGroup", null);
                     }
-                    
                     result.add(deviceInfo);
                 }
             }
-            
         } else if ("uninstalled".equals(type)) {
             Collection<Group> groups = storage.getObjects(Group.class, new Request(
                     new Columns.All(),
                     new Condition.Permission(User.class, getUserId(), Group.class)));
-            
             for (Group group : groups) {
                 if (group.getUnassigned() != 0) {
                     Collection<Device> devices = storage.getObjects(Device.class, new Request(
                             new Columns.All(),
                             new Condition.Equals("groupid", group.getUnassigned())));
-                    
                     for (Device device : devices) {
                         if (deviceNameFilter != null && !device.getName().toLowerCase().
                                 contains(deviceNameFilter.toLowerCase())) {
@@ -112,11 +102,9 @@ public class DeviceStatusResource extends BaseResource {
                                 contains(imeiFilter.toLowerCase())) {
                             continue;
                         }
-                        
                         Group assignedGroup = storage.getObject(Group.class, new Request(
                                 new Columns.All(),
                                 new Condition.Equals("id", group.getUnassigned())));
-                        
                         Map<String, Object> deviceInfo = new HashMap<>();
                         deviceInfo.put("deviceName", device.getName());
                         deviceInfo.put("type", "uninstalled");
@@ -124,13 +112,11 @@ public class DeviceStatusResource extends BaseResource {
 //                        deviceInfo.put("deviceId", device.getId());
                         deviceInfo.put("assignedGroup", assignedGroup != null ? assignedGroup.getName() : null);
                         deviceInfo.put("lastCommunication", device.getLastUpdate());
-                        
                         result.add(deviceInfo);
                     }
                 }
             }
         }
-        
         return result;
     }
 
