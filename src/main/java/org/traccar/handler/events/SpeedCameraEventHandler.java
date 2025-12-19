@@ -70,7 +70,7 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
         // Check if Overpass returned speed_camera (from tollRouteProvider data)
         String highwayTag = position.getString(Position.KEY_HIGHWAY);
         String enforcementTag = position.getString(Position.KEY_ENFORCEMENT);
-        LOGGER.debug("Highway tag for deviceId={} is '{}', enforcement tag is '{}'", 
+        LOGGER.debug("Highway tag for deviceId={} is '{}', enforcement tag is '{}'",
                      deviceId, highwayTag, enforcementTag);
 
         // Get allowed highway types from config
@@ -95,14 +95,14 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
         // Check highway tag
         if (highwayTag != null && allowedHighways.contains(highwayTag.toLowerCase())) {
             isSpeedCamera = true;
-            LOGGER.debug("Speed camera detected via highway tag: '{}' in allowed list: {}", 
+            LOGGER.debug("Speed camera detected via highway tag: '{}' in allowed list: {}",
                          highwayTag, allowedHighways);
         }
 
         // Check enforcement tag
         if (enforcementTag != null && allowedEnforcements.contains(enforcementTag.toLowerCase())) {
             isSpeedCamera = true;
-            LOGGER.debug("Speed camera detected via enforcement tag: '{}' in allowed list: {}", 
+            LOGGER.debug("Speed camera detected via enforcement tag: '{}' in allowed list: {}",
                          enforcementTag, allowedEnforcements);
         }
 
@@ -117,8 +117,8 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
             cameraState.addDetection(position, confidenceWindow, highwayTag, speedKmh, speedLimit);
 
         } else {
-            LOGGER.debug("Skipping speed camera: highway='{}', enforcement='{}', isSpeedCamera={}, speed={} km/h, limit={}",
-                    highwayTag, enforcementTag, isSpeedCamera, speedKmh, speedLimit);
+            LOGGER.debug("Skipping speed camera: highway='{}', enforcement='{}', isSpeedCamera={}, speed={} km/h,"
+                    + " limit={}", highwayTag, enforcementTag, isSpeedCamera, speedKmh, speedLimit);
         }
 
 

@@ -40,8 +40,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         this.roundingDecimals = config.getInteger(Keys.TOLL_ROUTE_ROUNDING_DECIMALS);
 //        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
         //for speeding camera
-        this.url = baseurl + "?data=[out:json];(way(around:" + accuracy + ",%1$f,%2$f);" +
-                "node(around:100,%1$f,%2$f););out%%20tags;";
+        this.url = baseurl + "?data=[out:json];(way(around:" + accuracy + ",%1$f,%2$f);"
+                + "node(around:100,%1$f,%2$f););out%%20tags;";
        //for region
 //        this.url = baseurl + "?data=[out:json];is_in(%f,%f);out%%20tags;";
 
@@ -169,7 +169,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                 }
                 if (tags.containsKey("enforcement")) {
                     String currentEnforcement = tags.getString("enforcement");
-                    if (enforcement == null || currentEnforcement.equalsIgnoreCase("maxspeed") || currentEnforcement.equalsIgnoreCase("speed")) {
+                    if (enforcement == null || currentEnforcement.equalsIgnoreCase("maxspeed")
+                            || currentEnforcement.equalsIgnoreCase("speed")) {
                         enforcement = currentEnforcement;
                         LOGGER.debug("Overpass returned enforcement tag: {}", enforcement);
                     }
