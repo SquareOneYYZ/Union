@@ -69,10 +69,20 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
 
         // Check if Overpass returned speed_camera (from tollRouteProvider data)
         String highwayTag = position.getString(Position.KEY_HIGHWAY);
-        LOGGER.debug("Highway tag for deviceId={} is '{}'", deviceId, highwayTag);
+        String enforcementTag = position.getString(Position.KEY_ENFORCEMENT);
+        LOGGER.debug("Highway tag for deviceId={} is '{}', enforcement tag is '{}'", 
+                     deviceId, highwayTag, enforcementTag);
 
+        // Get allowed highway types from config
         String allowedHighwayStr = config.getString("event.speedCamera.highwayTypes", "motorway_link");
         Set<String> allowedHighways = Arrays.stream(allowedHighwayStr.split(","))
+                .map(String::trim)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+
+        // Get allowed enforcement types from config
+        String allowedEnforcementStr = config.getString("event.speedCamera.enforcementTypes", "maxspeed,speed");
+        Set<String> allowedEnforcements = Arrays.stream(allowedEnforcementStr.split(","))
                 .map(String::trim)
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
@@ -80,21 +90,35 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
         Double speedLimit = position.getDouble(Position.KEY_SPEED_LIMIT);
         double speedKmh = position.getSpeed() * 1.852;
 
+        boolean isSpeedCamera = false;
+
+        // Check highway tag
+        if (highwayTag != null && allowedHighways.contains(highwayTag.toLowerCase())) {
+            isSpeedCamera = true;
+            LOGGER.debug("Speed camera detected via highway tag: '{}' in allowed list: {}", 
+                         highwayTag, allowedHighways);
+        }
+
+        // Check enforcement tag
+        if (enforcementTag != null && allowedEnforcements.contains(enforcementTag.toLowerCase())) {
+            isSpeedCamera = true;
+            LOGGER.debug("Speed camera detected via enforcement tag: '{}' in allowed list: {}", 
+                         enforcementTag, allowedEnforcements);
+        }
+
          // If speed limit is missing, skip event
         if (speedLimit == null) {
             LOGGER.debug("Skipping speed camera: No speedLimit provided for deviceId={}, speed={} km/h",
                     deviceId, speedKmh);
-        } else if (highwayTag != null
-                && allowedHighways.contains(highwayTag.toLowerCase())
-                && speedKmh > speedLimit) {
-            LOGGER.debug("Speed camera triggered: highway='{}' matched list={}, speed={} km/h > limit {} km/h",
-                    highwayTag, allowedHighways, speedKmh, speedLimit);
+        } else if (isSpeedCamera && speedKmh > speedLimit) {
+            LOGGER.debug("Speed camera triggered: highway='{}', enforcement='{}', speed={} km/h > limit {} km/h",
+                    highwayTag, enforcementTag, speedKmh, speedLimit);
 
             cameraState.addDetection(position, confidenceWindow, highwayTag, speedKmh, speedLimit);
 
         } else {
-            LOGGER.debug("Skipping speed camera: highway='{}', allowedList={}, speed={} km/h, limit={}",
-                    highwayTag, allowedHighways, speedKmh, speedLimit);
+            LOGGER.debug("Skipping speed camera: highway='{}', enforcement='{}', isSpeedCamera={}, speed={} km/h, limit={}",
+                    highwayTag, enforcementTag, isSpeedCamera, speedKmh, speedLimit);
         }
 
 

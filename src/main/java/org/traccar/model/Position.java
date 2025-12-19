@@ -59,6 +59,8 @@ public class Position extends Message {
     public static final String KEY_STATE = "state";
     public static final String KEY_CITY = "city";
     public static final String KEY_HIGHWAY = "highway";
+    public static final String KEY_ENFORCEMENT = "enforcement";
+
 
 
 
