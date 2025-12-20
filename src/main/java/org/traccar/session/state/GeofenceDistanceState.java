@@ -51,7 +51,7 @@ public class GeofenceDistanceState {
 
         for (Long geoId : currentGeofences) {
             if (!activeIds.contains(geoId)) {
-                LOGGER.info("ENTER geofence {} totalDist={}", geoId, totalDist);
+                LOGGER.debug("ENTER geofence {} totalDist={}", geoId, totalDist);
                 activeGeofences.put(geoId, totalDist);
                 addRecord(geoId, position.getId(), "enter", totalDist, position);
             }
@@ -59,7 +59,7 @@ public class GeofenceDistanceState {
 
         for (Long oldGeoId : activeIds) {
             if (!currentGeofences.contains(oldGeoId)) {
-                LOGGER.info("EXIT geofence {} exit={}", oldGeoId, totalDist);
+                LOGGER.debug("EXIT geofence {} exit={}", oldGeoId, totalDist);
                 addRecord(oldGeoId, position.getId(), "exit", totalDist, position);
                 activeGeofences.remove(oldGeoId);
             }
@@ -71,7 +71,7 @@ public class GeofenceDistanceState {
 
         for (Map.Entry<Long, Double> entry : activeGeofences.entrySet()) {
             long geoId = entry.getKey();
-            LOGGER.info("EXIT ALL geofence {} at {}", geoId, totalDist);
+            LOGGER.debug("EXIT ALL geofence {} at {}", geoId, totalDist);
             addRecord(geoId, position.getId(), "exit", totalDist, position);
         }
         activeGeofences.clear();

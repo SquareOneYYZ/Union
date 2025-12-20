@@ -91,7 +91,11 @@ public class GeofenceEventHandler extends BaseEventHandler {
             }
         }
         for (long geofenceId : newGeofences) {
-            long calendarId = cacheManager.getObject(Geofence.class, geofenceId).getCalendarId();
+            Geofence geofence = cacheManager.getObject(Geofence.class, geofenceId);
+            if (geofence == null) {
+                continue;
+            }
+            long calendarId = geofence.getCalendarId();
             Calendar calendar = calendarId != 0 ? cacheManager.getObject(Calendar.class, calendarId) : null;
             if (calendar == null || calendar.checkMoment(position.getFixTime())) {
                 Event event = new Event(Event.TYPE_GEOFENCE_ENTER, position);
@@ -145,7 +149,7 @@ public class GeofenceEventHandler extends BaseEventHandler {
             for (DeviceGeofenceDistance record : records) {
                 try {
                     record.setId(storage.addObject(record, new Request(new Columns.Exclude("id"))));
-                    LOGGER.info("Saved geofence distance: {}", record.getId());
+                    LOGGER.debug("Saved geofence distance: {}", record.getId());
                 } catch (Exception e) {
                     LOGGER.error("DB save error", e);
                 }
