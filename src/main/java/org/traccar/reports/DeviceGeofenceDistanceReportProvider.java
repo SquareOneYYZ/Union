@@ -19,7 +19,6 @@ import org.apache.poi.ss.util.WorkbookUtil;
 import org.traccar.api.service.DeviceGeofenceDistanceService;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
-import org.traccar.helper.model.DeviceUtil;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceGeofenceDistance;
 import org.traccar.model.DeviceGeofenceDistanceDto;
@@ -55,8 +54,8 @@ public class DeviceGeofenceDistanceReportProvider {
 
     @Inject
     public DeviceGeofenceDistanceReportProvider(
-            Config config, 
-            ReportUtils reportUtils, 
+            Config config,
+            ReportUtils reportUtils,
             Storage storage,
             DeviceGeofenceDistanceService distanceService) {
         this.config = config;
@@ -70,21 +69,18 @@ public class DeviceGeofenceDistanceReportProvider {
         reportUtils.checkPeriodLimit(from, to);
 
         var conditions = new LinkedList<Condition>();
-        
         if (deviceId > 0) {
             conditions.add(new Condition.Equals("deviceId", deviceId));
         }
-        
         if (geofenceId > 0) {
             conditions.add(new Condition.Equals("geofenceId", geofenceId));
         }
-        
         if (from != null && to != null) {
             conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
         }
 
         Collection<DeviceGeofenceDistance> records = storage.getObjects(
-                DeviceGeofenceDistance.class, 
+                DeviceGeofenceDistance.class,
                 new Request(new Columns.All(), Condition.merge(conditions)));
 
         records.removeIf(distance -> {
@@ -100,7 +96,7 @@ public class DeviceGeofenceDistanceReportProvider {
     }
 
     public void getExcel(
-            OutputStream outputStream, long userId, long deviceId, long geofenceId, 
+            OutputStream outputStream, long userId, long deviceId, long geofenceId,
             Date from, Date to) throws StorageException, IOException {
         reportUtils.checkPeriodLimit(from, to);
 
@@ -109,21 +105,18 @@ public class DeviceGeofenceDistanceReportProvider {
         HashMap<Long, String> geofenceNames = new HashMap<>();
 
         var conditions = new LinkedList<Condition>();
-        
         if (deviceId > 0) {
             conditions.add(new Condition.Equals("deviceId", deviceId));
         }
-        
         if (geofenceId > 0) {
             conditions.add(new Condition.Equals("geofenceId", geofenceId));
         }
-        
         if (from != null && to != null) {
             conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
         }
 
         Collection<DeviceGeofenceDistance> allRecords = storage.getObjects(
-                DeviceGeofenceDistance.class, 
+                DeviceGeofenceDistance.class,
                 new Request(new Columns.All(), Condition.merge(conditions)));
 
         HashMap<Long, Collection<DeviceGeofenceDistance>> recordsByDevice = new HashMap<>();
@@ -131,7 +124,6 @@ public class DeviceGeofenceDistanceReportProvider {
             try {
                 reportUtils.getObject(userId, Device.class, record.getDeviceId());
                 recordsByDevice.computeIfAbsent(record.getDeviceId(), k -> new ArrayList<>()).add(record);
-                
                 if (record.getGeofenceId() > 0 && !geofenceNames.containsKey(record.getGeofenceId())) {
                     Geofence geofence = reportUtils.getObject(userId, Geofence.class, record.getGeofenceId());
                     if (geofence != null) {
@@ -145,16 +137,14 @@ public class DeviceGeofenceDistanceReportProvider {
         for (Long devId : recordsByDevice.keySet()) {
             Device device = storage.getObject(Device.class, new Request(
                     new Columns.All(), new Condition.Equals("id", devId)));
-            
             if (device != null) {
                 Collection<DeviceGeofenceDistance> deviceRecords = recordsByDevice.get(devId);
-                Collection<DeviceGeofenceDistanceDto> calculatedDistances = 
+                Collection<DeviceGeofenceDistanceDto> calculatedDistances =
                         distanceService.calculateDistances(deviceRecords);
 
                 DeviceReportSection deviceSection = new DeviceReportSection();
                 deviceSection.setDeviceName(device.getName());
                 sheetNames.add(WorkbookUtil.createSafeSheetName(deviceSection.getDeviceName()));
-                
                 if (device.getGroupId() > 0) {
                     Group group = storage.getObject(Group.class, new Request(
                             new Columns.All(), new Condition.Equals("id", device.getGroupId())));
@@ -162,7 +152,6 @@ public class DeviceGeofenceDistanceReportProvider {
                         deviceSection.setGroupName(group.getName());
                     }
                 }
-                
                 deviceSection.setObjects(calculatedDistances);
                 devicesDistances.add(deviceSection);
             }
