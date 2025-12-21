@@ -84,6 +84,15 @@
     <entry key='dc600.livestream.ip'>143.198.33.215</entry>
     <entry key='dc600.livestream.port'>9101</entry>
 
+    <entry key='event.speedCamera.highwayTypes'>
+        speed_camera,motorway_link,motorway,primary,secondary_link.bus_stop,crossing
+    </entry>
+
+    <entry key='event.speedCamera.enforcementTypes'>
+        maxspeed,speed
+    </entry>
+
+
 
 
 </properties>
