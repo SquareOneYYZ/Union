@@ -54,8 +54,6 @@ public class Position extends Message {
     public static final String KEY_TOLL_REF = "tollRef";
     public static final String KEY_TOLL_NAME = "tollName";
     public static final String KEY_TOLL_EXIT = "tollExitDist";
-    public static final String KEY_TOLL_BARRIER_TYPE = "tollBarrierType";
-    public static final String KEY_TOLL_PAYMENT_CASH = "tollPaymentCash";
     public static final String KEY_SURFACE = "surface";
     public static final String KEY_COUNTRY = "country";
     public static final String KEY_STATE = "state";

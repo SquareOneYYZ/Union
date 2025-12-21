@@ -49,14 +49,6 @@ public class PositionInfoHandler extends BasePositionHandler {
                                 position.set(Position.KEY_CITY, data.getCity());
                                 LOGGER.info("Setting city: {}", data.getCity());
                             }
-                            if (data.getBarrierType() != null) {
-                                position.set(Position.KEY_TOLL_BARRIER_TYPE, data.getBarrierType());
-                                LOGGER.info("Setting barrier type: {}", data.getBarrierType());
-                            }
-                            if (data.getCashPayment() != null) {
-                                position.set(Position.KEY_TOLL_PAYMENT_CASH, data.getCashPayment());
-                                LOGGER.info("Setting cash payment: {}", data.getCashPayment());
-                            }
 
                             callback.processed(false);
                         }
