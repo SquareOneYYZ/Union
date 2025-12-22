@@ -28,7 +28,7 @@ public class GeocoderTest {
     @Disabled
     @Test
     public void testNominatim() {
-        Geocoder geocoder = new NominatimGeocoder(client, null, null, null, 0, new AddressFormat());
+        Geocoder geocoder = new NominatimGeocoder(client, null, null, null,null, 0, new AddressFormat());
         String address = geocoder.getAddress(40.7337807, -73.9974401, null);
         assertEquals("35 West 9th Street, NYC, New York, US", address);
     }
