@@ -6,7 +6,14 @@ import jakarta.inject.Singleton;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.params.ScanParams;
+import redis.clients.jedis.resps.ScanResult;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -14,6 +21,9 @@ import java.util.concurrent.TimeUnit;
 
 @Singleton
 public class RedisCache {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RedisCache.class);
+
     private JedisPooled jedis;
     private boolean redisAvailable = true;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -29,7 +39,7 @@ public class RedisCache {
             this.jedis = new JedisPooled(redisUrl);
             this.jedis.ping();
         } catch (Exception e) {
-            System.err.println(" Redis connection failed: " + e.getMessage());
+            LOGGER.warn("Redis connection failed", e);
             redisAvailable = false;
         }
 
@@ -56,7 +66,7 @@ public class RedisCache {
         try {
             jedis.set(key, value);
         } catch (Exception e) {
-            System.err.println(" Redis set failed: " + e.getMessage());
+            LOGGER.warn("Redis set failed", e);
             redisAvailable = false;
         }
     }
@@ -67,7 +77,7 @@ public class RedisCache {
         try {
             return jedis.get(key);
         } catch (Exception e) {
-            System.err.println(" Redis get failed: " + e.getMessage());
+            LOGGER.warn("Redis get failed", e);
             redisAvailable = false;
             return null;
         }
@@ -80,7 +90,7 @@ public class RedisCache {
         try {
             jedis.del(key);
         } catch (Exception e) {
-            System.err.println(" Redis delete failed: " + e.getMessage());
+            LOGGER.warn("Redis delete failed", e);
             redisAvailable = false;
         }
     }
@@ -92,7 +102,7 @@ public class RedisCache {
         try {
             return jedis.exists(key);
         } catch (Exception e) {
-            System.err.println(" Redis exists failed: " + e.getMessage());
+            LOGGER.warn("Redis exists failed", e);
             redisAvailable = false;
             return false;
         }
@@ -105,7 +115,7 @@ public class RedisCache {
         try {
             jedis.setex(key, seconds, value);
         } catch (Exception e) {
-            System.err.println(" Redis setWithTTL failed: " + e.getMessage());
+            LOGGER.warn("Redis setWithTTL failed", e);
             redisAvailable = false;
         }
     }
@@ -115,4 +125,26 @@ public class RedisCache {
     public void shutdown() {
         scheduler.shutdown();
     }
+
+    public Set<String> scanKeys(String pattern) {
+        Set<String> keys = new HashSet<>();
+        if (!redisAvailable) {
+            return keys;
+        }
+        try {
+            String cursor = ScanParams.SCAN_POINTER_START;
+            ScanParams params = new ScanParams().match(pattern).count(100);
+            do {
+                ScanResult<String> scanResult = jedis.scan(cursor, params);
+                keys.addAll(scanResult.getResult());
+                cursor = scanResult.getCursor();
+            } while (!cursor.equals(ScanParams.SCAN_POINTER_START));
+        } catch (Exception e) {
+            LOGGER.warn("Redis scanKeys failed", e);
+            redisAvailable = false;
+        }
+        return keys;
+    }
+
 }
+
