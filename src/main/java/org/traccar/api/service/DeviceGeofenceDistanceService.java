@@ -38,7 +38,8 @@ public class DeviceGeofenceDistanceService {
         result.sort(Comparator
                 .comparingLong(DeviceGeofenceDistanceDto::getDeviceId)
                 .thenComparingLong(DeviceGeofenceDistanceDto::getGeofenceId)
-                .thenComparing(DeviceGeofenceDistanceDto::getStartTime, Comparator.nullsLast(Comparator.naturalOrder())));
+                .thenComparing(DeviceGeofenceDistanceDto::getStartTime,
+                        Comparator.nullsLast(Comparator.naturalOrder())));
 
         return result;
     }
