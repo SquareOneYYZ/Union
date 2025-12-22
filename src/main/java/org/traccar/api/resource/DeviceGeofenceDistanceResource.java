@@ -92,28 +92,24 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
         }
     }
 
-    @Path("{id}")
+    @Path("{deviceId}/{geofenceId}")
     @GET
-    public DeviceGeofenceDistanceDto getSingle(
-            @PathParam("id") long id,
+    public Collection<DeviceGeofenceDistanceDto> getByDeviceAndGeofence(
+            @PathParam("deviceId") long deviceId,
+            @PathParam("geofenceId") long geofenceId,
             @QueryParam("from") Date from,
             @QueryParam("to") Date to) throws StorageException {
-        DeviceGeofenceDistance distance = storage.getObject(DeviceGeofenceDistance.class, new Request(
-                new Columns.All(), new Condition.Equals("id", id)));
-        if (distance == null) {
-            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
-        }
-        permissionsService.checkPermission(Device.class, getUserId(), distance.getDeviceId());
+        permissionsService.checkPermission(Device.class, getUserId(), deviceId);
         var conditions = new LinkedList<Condition>();
-        conditions.add(new Condition.Equals("deviceId", distance.getDeviceId()));
-        conditions.add(new Condition.Equals("geofenceId", distance.getGeofenceId()));
+        conditions.add(new Condition.Equals("deviceId", deviceId));
+        conditions.add(new Condition.Equals("geofenceId", geofenceId));
         if (from != null && to != null) {
             conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
         }
-        Collection<DeviceGeofenceDistance> relatedRecords = storage.getObjects(
+        Collection<DeviceGeofenceDistance> records = storage.getObjects(
                 DeviceGeofenceDistance.class,
                 new Request(new Columns.All(), Condition.merge(conditions)));
-        return distanceService.calculateDistanceForSingle(distance, relatedRecords);
+        return distanceService.calculateDistances(records);
     }
 
 }

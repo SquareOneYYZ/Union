@@ -3,54 +3,31 @@ package org.traccar.model;
 import java.util.Date;
 
 public class DeviceGeofenceDistanceDto {
-    private long id;
     private long deviceId;
-    private long positionId;
     private long geofenceId;
-    private String type;
-    private double totalDistance;
-    private Date deviceTime;
-    private Double startDistance;
-    private Double endDistance;
-
-    // Constructor from DeviceGeofenceDistance
-    public DeviceGeofenceDistanceDto(DeviceGeofenceDistance record) {
-        this.id = record.getId();
-        this.deviceId = record.getDeviceId();
-        this.positionId = record.getPositionId();
-        this.geofenceId = record.getGeofenceId();
-        this.type = record.getType();
-        this.totalDistance = record.getTotalDistance();
-        this.deviceTime = record.getDeviceTime();
-    }
+    private String type;           // "Inside" or "Outside"
+    private Date startTime;
+    private Date endTime;
+    private double odoStart;       // in meters
+    private double odoEnd;         // in meters
+    private double distance;       // odoEnd - odoStart (in meters)
+    private boolean open;          // true if segment hasn't ended
 
     public DeviceGeofenceDistanceDto() {
-    }
-
-    public long getId() {
-        return id;
-    }
-    public void setId(long id) {
-        this.id = id;
     }
 
     public long getDeviceId() {
         return deviceId;
     }
+
     public void setDeviceId(long deviceId) {
         this.deviceId = deviceId;
-    }
-
-    public long getPositionId() {
-        return positionId;
-    }
-    public void setPositionId(long positionId) {
-        this.positionId = positionId;
     }
 
     public long getGeofenceId() {
         return geofenceId;
     }
+
     public void setGeofenceId(long geofenceId) {
         this.geofenceId = geofenceId;
     }
@@ -58,35 +35,56 @@ public class DeviceGeofenceDistanceDto {
     public String getType() {
         return type;
     }
+
     public void setType(String type) {
         this.type = type;
     }
 
-    public double getTotalDistance() {
-        return totalDistance;
-    }
-    public void setTotalDistance(double totalDistance) {
-        this.totalDistance = totalDistance;
+    public Date getStartTime() {
+        return startTime;
     }
 
-    public Date getDeviceTime() {
-        return deviceTime;
-    }
-    public void setDeviceTime(Date deviceTime) {
-        this.deviceTime = deviceTime;
+    public void setStartTime(Date startTime) {
+        this.startTime = startTime;
     }
 
-    public Double getStartDistance() {
-        return startDistance;
-    }
-    public void setStartDistance(Double startDistance) {
-        this.startDistance = startDistance;
+    public Date getEndTime() {
+        return endTime;
     }
 
-    public Double getEndDistance() {
-        return endDistance;
+    public void setEndTime(Date endTime) {
+        this.endTime = endTime;
     }
-    public void setEndDistance(Double endDistance) {
-        this.endDistance = endDistance;
+
+    public double getOdoStart() {
+        return odoStart;
+    }
+
+    public void setOdoStart(double odoStart) {
+        this.odoStart = odoStart;
+    }
+
+    public double getOdoEnd() {
+        return odoEnd;
+    }
+
+    public void setOdoEnd(double odoEnd) {
+        this.odoEnd = odoEnd;
+    }
+
+    public double getDistance() {
+        return distance;
+    }
+
+    public void setDistance(double distance) {
+        this.distance = distance;
+    }
+
+    public boolean isOpen() {
+        return open;
+    }
+
+    public void setOpen(boolean open) {
+        this.open = open;
     }
 }
