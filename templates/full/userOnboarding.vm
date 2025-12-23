@@ -159,10 +159,6 @@
 
       <table class="info-table">
         <tr>
-          <td class="label">Username:</td>
-          <td class="value">$user.login</td>
-        </tr>
-        <tr>
           <td class="label">Email:</td>
           <td class="value">$user.email</td>
         </tr>
