@@ -171,11 +171,12 @@ public class UserResource extends BaseObjectResource<User> {
         return Response.ok(entity).build();
     }
     
+    
     private void sendOnboardingEmail(User user, String temporaryPassword) throws Exception {
         var velocityContext = textTemplateFormatter.prepareContext(permissionsService.getServer(), user);
         
-        // Add temporary password to context
-        velocityContext.put("temporaryPassword", temporaryPassword);
+        // Note: temporaryPassword parameter is kept for backward compatibility but not used
+        // The user will set their password via the reset link (token is already in context)
         
         // Generate TOTP QR code URL
         String totpQrCodeUrl = TotpHelper.generateQrCodeUrl(
@@ -188,6 +189,7 @@ public class UserResource extends BaseObjectResource<User> {
         var fullMessage = textTemplateFormatter.formatMessage(velocityContext, "userOnboarding", "full");
         mailManager.sendMessage(user, true, fullMessage.getSubject(), fullMessage.getBody());
     }
+
 
     @Path("{id}")
     @DELETE

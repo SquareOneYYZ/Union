@@ -1,4 +1,4 @@
-#set($subject = "Welcome to RidesIQ - Your Account Details")
+#set($subject = "Welcome to RidesIQ - Set Up Your Account")
 
 <!DOCTYPE html>
 <html lang="en">
@@ -26,10 +26,6 @@
     .header {
       margin-bottom: 30px;
     }
-    .header img {
-      max-height: 60px;
-      margin-bottom: 10px;
-    }
     .title {
       font-size: 26px;
       font-weight: bold;
@@ -50,10 +46,11 @@
       margin-top: 30px;
       background-color: #7ca6ff;
       color: #ffffff;
-      padding: 12px 24px;
+      padding: 14px 28px;
       border-radius: 8px;
       text-decoration: none;
       font-weight: bold;
+      font-size: 16px;
     }
     .info-table {
       margin: 30px auto 0 auto;
@@ -135,13 +132,6 @@
       font-size: 12px;
       color: #999;
     }
-    .footer a.unsubscribe {
-      display: inline-block;
-      margin-top: 10px;
-      color: #999;
-      text-decoration: underline;
-      font-size: 12px;
-    }
     @media screen and (max-width: 600px) {
       .container {
         padding: 20px;
@@ -156,10 +146,15 @@
     </div>
     <div class="content">
       <p>Hi $user.name,</p>
-      <p>Your RidesIQ account has been created. Below are your login credentials and setup instructions for two-factor authentication.</p>
+      <p>Your RidesIQ account has been created successfully. To get started, you need to set up your password and two-factor authentication.</p>
 
       <div class="warning-box">
-        <strong>⚠️ Important:</strong> You will be required to change your password upon first login. Please keep these credentials secure and do not share them with anyone.
+        <strong>⚠️ Important Security Steps:</strong>
+        <ol style="margin: 10px 0; padding-left: 20px;">
+          <li>Click the button below to set your password</li>
+          <li>Set up two-factor authentication using the QR code provided below</li>
+          <li>This link will expire in 24 hours for your security</li>
+        </ol>
       </div>
 
       <table class="info-table">
@@ -171,11 +166,9 @@
           <td class="label">Email:</td>
           <td class="value">$user.email</td>
         </tr>
-        <tr>
-          <td class="label">Temporary Password:</td>
-          <td class="value">$temporaryPassword</td>
-        </tr>
       </table>
+
+      <a href="$webUrl/reset-password?passwordReset=$token" class="cta-button">Set Your Password</a>
 
       <div class="totp-section">
         <h3>🔐 Two-Factor Authentication Setup</h3>
@@ -196,14 +189,12 @@
         <div class="totp-secret">$user.totpKey</div>
       </div>
 
-      <a href="$webUrl" class="cta-button">Login to RidesIQ</a>
-
-      <p style="margin-top: 30px;">If you have any questions or need assistance, please contact our support team.</p>
+      <p style="margin-top: 30px;">After setting your password and configuring 2FA, you can log in to your account.</p>
+      <p>If you have any questions or need assistance, please contact our support team.</p>
       <p>Stay safe, <br/><strong>The RidesIQ Team</strong></p>
     </div>
     <div class="footer">
-      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy" style="color: #999; text-decoration: underline;">Privacy Policy</a><br/>
-      <a href="$webUrl/settings/notifications?token=$token" class="unsubscribe">Unsubscribe</a>
+      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy" style="color: #999; text-decoration: underline;">Privacy Policy</a>
     </div>
   </div>
 </body>

@@ -24,15 +24,6 @@ public final class TotpHelper {
     private TotpHelper() {
     }
 
-    /**
-     * Generate a TOTP QR code URL for Google Authenticator and compatible apps.
-     * Format: otpauth://totp/ISSUER:ACCOUNT?secret=SECRET&issuer=ISSUER
-     *
-     * @param accountName the account name (typically email or username)
-     * @param secret the TOTP secret key
-     * @param issuer the issuer name (e.g., "RidesIQ")
-     * @return a URL that can be used to generate a QR code
-     */
     public static String generateQrCodeUrl(String accountName, String secret, String issuer) {
         try {
             String encodedAccount = URLEncoder.encode(accountName, StandardCharsets.UTF_8.name());
@@ -50,15 +41,6 @@ public final class TotpHelper {
         }
     }
 
-    /**
-     * Generate a TOTP provisioning URI.
-     * Format: otpauth://totp/ISSUER:ACCOUNT?secret=SECRET&issuer=ISSUER
-     *
-     * @param accountName the account name (typically email or username)
-     * @param secret the TOTP secret key
-     * @param issuer the issuer name (e.g., "RidesIQ")
-     * @return the TOTP provisioning URI
-     */
     public static String generateProvisioningUri(String accountName, String secret, String issuer) {
         try {
             String encodedAccount = URLEncoder.encode(accountName, StandardCharsets.UTF_8.name());

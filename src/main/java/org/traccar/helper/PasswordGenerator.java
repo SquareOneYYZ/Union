@@ -31,25 +31,10 @@ public final class PasswordGenerator {
     private PasswordGenerator() {
     }
 
-    /**
-     * Generate a secure random password with default length (16 characters).
-     * The password will contain at least one uppercase letter, one lowercase letter,
-     * one digit, and one special character.
-     *
-     * @return a randomly generated password
-     */
     public static String generate() {
         return generate(DEFAULT_LENGTH);
     }
 
-    /**
-     * Generate a secure random password with specified length.
-     * The password will contain at least one uppercase letter, one lowercase letter,
-     * one digit, and one special character.
-     *
-     * @param length the desired length of the password (minimum 8)
-     * @return a randomly generated password
-     */
     public static String generate(int length) {
         if (length < 8) {
             throw new IllegalArgumentException("Password length must be at least 8 characters");
@@ -57,27 +42,18 @@ public final class PasswordGenerator {
 
         StringBuilder password = new StringBuilder(length);
 
-        // Ensure at least one character from each category
         password.append(UPPERCASE.charAt(RANDOM.nextInt(UPPERCASE.length())));
         password.append(LOWERCASE.charAt(RANDOM.nextInt(LOWERCASE.length())));
         password.append(DIGITS.charAt(RANDOM.nextInt(DIGITS.length())));
         password.append(SPECIAL.charAt(RANDOM.nextInt(SPECIAL.length())));
 
-        // Fill the rest with random characters from all categories
         for (int i = 4; i < length; i++) {
             password.append(ALL_CHARS.charAt(RANDOM.nextInt(ALL_CHARS.length())));
         }
 
-        // Shuffle the password to avoid predictable patterns
         return shuffleString(password.toString());
     }
 
-    /**
-     * Shuffle a string using Fisher-Yates algorithm.
-     *
-     * @param input the string to shuffle
-     * @return the shuffled string
-     */
     private static String shuffleString(String input) {
         char[] characters = input.toCharArray();
         for (int i = characters.length - 1; i > 0; i--) {
