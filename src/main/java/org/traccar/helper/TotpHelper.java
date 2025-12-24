@@ -28,9 +28,8 @@ public final class TotpHelper {
         try {
             String encodedAccount = URLEncoder.encode(accountName, StandardCharsets.UTF_8.name());
             String encodedIssuer = URLEncoder.encode(issuer, StandardCharsets.UTF_8.name());
-            
             return String.format(
-                "https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/%s:%s?secret=%s&issuer=%s",
+         "https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/%s:%s?secret=%s&issuer=%s",
                 encodedIssuer,
                 encodedAccount,
                 secret,
@@ -45,7 +44,6 @@ public final class TotpHelper {
         try {
             String encodedAccount = URLEncoder.encode(accountName, StandardCharsets.UTF_8.name());
             String encodedIssuer = URLEncoder.encode(issuer, StandardCharsets.UTF_8.name());
-            
             return String.format(
                 "otpauth://totp/%s:%s?secret=%s&issuer=%s",
                 encodedIssuer,

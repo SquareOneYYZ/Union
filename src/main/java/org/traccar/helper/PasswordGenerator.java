@@ -34,7 +34,6 @@ public final class PasswordGenerator {
     public static String generate() {
         return generate(DEFAULT_LENGTH);
     }
-
     public static String generate(int length) {
         if (length < 8) {
             throw new IllegalArgumentException("Password length must be at least 8 characters");

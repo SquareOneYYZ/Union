@@ -102,24 +102,19 @@ public class UserResource extends BaseObjectResource<User> {
     @POST
     public Response add(User entity) throws StorageException {
         LOGGER.debug("[USER_CREATION] Starting user creation process for email: {}", entity.getEmail());
-        
         User currentUser = getUserId() > 0 ? permissionsService.getUser(getUserId()) : null;
         boolean isSubaccountAdmin = currentUser != null && currentUser.getUserLimit() != 0;
-        
         if (currentUser != null) {
             LOGGER.debug("[USER_CREATION] Current user ID: {}, isSubaccountAdmin: {}, userLimit: {}",
                 currentUser.getId(), isSubaccountAdmin, currentUser.getUserLimit());
         } else {
             LOGGER.debug("[USER_CREATION] No current user (self-registration or system creation)");
         }
-        
         String temporaryPassword = null;
-        
         if (currentUser == null || !currentUser.getAdministrator()) {
             permissionsService.checkUserUpdate(getUserId(), new User(), entity);
             if (isSubaccountAdmin) {
                 LOGGER.debug("[USER_CREATION] Subaccount admin detected - will generate credentials and send email");
-                
                 int userLimit = currentUser.getUserLimit();
                 if (userLimit > 0) {
                     int userCount = storage.getObjects(baseClass, new Request(
@@ -133,12 +128,10 @@ public class UserResource extends BaseObjectResource<User> {
                         throw new SecurityException("Manager user limit reached");
                     }
                 }
-                
                 LOGGER.debug("[USER_CREATION] Generating temporary password for user: {}", entity.getEmail());
                 temporaryPassword = PasswordGenerator.generate();
                 entity.setPassword(temporaryPassword);
                 LOGGER.debug("[USER_CREATION] Temporary password generated successfully");
-                
                 if (entity.getTotpKey() == null) {
                     LOGGER.debug("[USER_CREATION] Generating TOTP secret for user: {}", entity.getEmail());
                     String totpSecret = new GoogleAuthenticator().createCredentials().getKey();
@@ -149,7 +142,6 @@ public class UserResource extends BaseObjectResource<User> {
                 }
                 entity.setTemporary(true);
                 LOGGER.debug("[USER_CREATION] User marked as temporary (must reset password on first login)");
-                
             } else {
                 if (UserUtil.isEmpty(storage)) {
                     entity.setAdministrator(true);
@@ -174,7 +166,8 @@ public class UserResource extends BaseObjectResource<User> {
         LogAction.create(getUserId(), entity);
 
         if (isSubaccountAdmin) {
-            LOGGER.debug("[USER_CREATION] Adding permission link between admin {} and new user {}", getUserId(), entity.getId());
+            LOGGER.debug("[USER_CREATION] Adding permission link between admin {} and new user {}",
+                    getUserId(), entity.getId());
             storage.addPermission(new Permission(User.class, getUserId(), ManagedUser.class, entity.getId()));
             LogAction.link(getUserId(), User.class, getUserId(), ManagedUser.class, entity.getId());
             if (temporaryPassword != null && entity.getEmail() != null && !entity.getEmail().isEmpty()) {
@@ -195,11 +188,8 @@ public class UserResource extends BaseObjectResource<User> {
         }
         return Response.ok(entity).build();
     }
-    
-    
     private void sendOnboardingEmail(User user, String temporaryPassword) throws Exception {
         LOGGER.debug("[EMAIL_TEMPLATE] Preparing email template for user: {}", user.getEmail());
-        
         var velocityContext = textTemplateFormatter.prepareContext(permissionsService.getServer(), user);
         LOGGER.debug("[EMAIL_TEMPLATE] Velocity context prepared with user and server details");
 
@@ -211,11 +201,9 @@ public class UserResource extends BaseObjectResource<User> {
         );
         velocityContext.put("totpQrCodeUrl", totpQrCodeUrl);
         LOGGER.debug("[EMAIL_TEMPLATE] TOTP QR code URL generated: {}", totpQrCodeUrl);
-        
         LOGGER.debug("[EMAIL_TEMPLATE] Formatting email message using userOnboarding template");
         var fullMessage = textTemplateFormatter.formatMessage(velocityContext, "userOnboarding", "full");
         LOGGER.debug("[EMAIL_TEMPLATE] Email subject: {}", fullMessage.getSubject());
-        
         LOGGER.debug("[EMAIL_SMTP] Sending email via MailManager to: {}", user.getEmail());
         mailManager.sendMessage(user, true, fullMessage.getSubject(), fullMessage.getBody());
         LOGGER.debug("[EMAIL_SMTP] Email sent successfully via SMTP");
