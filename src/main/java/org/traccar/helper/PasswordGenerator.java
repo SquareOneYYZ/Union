@@ -24,7 +24,6 @@ public final class PasswordGenerator {
     private static final String DIGITS = "0123456789";
     private static final String SPECIAL = "!@#$%^&*()-_=+[]{}|;:,.<>?";
     private static final String ALL_CHARS = UPPERCASE + LOWERCASE + DIGITS + SPECIAL;
-    
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int DEFAULT_LENGTH = 16;
 
