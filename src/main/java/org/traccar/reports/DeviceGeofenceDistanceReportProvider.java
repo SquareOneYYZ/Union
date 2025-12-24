@@ -16,12 +16,10 @@
 package org.traccar.reports;
 
 import org.apache.poi.ss.util.WorkbookUtil;
-import org.traccar.api.service.DeviceGeofenceDistanceService;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.model.Device;
-import org.traccar.model.DeviceGeofenceDistance;
-import org.traccar.model.DeviceGeofenceDistanceDto;
+import org.traccar.model.DeviceGeofenceSegment;
 import org.traccar.model.Geofence;
 import org.traccar.model.Group;
 import org.traccar.reports.common.ReportUtils;
@@ -30,6 +28,7 @@ import org.traccar.storage.Storage;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
+import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
 
 import jakarta.inject.Inject;
@@ -50,21 +49,18 @@ public class DeviceGeofenceDistanceReportProvider {
     private final Config config;
     private final ReportUtils reportUtils;
     private final Storage storage;
-    private final DeviceGeofenceDistanceService distanceService;
 
     @Inject
     public DeviceGeofenceDistanceReportProvider(
             Config config,
             ReportUtils reportUtils,
-            Storage storage,
-            DeviceGeofenceDistanceService distanceService) {
+            Storage storage) {
         this.config = config;
         this.reportUtils = reportUtils;
         this.storage = storage;
-        this.distanceService = distanceService;
     }
 
-    public Collection<DeviceGeofenceDistanceDto> getObjects(
+    public Collection<DeviceGeofenceSegment> getObjects(
             long userId, long deviceId, long geofenceId, Date from, Date to) throws StorageException {
         reportUtils.checkPeriodLimit(from, to);
 
@@ -76,23 +72,23 @@ public class DeviceGeofenceDistanceReportProvider {
             conditions.add(new Condition.Equals("geofenceId", geofenceId));
         }
         if (from != null && to != null) {
-            conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
+            conditions.add(new Condition.Between("enterTime", "from", from, "to", to));
         }
 
-        Collection<DeviceGeofenceDistance> records = storage.getObjects(
-                DeviceGeofenceDistance.class,
-                new Request(new Columns.All(), Condition.merge(conditions)));
+        Collection<DeviceGeofenceSegment> segments = storage.getObjects(
+                DeviceGeofenceSegment.class,
+                new Request(new Columns.All(), Condition.merge(conditions), new Order("enterTime")));
 
-        records.removeIf(distance -> {
+        segments.removeIf(segment -> {
             try {
-                reportUtils.getObject(userId, Device.class, distance.getDeviceId());
+                reportUtils.getObject(userId, Device.class, segment.getDeviceId());
                 return false;
             } catch (Exception e) {
                 return true;
             }
         });
 
-        return distanceService.calculateDistances(records);
+        return segments;
     }
 
     public void getExcel(
@@ -112,35 +108,33 @@ public class DeviceGeofenceDistanceReportProvider {
             conditions.add(new Condition.Equals("geofenceId", geofenceId));
         }
         if (from != null && to != null) {
-            conditions.add(new Condition.Between("deviceTime", "from", from, "to", to));
+            conditions.add(new Condition.Between("enterTime", "from", from, "to", to));
         }
 
-        Collection<DeviceGeofenceDistance> allRecords = storage.getObjects(
-                DeviceGeofenceDistance.class,
-                new Request(new Columns.All(), Condition.merge(conditions)));
+        Collection<DeviceGeofenceSegment> allSegments = storage.getObjects(
+                DeviceGeofenceSegment.class,
+                new Request(new Columns.All(), Condition.merge(conditions), new Order("enterTime")));
 
-        HashMap<Long, Collection<DeviceGeofenceDistance>> recordsByDevice = new HashMap<>();
-        for (DeviceGeofenceDistance record : allRecords) {
+        HashMap<Long, Collection<DeviceGeofenceSegment>> segmentsByDevice = new HashMap<>();
+        for (DeviceGeofenceSegment segment : allSegments) {
             try {
-                reportUtils.getObject(userId, Device.class, record.getDeviceId());
-                recordsByDevice.computeIfAbsent(record.getDeviceId(), k -> new ArrayList<>()).add(record);
-                if (record.getGeofenceId() > 0 && !geofenceNames.containsKey(record.getGeofenceId())) {
-                    Geofence geofence = reportUtils.getObject(userId, Geofence.class, record.getGeofenceId());
+                reportUtils.getObject(userId, Device.class, segment.getDeviceId());
+                segmentsByDevice.computeIfAbsent(segment.getDeviceId(), k -> new ArrayList<>()).add(segment);
+                if (segment.getGeofenceId() > 0 && !geofenceNames.containsKey(segment.getGeofenceId())) {
+                    Geofence geofence = reportUtils.getObject(userId, Geofence.class, segment.getGeofenceId());
                     if (geofence != null) {
-                        geofenceNames.put(record.getGeofenceId(), geofence.getName());
+                        geofenceNames.put(segment.getGeofenceId(), geofence.getName());
                     }
                 }
             } catch (Exception e) {
             }
         }
 
-        for (Long devId : recordsByDevice.keySet()) {
+        for (Long devId : segmentsByDevice.keySet()) {
             Device device = storage.getObject(Device.class, new Request(
                     new Columns.All(), new Condition.Equals("id", devId)));
             if (device != null) {
-                Collection<DeviceGeofenceDistance> deviceRecords = recordsByDevice.get(devId);
-                Collection<DeviceGeofenceDistanceDto> calculatedDistances =
-                        distanceService.calculateDistances(deviceRecords);
+                Collection<DeviceGeofenceSegment> deviceSegments = segmentsByDevice.get(devId);
 
                 DeviceReportSection deviceSection = new DeviceReportSection();
                 deviceSection.setDeviceName(device.getName());
@@ -152,7 +146,7 @@ public class DeviceGeofenceDistanceReportProvider {
                         deviceSection.setGroupName(group.getName());
                     }
                 }
-                deviceSection.setObjects(calculatedDistances);
+                deviceSection.setObjects(deviceSegments);
                 devicesDistances.add(deviceSection);
             }
         }

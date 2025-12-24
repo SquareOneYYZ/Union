@@ -6,7 +6,8 @@ import time
 import datetime
 
 id = '12345678901234'
-server = 'localhost:5055'
+server = 'iotstagingenv.duckdns.org:5055'
+
 # server = 'localhost:5055'
 
 
