@@ -62,29 +62,22 @@ public class WeeklyKmByGroupReportProvider {
     private double calculateWeeklyKm(long deviceId, Date weekStart, Date weekEnd, Date previousWeekStart,
                                      Date previousWeekEnd)
             throws StorageException {
-        
         Position thisWeekPosition = getLatestPosition(deviceId, weekStart, weekEnd);
-        
         Position previousWeekPosition = getLatestPosition(deviceId, previousWeekStart, previousWeekEnd);
-        
         if (thisWeekPosition != null && previousWeekPosition != null) {
             double thisWeekTotalDistance = thisWeekPosition.getDouble(Position.KEY_TOTAL_DISTANCE);
             double previousWeekTotalDistance = previousWeekPosition.getDouble(Position.KEY_TOTAL_DISTANCE);
-            
             double weeklyDistance = thisWeekTotalDistance - previousWeekTotalDistance;
-            
             return weeklyDistance > 0 ? weeklyDistance : 0;
         } else if (thisWeekPosition != null) {
             return thisWeekPosition.getDouble(Position.KEY_TOTAL_DISTANCE);
         }
-        
         return 0;
     }
 
     public Collection<WeeklyKmByGroupItem> getObjects(
             long userId, Collection<Long> deviceIds, Collection<Long> groupIds,
             Date from, Date to) throws StorageException {
-        
         reportUtils.checkPeriodLimit(from, to);
 
         Calendar cal = Calendar.getInstance();
@@ -100,16 +93,15 @@ public class WeeklyKmByGroupReportProvider {
 
         for (Device device : devices) {
             long deviceGroupId = device.getGroupId();
-            
             if (deviceGroupId == 0) {
                 continue;
             }
 
             double weeklyKm = calculateWeeklyKm(
-                    device.getId(), 
-                    from, 
-                    to, 
-                    previousWeekStart, 
+                    device.getId(),
+                    from,
+                    to,
+                    previousWeekStart,
                     previousWeekEnd
             );
 
@@ -117,17 +109,14 @@ public class WeeklyKmByGroupReportProvider {
             if (groupItem == null) {
                 groupItem = new WeeklyKmByGroupItem();
                 groupItem.setGroupId(deviceGroupId);
-                
                 Group group = storage.getObject(Group.class, new Request(
                         new Columns.All(),
                         new Condition.Equals("id", deviceGroupId)));
-                
                 if (group != null) {
                     groupItem.setGroupName(group.getName());
                 } else {
                     groupItem.setGroupName("Unknown Group");
                 }
-                
                 groupItem.setWeeklyDistanceTraveled(0);
                 groupItem.setDeviceCount(0);
                 groupDataMap.put(deviceGroupId, groupItem);

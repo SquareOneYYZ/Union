@@ -18,7 +18,6 @@ package org.traccar.reports.model;
 public class WeeklyKmByGroupItem {
 
     private long groupId;
-    
     public long getGroupId() {
         return groupId;
     }
