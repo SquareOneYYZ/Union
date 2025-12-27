@@ -37,14 +37,14 @@ public class WeeklyKmByGroupItem {
         this.groupName = groupName;
     }
 
-    private double weeklyKmDriven;
+    private double weeklyDistanceTraveled;
 
-    public double getWeeklyKmDriven() {
-        return weeklyKmDriven;
+    public double getWeeklyDistanceTraveled() {
+        return weeklyDistanceTraveled;
     }
 
-    public void setWeeklyKmDriven(double weeklyKmDriven) {
-        this.weeklyKmDriven = weeklyKmDriven;
+    public void setWeeklyDistanceTraveled(double weeklyDistanceTraveled) {
+        this.weeklyDistanceTraveled = weeklyDistanceTraveled;
     }
 
     private int deviceCount;

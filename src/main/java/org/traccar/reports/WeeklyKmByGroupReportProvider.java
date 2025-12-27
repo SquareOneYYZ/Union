@@ -128,12 +128,12 @@ public class WeeklyKmByGroupReportProvider {
                     groupItem.setGroupName("Unknown Group");
                 }
                 
-                groupItem.setWeeklyKmDriven(0);
+                groupItem.setWeeklyDistanceTraveled(0);
                 groupItem.setDeviceCount(0);
                 groupDataMap.put(deviceGroupId, groupItem);
             }
 
-            groupItem.setWeeklyKmDriven(groupItem.getWeeklyKmDriven() + weeklyKm);
+            groupItem.setWeeklyDistanceTraveled(groupItem.getWeeklyDistanceTraveled() + weeklyKm);
             groupItem.setDeviceCount(groupItem.getDeviceCount() + 1);
         }
 
