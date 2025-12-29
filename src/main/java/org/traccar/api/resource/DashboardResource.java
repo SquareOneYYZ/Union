@@ -1,18 +1,4 @@
-/*
- * Copyright 2025 Anton Tananaev (anton@traccar.org)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+
 package org.traccar.api.resource;
 
 import org.traccar.api.BaseResource;
@@ -67,14 +53,11 @@ public class DashboardResource extends BaseResource {
                 new Condition.Permission(User.class, getUserId(), Device.class)));
 
         VehicleStatusSummary summary = new VehicleStatusSummary();
-        
         Date currentTime = new Date();
         long currentMillis = currentTime.getTime();
-        
         long twoMinutes = 2 * 60 * 1000;
         long oneHour = 60 * 60 * 1000;
         long twentyFourHours = 24 * 60 * 60 * 1000;
-        
         int totalOnline = 0;
         int totalOffline = 0;
         int totalUnknown = 0;
@@ -82,7 +65,6 @@ public class DashboardResource extends BaseResource {
         int totalParked = 0;
         int totalInactive = 0;
         int totalNoData = 0;
-        
         for (Device device : devices) {
             String status = device.getStatus();
             if (Device.STATUS_ONLINE.equals(status)) {
@@ -92,13 +74,11 @@ public class DashboardResource extends BaseResource {
             } else {
                 totalUnknown++;
             }
-            
             Date lastUpdate = device.getLastUpdate();
             if (lastUpdate == null) {
                 totalNoData++;
             } else {
                 long timeDiff = currentMillis - lastUpdate.getTime();
-                
                 if (timeDiff < twoMinutes) {
                     totalDriving++;
                 } else if (timeDiff >= twoMinutes && timeDiff < oneHour) {
@@ -108,7 +88,6 @@ public class DashboardResource extends BaseResource {
                 }
             }
         }
-        
         summary.setTotalOnline(totalOnline);
         summary.setTotalOffline(totalOffline);
         summary.setTotalUnknown(totalUnknown);
@@ -116,7 +95,6 @@ public class DashboardResource extends BaseResource {
         summary.setTotalParked(totalParked);
         summary.setTotalInactive(totalInactive);
         summary.setTotalNoData(totalNoData);
-        
         return summary;
     }
 }
