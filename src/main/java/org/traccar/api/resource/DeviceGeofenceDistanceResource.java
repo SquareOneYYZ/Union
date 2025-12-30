@@ -18,6 +18,8 @@ package org.traccar.api.resource;
 import org.traccar.api.BaseResource;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceGeofenceSegment;
+import org.traccar.model.Position;
+import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
@@ -41,6 +43,13 @@ import java.util.LinkedList;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class DeviceGeofenceDistanceResource extends BaseResource {
+
+    private final CacheManager cacheManager;
+
+    @jakarta.inject.Inject
+    public DeviceGeofenceDistanceResource(CacheManager cacheManager) {
+        this.cacheManager = cacheManager;
+    }
 
     @GET
     public Collection<DeviceGeofenceSegment> get(
@@ -98,8 +107,27 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
             conditions.add(new Condition.Between("enterTime", "from", from, "to", to));
         }
 
-        return storage.getObjects(DeviceGeofenceSegment.class,
+        Collection<DeviceGeofenceSegment> segments = storage.getObjects(DeviceGeofenceSegment.class,
                 new Request(new Columns.All(), Condition.merge(conditions),
                         new Order("enterTime")));
+
+        // Calculate distance for open routes
+        for (DeviceGeofenceSegment segment : segments) {
+            if (segment.getOpen() && segment.getDistance() == null) {
+                calculateOpenRouteDistance(segment);
+            }
+        }
+
+        return segments;
+    }
+
+    private void calculateOpenRouteDistance(DeviceGeofenceSegment segment) {
+        Position currentPosition = cacheManager.getPosition(segment.getDeviceId());
+        if (currentPosition != null) {
+            double currentTotalDistance = currentPosition.getDouble(Position.KEY_TOTAL_DISTANCE);
+            if (currentTotalDistance > 0) {
+                segment.setDistance(currentTotalDistance - segment.getOdoStart());
+            }
+        }
     }
 }

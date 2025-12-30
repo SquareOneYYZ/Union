@@ -22,8 +22,10 @@ import org.traccar.model.Device;
 import org.traccar.model.DeviceGeofenceSegment;
 import org.traccar.model.Geofence;
 import org.traccar.model.Group;
+import org.traccar.model.Position;
 import org.traccar.reports.common.ReportUtils;
 import org.traccar.reports.model.DeviceReportSection;
+import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.Storage;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
@@ -49,15 +51,18 @@ public class DeviceGeofenceDistanceReportProvider {
     private final Config config;
     private final ReportUtils reportUtils;
     private final Storage storage;
+    private final CacheManager cacheManager;
 
     @Inject
     public DeviceGeofenceDistanceReportProvider(
             Config config,
             ReportUtils reportUtils,
-            Storage storage) {
+            Storage storage,
+            CacheManager cacheManager) {
         this.config = config;
         this.reportUtils = reportUtils;
         this.storage = storage;
+        this.cacheManager = cacheManager;
     }
 
     public Collection<DeviceGeofenceSegment> getObjects(
@@ -87,6 +92,13 @@ public class DeviceGeofenceDistanceReportProvider {
                 return true;
             }
         });
+
+        // Calculate distance for open routes
+        for (DeviceGeofenceSegment segment : segments) {
+            if (segment.getOpen() && segment.getDistance() == null) {
+                calculateOpenRouteDistance(segment);
+            }
+        }
 
         return segments;
     }
@@ -136,6 +148,13 @@ public class DeviceGeofenceDistanceReportProvider {
             if (device != null) {
                 Collection<DeviceGeofenceSegment> deviceSegments = segmentsByDevice.get(devId);
 
+                // Calculate distance for open routes
+                for (DeviceGeofenceSegment segment : deviceSegments) {
+                    if (segment.getOpen() && segment.getDistance() == null) {
+                        calculateOpenRouteDistance(segment);
+                    }
+                }
+
                 DeviceReportSection deviceSection = new DeviceReportSection();
                 deviceSection.setDeviceName(device.getName());
                 sheetNames.add(WorkbookUtil.createSafeSheetName(deviceSection.getDeviceName()));
@@ -161,6 +180,16 @@ public class DeviceGeofenceDistanceReportProvider {
             context.putVar("from", from);
             context.putVar("to", to);
             reportUtils.processTemplateWithSheets(inputStream, outputStream, context);
+        }
+    }
+
+    private void calculateOpenRouteDistance(DeviceGeofenceSegment segment) {
+        Position currentPosition = cacheManager.getPosition(segment.getDeviceId());
+        if (currentPosition != null) {
+            double currentTotalDistance = currentPosition.getDouble(Position.KEY_TOTAL_DISTANCE);
+            if (currentTotalDistance > 0) {
+                segment.setDistance(currentTotalDistance - segment.getOdoStart());
+            }
         }
     }
 }
