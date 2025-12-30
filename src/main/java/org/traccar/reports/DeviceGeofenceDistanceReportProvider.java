@@ -188,9 +188,9 @@ public class DeviceGeofenceDistanceReportProvider {
     }
 
     private void calculateOpenRouteDistance(DeviceGeofenceSegment segment) {
-        LOGGER.debug("Calculating distance for open route (Report): deviceId={}, odoStart={}", segment.getDeviceId(), segment.getOdoStart());
+        LOGGER.debug("Calculating distance for open route (Report): deviceId={}, odoStart={}",
+                segment.getDeviceId(), segment.getOdoStart());
         Position currentPosition = cacheManager.getPosition(segment.getDeviceId());
-        
         // If cache doesn't have the position, try to get it from the database
         if (currentPosition == null) {
             LOGGER.debug("Position not in cache (Report), querying database for latest position...");
@@ -205,19 +205,20 @@ public class DeviceGeofenceDistanceReportProvider {
                 LOGGER.warn("Error retrieving position from database (Report)", e);
             }
         }
-        
         if (currentPosition != null) {
             double currentTotalDistance = currentPosition.getDouble(Position.KEY_TOTAL_DISTANCE);
-            LOGGER.debug("Current position found (Report): deviceId={}, currentTotalDistance={}", segment.getDeviceId(), currentTotalDistance);
+            LOGGER.debug("Current position found (Report): deviceId={}, currentTotalDistance={}",
+                    segment.getDeviceId(), currentTotalDistance);
             if (currentTotalDistance >= segment.getOdoStart()) {
                 segment.setExitPositionId(currentPosition.getId());
                 segment.setExitTime(currentPosition.getDeviceTime());
                 segment.setOdoEnd(currentTotalDistance);
                 segment.setDistance(currentTotalDistance - segment.getOdoStart());
-                LOGGER.debug("Distance calculated (Report): odoEnd={}, distance={}, exitTime={}", 
+                LOGGER.debug("Distance calculated (Report): odoEnd={}, distance={}, exitTime={}",
                         currentTotalDistance, segment.getDistance(), segment.getExitTime());
             } else {
-                LOGGER.debug("Current distance ({}) is less than odoStart ({}) (Report)", currentTotalDistance, segment.getOdoStart());
+                LOGGER.debug("Current distance ({}) is less than odoStart ({}) (Report)",
+                        currentTotalDistance, segment.getOdoStart());
             }
         } else {
             LOGGER.debug("No current position found for deviceId={} (Report)", segment.getDeviceId());
