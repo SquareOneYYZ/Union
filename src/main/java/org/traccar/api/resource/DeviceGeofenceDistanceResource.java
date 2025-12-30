@@ -15,6 +15,8 @@
  */
 package org.traccar.api.resource;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.api.BaseResource;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceGeofenceSegment;
@@ -44,11 +46,12 @@ import java.util.LinkedList;
 @Consumes(MediaType.APPLICATION_JSON)
 public class DeviceGeofenceDistanceResource extends BaseResource {
 
-    private final CacheManager cacheManager;
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeviceGeofenceDistanceResource.class);
 
     @jakarta.inject.Inject
-    public DeviceGeofenceDistanceResource(CacheManager cacheManager) {
-        this.cacheManager = cacheManager;
+    private CacheManager cacheManager;
+
+    public DeviceGeofenceDistanceResource() {
     }
 
     @GET
@@ -57,6 +60,8 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
             @QueryParam("geofenceId") long geofenceId,
             @QueryParam("from") Date from,
             @QueryParam("to") Date to) throws StorageException {
+
+        LOGGER.debug("API GET called - deviceId={}, geofenceId={}, from={}, to={}", deviceId, geofenceId, from, to);
 
         if (deviceId > 0) {
             permissionsService.checkPermission(Device.class, getUserId(), deviceId);
@@ -95,6 +100,8 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
     private Collection<DeviceGeofenceSegment> getSegments(
             long deviceId, long geofenceId, Date from, Date to) throws StorageException {
 
+        LOGGER.debug("getSegments called with deviceId={}, geofenceId={}", deviceId, geofenceId);
+
         var conditions = new LinkedList<Condition>();
 
         if (deviceId > 0) {
@@ -111,8 +118,11 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
                 new Request(new Columns.All(), Condition.merge(conditions),
                         new Order("enterTime")));
 
+        LOGGER.debug("Retrieved {} segments from database", segments.size());
+
         // Calculate distance for open routes
         for (DeviceGeofenceSegment segment : segments) {
+            LOGGER.debug("Checking segment id={}, open={}, distance={}", segment.getId(), segment.getOpen(), segment.getDistance());
             if (segment.getOpen() && segment.getDistance() == null) {
                 calculateOpenRouteDistance(segment);
             }
@@ -122,12 +132,45 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
     }
 
     private void calculateOpenRouteDistance(DeviceGeofenceSegment segment) {
+        LOGGER.debug("Calculating distance for open route: deviceId={}, odoStart={}", segment.getDeviceId(), segment.getOdoStart());
+        
+        if (cacheManager == null) {
+            LOGGER.error("CacheManager is null! Dependency injection failed.");
+            return;
+        }
+        
         Position currentPosition = cacheManager.getPosition(segment.getDeviceId());
+        
+        // If cache doesn't have the position, try to get it from the database
+        if (currentPosition == null) {
+            LOGGER.debug("Position not in cache, querying database for latest position...");
+            try {
+                currentPosition = storage.getObject(Position.class, new Request(
+                        new Columns.All(),
+                        new Condition.LatestPositions(segment.getDeviceId())));
+                if (currentPosition != null) {
+                    LOGGER.debug("Latest position retrieved from database");
+                }
+            } catch (StorageException e) {
+                LOGGER.warn("Error retrieving position from database", e);
+            }
+        }
+        
         if (currentPosition != null) {
             double currentTotalDistance = currentPosition.getDouble(Position.KEY_TOTAL_DISTANCE);
-            if (currentTotalDistance > 0) {
+            LOGGER.debug("Current position found for deviceId={}, currentTotalDistance={}", segment.getDeviceId(), currentTotalDistance);
+            if (currentTotalDistance >= segment.getOdoStart()) {
+                segment.setExitPositionId(currentPosition.getId());
+                segment.setExitTime(currentPosition.getDeviceTime());
+                segment.setOdoEnd(currentTotalDistance);
                 segment.setDistance(currentTotalDistance - segment.getOdoStart());
+                LOGGER.debug("Distance and time calculated: odoEnd={}, distance={}, exitTime={}", 
+                        currentTotalDistance, segment.getDistance(), segment.getExitTime());
+            } else {
+                LOGGER.debug("Current distance ({}) is less than odoStart ({})", currentTotalDistance, segment.getOdoStart());
             }
+        } else {
+            LOGGER.debug("No current position found for deviceId={}", segment.getDeviceId());
         }
     }
 }
