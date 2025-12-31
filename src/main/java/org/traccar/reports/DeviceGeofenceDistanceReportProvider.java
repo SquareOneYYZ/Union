@@ -16,14 +16,18 @@
 package org.traccar.reports;
 
 import org.apache.poi.ss.util.WorkbookUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceGeofenceSegment;
 import org.traccar.model.Geofence;
 import org.traccar.model.Group;
+import org.traccar.model.Position;
 import org.traccar.reports.common.ReportUtils;
 import org.traccar.reports.model.DeviceReportSection;
+import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.Storage;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
@@ -46,18 +50,23 @@ import java.util.LinkedList;
 
 public class DeviceGeofenceDistanceReportProvider {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeviceGeofenceDistanceReportProvider.class);
+
     private final Config config;
     private final ReportUtils reportUtils;
     private final Storage storage;
+    private final CacheManager cacheManager;
 
     @Inject
     public DeviceGeofenceDistanceReportProvider(
             Config config,
             ReportUtils reportUtils,
-            Storage storage) {
+            Storage storage,
+            CacheManager cacheManager) {
         this.config = config;
         this.reportUtils = reportUtils;
         this.storage = storage;
+        this.cacheManager = cacheManager;
     }
 
     public Collection<DeviceGeofenceSegment> getObjects(
@@ -87,6 +96,13 @@ public class DeviceGeofenceDistanceReportProvider {
                 return true;
             }
         });
+
+        // Calculate distance for open routes
+        for (DeviceGeofenceSegment segment : segments) {
+            if (segment.getOpen() && segment.getDistance() == null) {
+                calculateOpenRouteDistance(segment);
+            }
+        }
 
         return segments;
     }
@@ -136,6 +152,13 @@ public class DeviceGeofenceDistanceReportProvider {
             if (device != null) {
                 Collection<DeviceGeofenceSegment> deviceSegments = segmentsByDevice.get(devId);
 
+                // Calculate distance for open routes
+                for (DeviceGeofenceSegment segment : deviceSegments) {
+                    if (segment.getOpen() && segment.getDistance() == null) {
+                        calculateOpenRouteDistance(segment);
+                    }
+                }
+
                 DeviceReportSection deviceSection = new DeviceReportSection();
                 deviceSection.setDeviceName(device.getName());
                 sheetNames.add(WorkbookUtil.createSafeSheetName(deviceSection.getDeviceName()));
@@ -161,6 +184,44 @@ public class DeviceGeofenceDistanceReportProvider {
             context.putVar("from", from);
             context.putVar("to", to);
             reportUtils.processTemplateWithSheets(inputStream, outputStream, context);
+        }
+    }
+
+    private void calculateOpenRouteDistance(DeviceGeofenceSegment segment) {
+        LOGGER.debug("Calculating distance for open route (Report): deviceId={}, odoStart={}",
+                segment.getDeviceId(), segment.getOdoStart());
+        Position currentPosition = cacheManager.getPosition(segment.getDeviceId());
+        // If cache doesn't have the position, try to get it from the database
+        if (currentPosition == null) {
+            LOGGER.debug("Position not in cache (Report), querying database for latest position...");
+            try {
+                currentPosition = storage.getObject(Position.class, new Request(
+                        new Columns.All(),
+                        new Condition.LatestPositions(segment.getDeviceId())));
+                if (currentPosition != null) {
+                    LOGGER.debug("Latest position retrieved from database (Report)");
+                }
+            } catch (StorageException e) {
+                LOGGER.warn("Error retrieving position from database (Report)", e);
+            }
+        }
+        if (currentPosition != null) {
+            double currentTotalDistance = currentPosition.getDouble(Position.KEY_TOTAL_DISTANCE);
+            LOGGER.debug("Current position found (Report): deviceId={}, currentTotalDistance={}",
+                    segment.getDeviceId(), currentTotalDistance);
+            if (currentTotalDistance >= segment.getOdoStart()) {
+                segment.setExitPositionId(currentPosition.getId());
+                segment.setExitTime(currentPosition.getDeviceTime());
+                segment.setOdoEnd(currentTotalDistance);
+                segment.setDistance(currentTotalDistance - segment.getOdoStart());
+                LOGGER.debug("Distance calculated (Report): odoEnd={}, distance={}, exitTime={}",
+                        currentTotalDistance, segment.getDistance(), segment.getExitTime());
+            } else {
+                LOGGER.debug("Current distance ({}) is less than odoStart ({}) (Report)",
+                        currentTotalDistance, segment.getOdoStart());
+            }
+        } else {
+            LOGGER.debug("No current position found for deviceId={} (Report)", segment.getDeviceId());
         }
     }
 }
