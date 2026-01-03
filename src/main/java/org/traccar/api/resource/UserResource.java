@@ -24,17 +24,24 @@ import org.traccar.api.BaseObjectResource;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.helper.LogAction;
+import org.traccar.helper.PasswordGenerator;
 import org.traccar.helper.SessionHelper;
+import org.traccar.helper.TotpHelper;
 import org.traccar.helper.model.UserUtil;
+import org.traccar.mail.MailManager;
 import org.traccar.model.Device;
 import org.traccar.model.ManagedUser;
 import org.traccar.model.Permission;
 import org.traccar.model.User;
+import org.traccar.notification.TextTemplateFormatter;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
@@ -54,8 +61,16 @@ import java.util.LinkedList;
 @Consumes(MediaType.APPLICATION_JSON)
 public class UserResource extends BaseObjectResource<User> {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(UserResource.class);
+
     @Inject
     private Config config;
+
+    @Inject
+    private MailManager mailManager;
+
+    @Inject
+    private TextTemplateFormatter textTemplateFormatter;
 
     @Context
     private HttpServletRequest request;
@@ -86,20 +101,47 @@ public class UserResource extends BaseObjectResource<User> {
     @PermitAll
     @POST
     public Response add(User entity) throws StorageException {
+        LOGGER.debug("[USER_CREATION] Starting user creation process for email: {}", entity.getEmail());
         User currentUser = getUserId() > 0 ? permissionsService.getUser(getUserId()) : null;
+        boolean isSubaccountAdmin = currentUser != null && currentUser.getUserLimit() != 0;
+        if (currentUser != null) {
+            LOGGER.debug("[USER_CREATION] Current user ID: {}, isSubaccountAdmin: {}, userLimit: {}",
+                currentUser.getId(), isSubaccountAdmin, currentUser.getUserLimit());
+        } else {
+            LOGGER.debug("[USER_CREATION] No current user (self-registration or system creation)");
+        }
+        String temporaryPassword = null;
         if (currentUser == null || !currentUser.getAdministrator()) {
             permissionsService.checkUserUpdate(getUserId(), new User(), entity);
-            if (currentUser != null && currentUser.getUserLimit() != 0) {
+            if (isSubaccountAdmin) {
+                LOGGER.debug("[USER_CREATION] Subaccount admin detected - will generate credentials and send email");
                 int userLimit = currentUser.getUserLimit();
                 if (userLimit > 0) {
                     int userCount = storage.getObjects(baseClass, new Request(
                             new Columns.All(),
                             new Condition.Permission(User.class, getUserId(), ManagedUser.class).excludeGroups()))
                             .size();
+                    LOGGER.debug("[USER_CREATION] User limit check: current={}, limit={}", userCount, userLimit);
                     if (userCount >= userLimit) {
+                        LOGGER.warn("[USER_CREATION] User limit reached for subaccount admin ID: {}",
+                                currentUser.getId());
                         throw new SecurityException("Manager user limit reached");
                     }
                 }
+                LOGGER.debug("[USER_CREATION] Generating temporary password for user: {}", entity.getEmail());
+                temporaryPassword = PasswordGenerator.generate();
+                entity.setPassword(temporaryPassword);
+                LOGGER.debug("[USER_CREATION] Temporary password generated successfully");
+                if (entity.getTotpKey() == null) {
+                    LOGGER.debug("[USER_CREATION] Generating TOTP secret for user: {}", entity.getEmail());
+                    String totpSecret = new GoogleAuthenticator().createCredentials().getKey();
+                    entity.setTotpKey(totpSecret);
+                    LOGGER.debug("[USER_CREATION] TOTP secret generated successfully");
+                } else {
+                    LOGGER.debug("[USER_CREATION] TOTP secret already provided, skipping generation");
+                }
+                entity.setTemporary(true);
+                LOGGER.debug("[USER_CREATION] User marked as temporary (must reset password on first login)");
             } else {
                 if (UserUtil.isEmpty(storage)) {
                     entity.setAdministrator(true);
@@ -114,19 +156,59 @@ public class UserResource extends BaseObjectResource<User> {
             }
         }
 
+        LOGGER.debug("[USER_CREATION] Saving user to database: {}", entity.getEmail());
         entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
         storage.updateObject(entity, new Request(
-                new Columns.Include("hashedPassword", "salt"),
+                new Columns.Include("hashedPassword", "salt", "totpKey", "temporary"),
                 new Condition.Equals("id", entity.getId())));
+        LOGGER.debug("[USER_CREATION] User saved successfully with ID: {}", entity.getId());
 
         LogAction.create(getUserId(), entity);
 
-        if (currentUser != null && currentUser.getUserLimit() != 0) {
+        if (isSubaccountAdmin) {
+            LOGGER.debug("[USER_CREATION] Adding permission link between admin {} and new user {}",
+                    getUserId(), entity.getId());
             storage.addPermission(new Permission(User.class, getUserId(), ManagedUser.class, entity.getId()));
             LogAction.link(getUserId(), User.class, getUserId(), ManagedUser.class, entity.getId());
+            if (temporaryPassword != null && entity.getEmail() != null && !entity.getEmail().isEmpty()) {
+                LOGGER.debug("[EMAIL_SENDING] Preparing to send onboarding email to: {}", entity.getEmail());
+                try {
+                    sendOnboardingEmail(entity, temporaryPassword);
+                    LOGGER.debug("[EMAIL_SENDING] Onboarding email sent successfully to: {}", entity.getEmail());
+                    LogAction.emailDispatched(getUserId(), "userOnboarding", entity.getEmail());
+                } catch (Exception e) {
+                    LOGGER.error("[EMAIL_SENDING] Failed to send onboarding email to user: " + entity.getEmail(), e);
+                }
+            } else {
+                LOGGER.warn("[EMAIL_SENDING] Skipping email - temporaryPassword={}, email={}",
+                    (temporaryPassword != null), entity.getEmail());
+            }
+        } else {
+            LOGGER.debug("[USER_CREATION] Not a subaccount admin - skipping email sending");
         }
         return Response.ok(entity).build();
     }
+    private void sendOnboardingEmail(User user, String temporaryPassword) throws Exception {
+        LOGGER.debug("[EMAIL_TEMPLATE] Preparing email template for user: {}", user.getEmail());
+        var velocityContext = textTemplateFormatter.prepareContext(permissionsService.getServer(), user);
+        LOGGER.debug("[EMAIL_TEMPLATE] Velocity context prepared with user and server details");
+
+        LOGGER.debug("[EMAIL_TEMPLATE] Generating TOTP QR code URL for user: {}", user.getEmail());
+        String totpQrCodeUrl = TotpHelper.generateQrCodeUrl(
+            user.getEmail(),
+            user.getTotpKey(),
+            "RidesIQ"
+        );
+        velocityContext.put("totpQrCodeUrl", totpQrCodeUrl);
+        LOGGER.debug("[EMAIL_TEMPLATE] TOTP QR code URL generated: {}", totpQrCodeUrl);
+        LOGGER.debug("[EMAIL_TEMPLATE] Formatting email message using userOnboarding template");
+        var fullMessage = textTemplateFormatter.formatMessage(velocityContext, "userOnboarding", "full");
+        LOGGER.debug("[EMAIL_TEMPLATE] Email subject: {}", fullMessage.getSubject());
+        LOGGER.debug("[EMAIL_SMTP] Sending email via MailManager to: {}", user.getEmail());
+        mailManager.sendMessage(user, true, fullMessage.getSubject(), fullMessage.getBody());
+        LOGGER.debug("[EMAIL_SMTP] Email sent successfully via SMTP");
+    }
+
 
     @Path("{id}")
     @DELETE

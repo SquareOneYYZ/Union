@@ -1,0 +1,197 @@
+#set($subject = "Welcome to RidesIQ - Set Up Your Account")
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to RidesIQ</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background-color: #f9fafc;
+      color: #1a1a1a;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background-color: #ffffff;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
+      text-align: center;
+    }
+    .header {
+      margin-bottom: 30px;
+    }
+    .title {
+      font-size: 26px;
+      font-weight: bold;
+      background: linear-gradient(to right, #7ca6ff, #7ee6c6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-top: 20px;
+    }
+    .content {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #333333;
+      margin-top: 20px;
+      text-align: left;
+    }
+    .cta-button {
+      display: inline-block;
+      margin-top: 30px;
+      background-color: #7ca6ff;
+      color: #ffffff;
+      padding: 14px 28px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .info-table {
+      margin: 30px auto 0 auto;
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 500px;
+      font-size: 14px;
+      text-align: left;
+    }
+    .info-table td {
+      padding: 12px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .info-table td.label {
+      font-weight: bold;
+      color: #555;
+      width: 40%;
+    }
+    .info-table td.value {
+      font-family: 'Courier New', monospace;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      padding: 12px;
+    }
+    .warning-box {
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+      text-align: left;
+    }
+    .warning-box strong {
+      color: #856404;
+    }
+    .totp-section {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .totp-section h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    .totp-qr {
+      text-align: center;
+      margin: 20px 0;
+    }
+    .totp-qr img {
+      max-width: 200px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      background: white;
+    }
+    .totp-secret {
+      font-family: 'Courier New', monospace;
+      background-color: #fff;
+      padding: 15px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      word-break: break-all;
+      text-align: center;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+    .steps {
+      margin: 15px 0;
+      padding-left: 20px;
+    }
+    .steps li {
+      margin: 10px 0;
+    }
+    .footer {
+      margin-top: 50px;
+      font-size: 12px;
+      color: #999;
+    }
+    @media screen and (max-width: 600px) {
+      .container {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">Welcome to RidesIQ!</div>
+    </div>
+    <div class="content">
+      <p>Hi $user.name,</p>
+      <p>Your RidesIQ account has been created successfully. To get started, you need to set up your password and two-factor authentication.</p>
+
+      <div class="warning-box">
+        <strong>⚠️ Important Security Steps:</strong>
+        <ol style="margin: 10px 0; padding-left: 20px;">
+          <li>Click the button below to set your password</li>
+          <li>Set up two-factor authentication using the QR code provided below</li>
+          <li>This link will expire in 24 hours for your security</li>
+        </ol>
+      </div>
+
+      <table class="info-table">
+        <tr>
+          <td class="label">Email:</td>
+          <td class="value">$user.email</td>
+        </tr>
+      </table>
+
+      <a href="$webUrl/reset-password?passwordReset=$token" class="cta-button">Set Your Password</a>
+
+      <div class="totp-section">
+        <h3>🔐 Two-Factor Authentication Setup</h3>
+        <p>For enhanced security, two-factor authentication (2FA) has been enabled on your account. Follow these steps to complete the setup:</p>
+        
+        <ol class="steps">
+          <li>Download an authenticator app (Google Authenticator, Authy, Microsoft Authenticator, etc.)</li>
+          <li>Open the app and scan the QR code below, or manually enter the secret key</li>
+          <li>The app will generate a 6-digit code that changes every 30 seconds</li>
+          <li>Use this code along with your password when logging in</li>
+        </ol>
+
+        <div class="totp-qr">
+          <img src="$totpQrCodeUrl" alt="TOTP QR Code" />
+        </div>
+
+        <p style="text-align: center; margin: 10px 0;"><strong>Or manually enter this secret key:</strong></p>
+        <div class="totp-secret">$user.totpKey</div>
+      </div>
+
+      <p style="margin-top: 30px;">After setting your password and configuring 2FA, you can log in to your account.</p>
+      <p>If you have any questions or need assistance, please contact our support team.</p>
+      <p>Stay safe, <br/><strong>The RidesIQ Team</strong></p>
+    </div>
+    <div class="footer">
+      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy" style="color: #999; text-decoration: underline;">Privacy Policy</a>
+    </div>
+  </div>
+</body>
+</html>
