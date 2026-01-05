@@ -12,21 +12,22 @@ public final class TollRouteProcessor {
     private TollRouteProcessor() {
     }
 
-    public static void updateState(
-            TollRouteState state, Position position,
-            String tollRef, String tollName, int  minimalDuration) {
-
+    public static void updateState(TollRouteState state, Position position, int minimalDuration) {
         state.setEvent(null);
 
-        double currentTotalDist =  position.getDouble(Position.KEY_TOTAL_DISTANCE);
+        String tollRef = position.getString(Position.KEY_TOLL_REF);
+        String tollName = position.getString(Position.KEY_TOLL_NAME);
+
+        double currentTotalDist = position.getDouble(Position.KEY_TOTAL_DISTANCE);
         double startTollDist = state.getTollStartDistance();
         Boolean isOnToll = state.isOnToll(minimalDuration);
+
         if (isOnToll != null) {
             if (isOnToll) {
-                if (startTollDist == 0) {   //entered toll
+                if (startTollDist == 0) {   // entered toll
                     stateStartToll(state, currentTotalDist, position.getFixTime(), tollRef, tollName);
                     checkEvent(state, position, 0, currentTotalDist);
-                } else if (startTollDist > 0) { // set names for tolls
+                } else if (startTollDist > 0) { // already on toll, update names
                     if (state.getTollRef() == null && tollRef != null) {
                         state.setTollRef(tollRef);
                     }
@@ -43,7 +44,7 @@ public final class TollRouteProcessor {
                     checkEvent(state, position, currentTollDist, 0);
                     state.setTollStartDistance(0);
                     state.setTollrouteTime(null);
-                } else if (state.getTollExitDistance() == 0) { // bad exit (no enter event)
+                } else if (state.getTollExitDistance() == 0) { // bad exit
                     state.setTollStartDistance(0);
                     state.setTollrouteTime(null);
                 }
@@ -55,13 +56,33 @@ public final class TollRouteProcessor {
                                       double tollStart) {
         if (state.getTollrouteTime() != null) {
             Event event = null;
-            if (tollStart > 0) {
-                event = new Event(Event.TYPE_DEVICE_TOLLROUTE_ENTER, position);
-                state.setTollExitDistance(-1);
-            } else if (tollStart == 0) {
-                 event = new Event(Event.TYPE_DEVICE_TOLLROUTE_EXIT, position);
-                event.set(ATTRIBUTE_TOLL_DIST, tollDist);
+//            if (tollStart > 0) {
+//                event = new Event(Event.TYPE_DEVICE_TOLLROUTE_ENTER, position);
+//                state.setTollExitDistance(-1);
+//            } else if (tollStart == 0) {
+//                 event = new Event(Event.TYPE_DEVICE_TOLLROUTE_EXIT, position);
+//                event.set(ATTRIBUTE_TOLL_DIST, tollDist);
+//            }
+
+            if (tollStart == 0) { // means we just exited a toll
+                event = new Event(Event.TYPE_DEVICE_TOLLROUTE, position);
+
+                event.set(Position.KEY_TOLL_REF, state.getTollRef());
+                event.set(Position.KEY_TOLL_NAME, state.getTollName());
+                event.set(Position.KEY_SURFACE, position.getString(Position.KEY_SURFACE));
+
+                // entry + exit times
+                event.set("enterTime", state.getTollrouteTime().getTime());
+                event.set("exitTime", position.getFixTime().getTime());
+
+                // duration
+                long duration = position.getFixTime().getTime() - state.getTollrouteTime().getTime();
+                event.set("duration", duration);
+
+                // distance
+                event.set("distance", tollDist);
             }
+
 
             if (event != null) {
                 event.set(Position.KEY_TOLL_NAME, state.getTollName());
@@ -82,7 +103,7 @@ public final class TollRouteProcessor {
     private static void stateStartToll(TollRouteState state, double tollStartDistance, Date startTime,
                                        String tollRef, String tollName) {
         state.setTollStartDistance(tollStartDistance);
-        state.setTollExitDistance(0);
+        state.setTollExitDistance(-1);
         state.setTollrouteTime(startTime);
         state.setTollRef(tollRef);
         state.setTollName(tollName);
