@@ -59,7 +59,6 @@ import org.traccar.geocoder.Geocoder;
 import org.traccar.geocoder.GisgraphyGeocoder;
 import org.traccar.geocoder.GoogleGeocoder;
 import org.traccar.geocoder.HereGeocoder;
-import org.traccar.geocoder.LocationIqGeocoder;
 import org.traccar.geocoder.MapQuestGeocoder;
 import org.traccar.geocoder.MapTilerGeocoder;
 import org.traccar.geocoder.MapboxGeocoder;
@@ -209,7 +208,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static Geocoder provideGeocoder(Config config, Client client, StatisticsManager statisticsManager) {
+    public static Geocoder provideGeocoder(Config config, Client client, StatisticsManager statisticsManager,
+                                           RedisCache redisCache) {
         if (config.getBoolean(Keys.GEOCODER_ENABLE)) {
             String type = config.getString(Keys.GEOCODER_TYPE);
             String url = config.getString(Keys.GEOCODER_URL);
@@ -221,8 +221,9 @@ public class MainModule extends AbstractModule {
             int cacheSize = config.getInteger(Keys.GEOCODER_CACHE_SIZE);
             Geocoder geocoder = switch (type) {
                 case "pluscodes" -> new PlusCodesGeocoder();
-                case "nominatim" -> new NominatimGeocoder(client, url, key, language, cacheSize, addressFormat);
-                case "locationiq" -> new LocationIqGeocoder(client, url, key, language, cacheSize, addressFormat);
+                case "nominatim" -> new NominatimGeocoder(client, redisCache, url, key, language, cacheSize,
+                        addressFormat);
+//                case "locationiq" -> new LocationIqGeocoder(client, url, key, language, cacheSize, addressFormat);
                 case "gisgraphy" -> new GisgraphyGeocoder(client, url, cacheSize, addressFormat);
                 case "mapquest" -> new MapQuestGeocoder(client, url, key, cacheSize, addressFormat);
                 case "opencage" -> new OpenCageGeocoder(client, url, key, language, cacheSize, addressFormat);
