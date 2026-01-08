@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+        logicalFilePath="changelog-6.6.7">
+
+    <changeSet author="author" id="changelog-6.6.7-add-period-to-report-history">
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_report_history"/>
+            <not>
+                <columnExists tableName="tc_report_history" columnName="period"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="tc_report_history">
+            <column name="period" type="VARCHAR(50)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.7-add-period-to-favorite-reports">
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_favorite_reports"/>
+            <not>
+                <columnExists tableName="tc_favorite_reports" columnName="period"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="tc_favorite_reports">
+            <column name="period" type="VARCHAR(50)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.7-index-report-history-period">
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_report_history"/>
+            <columnExists tableName="tc_report_history" columnName="period"/>
+        </preConditions>
+
+        <createIndex tableName="tc_report_history" indexName="idx_report_history_period">
+            <column name="period" />
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>
