@@ -49,7 +49,6 @@ public class ReportHistoryResource extends BaseResource {
     @Path("{id}")
     @DELETE
     public Response remove(@PathParam("id") long id) throws StorageException {
-        
         ReportHistory reportHistory = storage.getObject(ReportHistory.class, new Request(
                 new Columns.All(),
                 new Condition.Equals("id", id)));
