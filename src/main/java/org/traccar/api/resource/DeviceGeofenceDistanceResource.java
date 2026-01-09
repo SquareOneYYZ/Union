@@ -15,12 +15,15 @@
  */
 package org.traccar.api.resource;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.api.BaseResource;
+import org.traccar.helper.ReportPeriodUtil;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceGeofenceSegment;
 import org.traccar.model.Position;
+import org.traccar.model.ReportHistory;
 import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
@@ -39,7 +42,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 @Path("devicegeofencedistances")
 @Produces(MediaType.APPLICATION_JSON)
@@ -50,6 +56,8 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
 
     @jakarta.inject.Inject
     private CacheManager cacheManager;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DeviceGeofenceDistanceResource() {
     }
@@ -62,6 +70,9 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
             @QueryParam("to") Date to) throws StorageException {
 
         LOGGER.debug("API GET called - deviceId={}, geofenceId={}, from={}, to={}", deviceId, geofenceId, from, to);
+
+        // Save report history
+        saveReportHistory(deviceId, geofenceId, from, to);
 
         if (deviceId > 0) {
             permissionsService.checkPermission(Device.class, getUserId(), deviceId);
@@ -82,6 +93,35 @@ public class DeviceGeofenceDistanceResource extends BaseResource {
                     Response.status(Response.Status.BAD_REQUEST)
                             .entity("Either deviceId or geofenceId must be provided")
                             .build());
+        }
+    }
+
+    private void saveReportHistory(long deviceId, long geofenceId, Date from, Date to) {
+        try {
+            ReportHistory history = new ReportHistory();
+            history.setUserId(getUserId());
+            history.setReportType("devicegeofencedistances");
+            history.setGeneratedAt(new Date());
+            if (deviceId > 0) {
+                List<Long> deviceIds = List.of(deviceId);
+                history.setDeviceIds(objectMapper.writeValueAsString(deviceIds));
+            }
+            history.setFromDate(from);
+            history.setToDate(to);
+            String period = ReportPeriodUtil.detectPeriod(from, to);
+            history.setPeriod(period);
+            Map<String, Object> additionalParams = new HashMap<>();
+            if (geofenceId > 0) {
+                additionalParams.put("geofenceId", geofenceId);
+            }
+            if (!additionalParams.isEmpty()) {
+                history.setAdditionalParams(objectMapper.writeValueAsString(additionalParams));
+            }
+            storage.addObject(history, new org.traccar.storage.query.Request(
+                    new org.traccar.storage.query.Columns.Exclude("id")));
+
+        } catch (Exception e) {
+            LOGGER.warn("Failed to save report history", e);
         }
     }
 
