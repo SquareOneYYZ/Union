@@ -22,10 +22,14 @@ public class FavoriteReportResource extends BaseResource {
 
     @GET
     public Collection<FavoriteReport> get(
-            @QueryParam("userId") long userId) throws StorageException {
+            @QueryParam("userId") long userId,
+            @QueryParam("reportType") String reportType) throws StorageException {
         var conditions = new java.util.LinkedList<Condition>();
         if (userId > 0) {
             conditions.add(new Condition.Equals("createdBy", userId));
+        }
+        if (reportType != null && !reportType.isEmpty()) {
+            conditions.add(new Condition.Equals("reportType", reportType));
         }
         return storage.getObjects(FavoriteReport.class, new Request(
                 new Columns.All(),
