@@ -124,52 +124,34 @@ public class ReportResource extends SimpleObjectResource<Report> {
             var request = new org.traccar.storage.query.Request(
                     new org.traccar.storage.query.Columns.All(),
                     condition,
-                    new org.traccar.storage.query.Order("id", true, 1)
+                    new org.traccar.storage.query.Order("id", true, 0)
             );
+
             Collection<ReportHistory> existingReports = storage.getObjects(ReportHistory.class, request);
             boolean shouldSave = true;
-            org.slf4j.LoggerFactory.getLogger(ReportResource.class)
-                    .info("Found {} existing reports for user {} and type {}",
-                            existingReports != null ? existingReports.size() : 0, userId, reportType);
 
             if (existingReports != null && !existingReports.isEmpty()) {
-                ReportHistory lastReport = existingReports.iterator().next();
+                for (ReportHistory report : existingReports) {
+                    Date reportFromDate = report.getFromDate() != null
+                            ? new Date(report.getFromDate().getTime() / 1000 * 1000) : null;
+                    Date reportToDate = report.getToDate() != null
+                            ? new Date(report.getToDate().getTime() / 1000 * 1000) : null;
 
-                Date lastFromDate = lastReport.getFromDate() != null
-                        ? new Date(lastReport.getFromDate().getTime() / 1000 * 1000) : null;
-                Date lastToDate = lastReport.getToDate() != null
-                        ? new Date(lastReport.getToDate().getTime() / 1000 * 1000) : null;
+                    boolean sameDeviceIds = Objects.equals(deviceIdsJson, report.getDeviceIds());
+                    boolean sameGroupIds = Objects.equals(groupIdsJson, report.getGroupIds());
+                    boolean sameFromDate = Objects.equals(normalizedFrom, reportFromDate);
+                    boolean sameToDate = Objects.equals(normalizedTo, reportToDate);
+                    boolean sameAdditionalParams = Objects.equals(additionalParamsJson, report.getAdditionalParams());
+                    boolean samePeriod = Objects.equals(period, report.getPeriod());
 
-                org.slf4j.LoggerFactory.getLogger(ReportResource.class)
-                        .info("Last report: deviceIds={}, groupIds={}, from={}, to={}, params={}, period={}",
-                                lastReport.getDeviceIds(), lastReport.getGroupIds(),
-                                lastFromDate, lastToDate,
-                                lastReport.getAdditionalParams(), lastReport.getPeriod());
-
-                org.slf4j.LoggerFactory.getLogger(ReportResource.class)
-                        .info("New report: deviceIds={}, groupIds={}, from={}, to={}, params={}, period={}",
-                                deviceIdsJson, groupIdsJson, normalizedFrom, normalizedTo,
-                                additionalParamsJson, period);
-
-                boolean sameDeviceIds = Objects.equals(deviceIdsJson, lastReport.getDeviceIds());
-                boolean sameGroupIds = Objects.equals(groupIdsJson, lastReport.getGroupIds());
-                boolean sameFromDate = Objects.equals(normalizedFrom, lastFromDate);
-                boolean sameToDate = Objects.equals(normalizedTo, lastToDate);
-                boolean sameAdditionalParams = Objects.equals(additionalParamsJson, lastReport.getAdditionalParams());
-                boolean samePeriod = Objects.equals(period, lastReport.getPeriod());
-
-                org.slf4j.LoggerFactory.getLogger(ReportResource.class)
-                        .info("Comparison: deviceIds={}, groupIds={}, from={}, to={}, params={}, period={}",
-                                sameDeviceIds, sameGroupIds, sameFromDate, sameToDate,
-                                sameAdditionalParams, samePeriod);
-
-                if (sameDeviceIds && sameGroupIds && sameFromDate && sameToDate
-                        && sameAdditionalParams && samePeriod) {
-                    shouldSave = false;
-                    org.slf4j.LoggerFactory.getLogger(ReportResource.class)
-                            .info("DUPLICATE DETECTED - Skipping report history entry");
+                    if (sameDeviceIds && sameGroupIds && sameFromDate && sameToDate
+                            && sameAdditionalParams && samePeriod) {
+                        shouldSave = false;
+                        break;
+                    }
                 }
             }
+
             if (shouldSave) {
                 ReportHistory history = new ReportHistory();
                 history.setUserId(userId);
@@ -184,15 +166,11 @@ public class ReportResource extends SimpleObjectResource<Report> {
 
                 storage.addObject(history, new org.traccar.storage.query.Request(
                         new org.traccar.storage.query.Columns.Exclude("id")));
-
-                org.slf4j.LoggerFactory.getLogger(ReportResource.class)
-                        .info("NEW REPORT SAVED - user {} type {}", userId, reportType);
             }
 
         } catch (Exception e) {
             org.slf4j.LoggerFactory.getLogger(ReportResource.class)
                     .warn("Failed to save report history", e);
-            e.printStackTrace();
         }
     }
 
