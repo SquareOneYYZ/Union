@@ -124,7 +124,7 @@ public class ReportResource extends SimpleObjectResource<Report> {
             var request = new org.traccar.storage.query.Request(
                     new org.traccar.storage.query.Columns.All(),
                     condition,
-                    new org.traccar.storage.query.Order("id", true,1)
+                    new org.traccar.storage.query.Order("id", true, 1)
             );
             Collection<ReportHistory> existingReports = storage.getObjects(ReportHistory.class, request);
             boolean shouldSave = true;
