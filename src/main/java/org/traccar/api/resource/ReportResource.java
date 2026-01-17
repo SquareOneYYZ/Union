@@ -53,11 +53,8 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
 
 @Path("reports")
 @Produces(MediaType.APPLICATION_JSON)
@@ -108,30 +105,94 @@ public class ReportResource extends SimpleObjectResource<Report> {
             Date to,
             Map<String, Object> additionalParams) {
         try {
-            ReportHistory history = new ReportHistory();
-            history.setUserId(userId);
-            history.setReportType(reportType);
-            history.setGeneratedAt(new Date());
-
-            if (deviceIds != null && !deviceIds.isEmpty()) {
-                history.setDeviceIds(objectMapper.writeValueAsString(deviceIds));
-            }
-            if (groupIds != null && !groupIds.isEmpty()) {
-                history.setGroupIds(objectMapper.writeValueAsString(groupIds));
-            }
-            history.setFromDate(from);
-            history.setToDate(to);
+            String deviceIdsJson = (deviceIds != null && !deviceIds.isEmpty())
+                    ? objectMapper.writeValueAsString(deviceIds) : null;
+            String groupIdsJson = (groupIds != null && !groupIds.isEmpty())
+                    ? objectMapper.writeValueAsString(groupIds) : null;
+            String additionalParamsJson = (additionalParams != null && !additionalParams.isEmpty())
+                    ? objectMapper.writeValueAsString(additionalParams) : null;
             String period = ReportPeriodUtil.detectPeriod(from, to);
-            history.setPeriod(period);
-            if (additionalParams != null && !additionalParams.isEmpty()) {
-                history.setAdditionalParams(objectMapper.writeValueAsString(additionalParams));
+
+            Date normalizedFrom = from != null ? new Date(from.getTime() / 1000 * 1000) : null;
+            Date normalizedTo = to != null ? new Date(to.getTime() / 1000 * 1000) : null;
+
+            var condition = new org.traccar.storage.query.Condition.And(
+                    new org.traccar.storage.query.Condition.Equals("userId", userId),
+                    new org.traccar.storage.query.Condition.Equals("reportType", reportType)
+            );
+
+            var request = new org.traccar.storage.query.Request(
+                    new org.traccar.storage.query.Columns.All(),
+                    condition,
+                    new org.traccar.storage.query.Order("id", true,1)
+            );
+            Collection<ReportHistory> existingReports = storage.getObjects(ReportHistory.class, request);
+            boolean shouldSave = true;
+            org.slf4j.LoggerFactory.getLogger(ReportResource.class)
+                    .info("Found {} existing reports for user {} and type {}",
+                            existingReports != null ? existingReports.size() : 0, userId, reportType);
+
+            if (existingReports != null && !existingReports.isEmpty()) {
+                ReportHistory lastReport = existingReports.iterator().next();
+
+                Date lastFromDate = lastReport.getFromDate() != null
+                        ? new Date(lastReport.getFromDate().getTime() / 1000 * 1000) : null;
+                Date lastToDate = lastReport.getToDate() != null
+                        ? new Date(lastReport.getToDate().getTime() / 1000 * 1000) : null;
+
+                org.slf4j.LoggerFactory.getLogger(ReportResource.class)
+                        .info("Last report: deviceIds={}, groupIds={}, from={}, to={}, params={}, period={}",
+                                lastReport.getDeviceIds(), lastReport.getGroupIds(),
+                                lastFromDate, lastToDate,
+                                lastReport.getAdditionalParams(), lastReport.getPeriod());
+
+                org.slf4j.LoggerFactory.getLogger(ReportResource.class)
+                        .info("New report: deviceIds={}, groupIds={}, from={}, to={}, params={}, period={}",
+                                deviceIdsJson, groupIdsJson, normalizedFrom, normalizedTo,
+                                additionalParamsJson, period);
+
+                boolean sameDeviceIds = Objects.equals(deviceIdsJson, lastReport.getDeviceIds());
+                boolean sameGroupIds = Objects.equals(groupIdsJson, lastReport.getGroupIds());
+                boolean sameFromDate = Objects.equals(normalizedFrom, lastFromDate);
+                boolean sameToDate = Objects.equals(normalizedTo, lastToDate);
+                boolean sameAdditionalParams = Objects.equals(additionalParamsJson, lastReport.getAdditionalParams());
+                boolean samePeriod = Objects.equals(period, lastReport.getPeriod());
+
+                org.slf4j.LoggerFactory.getLogger(ReportResource.class)
+                        .info("Comparison: deviceIds={}, groupIds={}, from={}, to={}, params={}, period={}",
+                                sameDeviceIds, sameGroupIds, sameFromDate, sameToDate,
+                                sameAdditionalParams, samePeriod);
+
+                if (sameDeviceIds && sameGroupIds && sameFromDate && sameToDate
+                        && sameAdditionalParams && samePeriod) {
+                    shouldSave = false;
+                    org.slf4j.LoggerFactory.getLogger(ReportResource.class)
+                            .info("DUPLICATE DETECTED - Skipping report history entry");
+                }
             }
-            storage.addObject(history, new org.traccar.storage.query.Request(
-                    new org.traccar.storage.query.Columns.Exclude("id")));
+            if (shouldSave) {
+                ReportHistory history = new ReportHistory();
+                history.setUserId(userId);
+                history.setReportType(reportType);
+                history.setGeneratedAt(new Date());
+                history.setDeviceIds(deviceIdsJson);
+                history.setGroupIds(groupIdsJson);
+                history.setFromDate(normalizedFrom);
+                history.setToDate(normalizedTo);
+                history.setPeriod(period);
+                history.setAdditionalParams(additionalParamsJson);
+
+                storage.addObject(history, new org.traccar.storage.query.Request(
+                        new org.traccar.storage.query.Columns.Exclude("id")));
+
+                org.slf4j.LoggerFactory.getLogger(ReportResource.class)
+                        .info("NEW REPORT SAVED - user {} type {}", userId, reportType);
+            }
 
         } catch (Exception e) {
             org.slf4j.LoggerFactory.getLogger(ReportResource.class)
                     .warn("Failed to save report history", e);
+            e.printStackTrace();
         }
     }
 
