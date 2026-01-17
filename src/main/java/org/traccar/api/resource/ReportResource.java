@@ -16,11 +16,14 @@
  */
 package org.traccar.api.resource;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.traccar.api.SimpleObjectResource;
 import org.traccar.helper.LogAction;
+import org.traccar.helper.ReportPeriodUtil;
 import org.traccar.model.Event;
 import org.traccar.model.Position;
 import org.traccar.model.Report;
+import org.traccar.model.ReportHistory;
 import org.traccar.model.UserRestrictions;
 import org.traccar.reports.CombinedReportProvider;
 import org.traccar.reports.DeviceGeofenceDistanceReportProvider;
@@ -50,9 +53,8 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
+
+import java.util.*;
 
 @Path("reports")
 @Produces(MediaType.APPLICATION_JSON)
@@ -88,8 +90,88 @@ public class ReportResource extends SimpleObjectResource<Report> {
     @Inject
     private DeviceGeofenceDistanceReportProvider deviceGeofenceDistanceReportProvider;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     public ReportResource() {
         super(Report.class, "description");
+    }
+
+    private void saveReportHistory(
+            long userId,
+            String reportType,
+            List<Long> deviceIds,
+            List<Long> groupIds,
+            Date from,
+            Date to,
+            Map<String, Object> additionalParams) {
+        try {
+            String deviceIdsJson = (deviceIds != null && !deviceIds.isEmpty())
+                    ? objectMapper.writeValueAsString(deviceIds) : null;
+            String groupIdsJson = (groupIds != null && !groupIds.isEmpty())
+                    ? objectMapper.writeValueAsString(groupIds) : null;
+            String additionalParamsJson = (additionalParams != null && !additionalParams.isEmpty())
+                    ? objectMapper.writeValueAsString(additionalParams) : null;
+            String period = ReportPeriodUtil.detectPeriod(from, to);
+
+            Date normalizedFrom = from != null ? new Date(from.getTime() / 1000 * 1000) : null;
+            Date normalizedTo = to != null ? new Date(to.getTime() / 1000 * 1000) : null;
+
+            var condition = new org.traccar.storage.query.Condition.And(
+                    new org.traccar.storage.query.Condition.Equals("userId", userId),
+                    new org.traccar.storage.query.Condition.Equals("reportType", reportType)
+            );
+
+            var request = new org.traccar.storage.query.Request(
+                    new org.traccar.storage.query.Columns.All(),
+                    condition,
+                    new org.traccar.storage.query.Order("id", true, 0)
+            );
+
+            Collection<ReportHistory> existingReports = storage.getObjects(ReportHistory.class, request);
+            boolean shouldSave = true;
+
+            if (existingReports != null && !existingReports.isEmpty()) {
+                for (ReportHistory report : existingReports) {
+                    Date reportFromDate = report.getFromDate() != null
+                            ? new Date(report.getFromDate().getTime() / 1000 * 1000) : null;
+                    Date reportToDate = report.getToDate() != null
+                            ? new Date(report.getToDate().getTime() / 1000 * 1000) : null;
+
+                    boolean sameDeviceIds = Objects.equals(deviceIdsJson, report.getDeviceIds());
+                    boolean sameGroupIds = Objects.equals(groupIdsJson, report.getGroupIds());
+                    boolean sameFromDate = Objects.equals(normalizedFrom, reportFromDate);
+                    boolean sameToDate = Objects.equals(normalizedTo, reportToDate);
+                    boolean sameAdditionalParams = Objects.equals(additionalParamsJson, report.getAdditionalParams());
+                    boolean samePeriod = Objects.equals(period, report.getPeriod());
+
+                    if (sameDeviceIds && sameGroupIds && sameFromDate && sameToDate
+                            && sameAdditionalParams && samePeriod) {
+                        shouldSave = false;
+                        break;
+                    }
+                }
+            }
+
+            if (shouldSave) {
+                ReportHistory history = new ReportHistory();
+                history.setUserId(userId);
+                history.setReportType(reportType);
+                history.setGeneratedAt(new Date());
+                history.setDeviceIds(deviceIdsJson);
+                history.setGroupIds(groupIdsJson);
+                history.setFromDate(normalizedFrom);
+                history.setToDate(normalizedTo);
+                history.setPeriod(period);
+                history.setAdditionalParams(additionalParamsJson);
+
+                storage.addObject(history, new org.traccar.storage.query.Request(
+                        new org.traccar.storage.query.Columns.Exclude("id")));
+            }
+
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(ReportResource.class)
+                    .warn("Failed to save report history", e);
+        }
     }
 
     private Response executeReport(long userId, boolean mail, ReportExecutor executor) {
@@ -118,6 +200,7 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("to") Date to) throws StorageException {
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         LogAction.report(getUserId(), false, "combined", from, to, deviceIds, groupIds);
+        saveReportHistory(getUserId(), "combined", deviceIds, groupIds, from, to, null);
         return combinedReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
     }
 
@@ -130,6 +213,7 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("to") Date to) throws StorageException {
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         LogAction.report(getUserId(), false, "route", from, to, deviceIds, groupIds);
+        saveReportHistory(getUserId(), "route", deviceIds, groupIds, from, to, null);
         return routeReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
     }
 
@@ -172,6 +256,14 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("to") Date to) throws StorageException {
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         LogAction.report(getUserId(), false, "events", from, to, deviceIds, groupIds);
+        Map<String, Object> additionalParams = new HashMap<>();
+        if (types != null && !types.isEmpty()) {
+            additionalParams.put("types", types);
+        }
+        if (alarms != null && !alarms.isEmpty()) {
+            additionalParams.put("alarms", alarms);
+        }
+        saveReportHistory(getUserId(), "events", deviceIds, groupIds, from, to, additionalParams);
         return eventsReportProvider.getObjects(getUserId(), deviceIds, groupIds, types, alarms, from, to);
     }
 
@@ -217,6 +309,9 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("daily") boolean daily) throws StorageException {
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         LogAction.report(getUserId(), false, "summary", from, to, deviceIds, groupIds);
+        Map<String, Object> additionalParams = new HashMap<>();
+        additionalParams.put("daily", daily);
+        saveReportHistory(getUserId(), "summary", deviceIds, groupIds, from, to, additionalParams);
         return summaryReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to, daily);
     }
 
@@ -259,6 +354,7 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("to") Date to) throws StorageException {
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         LogAction.report(getUserId(), false, "trips", from, to, deviceIds, groupIds);
+        saveReportHistory(getUserId(), "trips", deviceIds, groupIds, from, to, null);
         return tripsReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
     }
 
@@ -299,6 +395,7 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("to") Date to) throws StorageException {
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         LogAction.report(getUserId(), false, "stops", from, to, deviceIds, groupIds);
+        saveReportHistory(getUserId(), "stops", deviceIds, groupIds, from, to, null);
         return stopsReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
     }
 
