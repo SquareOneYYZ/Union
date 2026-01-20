@@ -118,4 +118,24 @@ public class FavoriteReport extends BaseModel {
         this.period = period;
     }
 
+    private Date fromDate;
+
+    public Date getFromDate() {
+        return fromDate;
+    }
+
+    public void setFromDate(Date fromDate) {
+        this.fromDate = fromDate;
+    }
+
+    private Date toDate;
+
+    public Date getToDate() {
+        return toDate;
+    }
+
+    public void setToDate(Date toDate) {
+        this.toDate = toDate;
+    }
+
 }

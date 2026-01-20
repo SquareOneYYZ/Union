@@ -40,6 +40,23 @@
 
     </changeSet>
 
+    <changeSet author="author" id="changelog-6.6.7-add-from-to-date-favorite-reports">
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_favorite_reports"/>
+            <not>
+                <columnExists tableName="tc_favorite_reports" columnName="fromdate"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="tc_favorite_reports">
+            <column name="fromdate" type="DATETIME"/>
+            <column name="todate" type="DATETIME"/>
+        </addColumn>
+
+    </changeSet>
+
+
     <changeSet author="author" id="changelog-6.6.7-index-report-history-period">
 
         <preConditions onFail="MARK_RAN">
