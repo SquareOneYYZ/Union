@@ -487,13 +487,15 @@ public class ReportResource extends SimpleObjectResource<Report> {
         if (geofenceId > 0) {
             additionalParams.put("geofenceId", geofenceId);
         }
-        saveReportHistory(getUserId(), "devicegeofencedistances", deviceIds, List.of(), from, to, additionalParams);
+        saveReportHistory(getUserId(), "devicegeofencedistances", deviceIds, List.of(), from, to,
+                additionalParams);
 
         if (deviceId > 0) {
             permissionsService.checkPermission(Device.class, getUserId(), deviceId);
             return deviceGeofenceDistanceReportProvider.getObjects(getUserId(), deviceId, geofenceId, from, to);
         } else if (geofenceId > 0) {
-            Collection<DeviceGeofenceSegment> segments = deviceGeofenceDistanceReportProvider.getObjects(getUserId(), 0, geofenceId, from, to);
+            Collection<DeviceGeofenceSegment> segments = deviceGeofenceDistanceReportProvider.getObjects(getUserId(),
+                    0, geofenceId, from, to);
             segments.removeIf(segment -> {
                 try {
                     permissionsService.checkPermission(Device.class, getUserId(), segment.getDeviceId());
