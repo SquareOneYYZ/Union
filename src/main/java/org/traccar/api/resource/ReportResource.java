@@ -20,11 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.traccar.api.SimpleObjectResource;
 import org.traccar.helper.LogAction;
 import org.traccar.helper.ReportPeriodUtil;
-import org.traccar.model.Event;
-import org.traccar.model.Position;
-import org.traccar.model.Report;
-import org.traccar.model.ReportHistory;
-import org.traccar.model.UserRestrictions;
+import org.traccar.model.*;
 import org.traccar.reports.CombinedReportProvider;
 import org.traccar.reports.DeviceGeofenceDistanceReportProvider;
 import org.traccar.reports.DevicesReportProvider;
@@ -473,6 +469,46 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("to") Date to,
             @PathParam("type") String type) throws StorageException {
         return getDeviceGeofenceDistancesExcel(deviceId, geofenceId, from, to, type.equals("mail"));
+    }
+
+    @Path("geofencedistances")
+    @GET
+    public Collection<DeviceGeofenceSegment> getDeviceGeofenceDistances(
+            @QueryParam("deviceId") long deviceId,
+            @QueryParam("geofenceId") long geofenceId,
+            @QueryParam("from") Date from,
+            @QueryParam("to") Date to) throws StorageException {
+        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+
+        List<Long> deviceIds = deviceId > 0 ? List.of(deviceId) : List.of();
+        LogAction.report(getUserId(), false, "devicegeofencedistances", from, to, deviceIds, List.of());
+
+        Map<String, Object> additionalParams = new HashMap<>();
+        if (geofenceId > 0) {
+            additionalParams.put("geofenceId", geofenceId);
+        }
+        saveReportHistory(getUserId(), "devicegeofencedistances", deviceIds, List.of(), from, to, additionalParams);
+
+        if (deviceId > 0) {
+            permissionsService.checkPermission(Device.class, getUserId(), deviceId);
+            return deviceGeofenceDistanceReportProvider.getObjects(getUserId(), deviceId, geofenceId, from, to);
+        } else if (geofenceId > 0) {
+            Collection<DeviceGeofenceSegment> segments = deviceGeofenceDistanceReportProvider.getObjects(getUserId(), 0, geofenceId, from, to);
+            segments.removeIf(segment -> {
+                try {
+                    permissionsService.checkPermission(Device.class, getUserId(), segment.getDeviceId());
+                    return false;
+                } catch (Exception e) {
+                    return true;
+                }
+            });
+            return segments;
+        } else {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST)
+                            .entity("Either deviceId or geofenceId must be provided")
+                            .build());
+        }
     }
 
 }
