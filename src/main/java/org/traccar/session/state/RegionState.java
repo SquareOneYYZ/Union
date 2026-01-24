@@ -1,5 +1,6 @@
 package org.traccar.session.state;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.model.Event;
@@ -7,8 +8,14 @@ import org.traccar.model.Position;
 
 public class RegionState {
     private static final Logger LOGGER = LoggerFactory.getLogger(RegionState.class);
+    
+    @JsonProperty("lastCountry")
     private String lastCountry;
+    
+    @JsonProperty("lastState")
     private String lastState;
+    
+    @JsonProperty("lastCity")
     private String lastCity;
     private Event enterEvent;
     private Event exitEvent;
