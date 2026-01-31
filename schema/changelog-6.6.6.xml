@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+        logicalFilePath="changelog-6.6.6">
+
+    <!-- Create tc_regions table -->
+    <changeSet author="author" id="changelog-6.6.6-create-regions-table">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_regions"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_regions">
+            <column autoIncrement="true" name="id" type="INT">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="name" type="VARCHAR(128)">
+                <constraints nullable="false" />
+            </column>
+            <column name="type" type="VARCHAR(16)">
+                <constraints nullable="false" />
+            </column>
+            <column name="value" type="VARCHAR(128)">
+                <constraints nullable="false" />
+            </column>
+            <column name="attributes" type="VARCHAR(4000)" />
+        </createTable>
+
+    </changeSet>
+
+    <!-- Create tc_device_region linking table -->
+    <changeSet author="author" id="changelog-6.6.6-create-device-region-table">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_device_region"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_device_region">
+            <column name="deviceid" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="regionid" type="INT">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint 
+            baseTableName="tc_device_region" 
+            baseColumnNames="deviceid" 
+            constraintName="fk_device_region_deviceid" 
+            onDelete="CASCADE" 
+            referencedColumnNames="id" 
+            referencedTableName="tc_devices" />
+
+        <addForeignKeyConstraint 
+            baseTableName="tc_device_region" 
+            baseColumnNames="regionid" 
+            constraintName="fk_device_region_regionid" 
+            onDelete="CASCADE" 
+            referencedColumnNames="id" 
+            referencedTableName="tc_regions" />
+
+    </changeSet>
+
+    <!-- Create tc_group_region linking table -->
+    <changeSet author="author" id="changelog-6.6.6-create-group-region-table">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_group_region"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_group_region">
+            <column name="groupid" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="regionid" type="INT">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint 
+            baseTableName="tc_group_region" 
+            baseColumnNames="groupid" 
+            constraintName="fk_group_region_groupid" 
+            onDelete="CASCADE" 
+            referencedColumnNames="id" 
+            referencedTableName="tc_groups" />
+
+        <addForeignKeyConstraint 
+            baseTableName="tc_group_region" 
+            baseColumnNames="regionid" 
+            constraintName="fk_group_region_regionid" 
+            onDelete="CASCADE" 
+            referencedColumnNames="id" 
+            referencedTableName="tc_regions" />
+
+    </changeSet>
+
+    <!-- Create indexes for better performance -->
+    <changeSet author="author" id="changelog-6.6.6-create-region-indexes">
+
+        <createIndex tableName="tc_device_region" indexName="idx_device_region_deviceid">
+            <column name="deviceid" />
+        </createIndex>
+
+        <createIndex tableName="tc_device_region" indexName="idx_device_region_regionid">
+            <column name="regionid" />
+        </createIndex>
+
+        <createIndex tableName="tc_group_region" indexName="idx_group_region_groupid">
+            <column name="groupid" />
+        </createIndex>
+
+        <createIndex tableName="tc_group_region" indexName="idx_group_region_regionid">
+            <column name="regionid" />
+        </createIndex>
+
+        <createIndex tableName="tc_regions" indexName="idx_regions_type_value">
+            <column name="type" />
+            <column name="value" />
+        </createIndex>
+
+    </changeSet>
+
+    <!-- Create tc_user_region linking table -->
+    <changeSet author="author" id="changelog-6.6.6-create-user-region-table">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_user_region"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_user_region">
+            <column name="userid" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="regionid" type="INT">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint 
+            baseTableName="tc_user_region" 
+            baseColumnNames="userid" 
+            constraintName="fk_user_region_userid" 
+            onDelete="CASCADE" 
+            referencedColumnNames="id" 
+            referencedTableName="tc_users" />
+
+        <addForeignKeyConstraint 
+            baseTableName="tc_user_region" 
+            baseColumnNames="regionid" 
+            constraintName="fk_user_region_regionid" 
+            onDelete="CASCADE" 
+            referencedColumnNames="id" 
+            referencedTableName="tc_regions" />
+
+    </changeSet>
+
+    <!-- Create indexes for tc_user_region -->
+    <changeSet author="author" id="changelog-6.6.6-create-user-region-indexes">
+
+        <createIndex tableName="tc_user_region" indexName="idx_user_region_userid">
+            <column name="userid" />
+        </createIndex>
+
+        <createIndex tableName="tc_user_region" indexName="idx_user_region_regionid">
+            <column name="regionid" />
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>

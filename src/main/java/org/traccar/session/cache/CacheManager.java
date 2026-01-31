@@ -22,22 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.traccar.broadcast.BroadcastInterface;
 import org.traccar.broadcast.BroadcastService;
 import org.traccar.config.Config;
-import org.traccar.model.Attribute;
-import org.traccar.model.BaseModel;
-import org.traccar.model.Calendar;
-import org.traccar.model.Device;
-import org.traccar.model.Driver;
-import org.traccar.model.Geofence;
-import org.traccar.model.Group;
-import org.traccar.model.GroupedModel;
-import org.traccar.model.Maintenance;
-import org.traccar.model.Notification;
-import org.traccar.model.ObjectOperation;
-import org.traccar.model.Permission;
-import org.traccar.model.Position;
-import org.traccar.model.Schedulable;
-import org.traccar.model.Server;
-import org.traccar.model.User;
+import org.traccar.model.*;
 import org.traccar.storage.Storage;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
@@ -58,7 +43,7 @@ public class CacheManager implements BroadcastInterface {
     private static final Logger LOGGER = LoggerFactory.getLogger(CacheManager.class);
 
     private static final Set<Class<? extends BaseModel>> GROUPED_CLASSES =
-            Set.of(Attribute.class, Driver.class, Geofence.class, Maintenance.class, Notification.class);
+            Set.of(Attribute.class, Driver.class, Geofence.class, Maintenance.class, Notification.class, Region.class);
 
     private final Config config;
     private final Storage storage;
