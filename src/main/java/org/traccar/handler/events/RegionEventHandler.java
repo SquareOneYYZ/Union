@@ -157,12 +157,16 @@ public class RegionEventHandler extends BaseEventHandler {
 
     private boolean matchesRegion(Set<Region> linkedRegions, String type, String value,
                                   String country, String state) {
-        if (value == null) return false;
-
+        if (value == null) {
+            return false;
+        }
         return linkedRegions.stream().anyMatch(region -> {
-            if (!region.getType().equals(type)) return false;
-            if (!region.getValue().equalsIgnoreCase(value)) return false;
-
+            if (!region.getType().equals(type)) {
+                return false;
+            }
+            if (!region.getValue().equalsIgnoreCase(value)) {
+                return false;
+            }
             switch (type) {
                 case "city":
                     return region.getCountry().equalsIgnoreCase(country)

@@ -16,10 +16,7 @@
 package org.traccar.api.resource;
 
 import org.traccar.api.ExtendedObjectResource;
-import org.traccar.model.Device;
-import org.traccar.model.Group;
 import org.traccar.model.Region;
-import org.traccar.model.User;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
