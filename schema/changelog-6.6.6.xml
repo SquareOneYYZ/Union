@@ -32,6 +32,19 @@
         </createTable>
 
     </changeSet>
+    <changeSet author="author" id="changelog-6.6.6-add-country-state-columns">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="tc_regions" columnName="country"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="tc_regions">
+            <column name="country" type="VARCHAR(128)"/>
+            <column name="state" type="VARCHAR(128)"/>
+        </addColumn>
+    </changeSet>
+
 
     <!-- Create tc_device_region linking table -->
     <changeSet author="author" id="changelog-6.6.6-create-device-region-table">

@@ -91,7 +91,7 @@ public class RegionEventHandler extends BaseEventHandler {
         LOGGER.debug("Checking region events for deviceId={}", deviceId);
         if (regionState.getCountryExitEvent() != null) {
             String exitCountry = regionState.getCountryExitEvent().getString(Position.KEY_COUNTRY);
-            if (!hasFilter || matchesRegion(linkedRegions, "country", exitCountry)) {
+            if (!hasFilter || matchesRegion(linkedRegions, "country", exitCountry, null, null)) {
                 regionState.getCountryExitEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering COUNTRY EXIT event: {} -> {}", exitCountry, country);
                 callback.eventDetected(regionState.getCountryExitEvent());
@@ -101,7 +101,7 @@ public class RegionEventHandler extends BaseEventHandler {
         }
         if (regionState.getCountryEnterEvent() != null) {
             String enterCountry = regionState.getCountryEnterEvent().getString(Position.KEY_COUNTRY);
-            if (!hasFilter || matchesRegion(linkedRegions, "country", enterCountry)) {
+            if (!hasFilter || matchesRegion(linkedRegions, "country", enterCountry, null, null)) {
                 LOGGER.debug("Country Event ALL Attributes: {}", regionState.getCountryEnterEvent().getAttributes());
                 regionState.getCountryEnterEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering COUNTRY ENTER event: {}", enterCountry);
@@ -114,7 +114,7 @@ public class RegionEventHandler extends BaseEventHandler {
 
         if (regionState.getStateExitEvent() != null) {
             String exitState = regionState.getStateExitEvent().getString(Position.KEY_STATE);
-            if (!hasFilter || matchesRegion(linkedRegions, "state", exitState)) {
+            if (!hasFilter || matchesRegion(linkedRegions, "state", exitState, country, null)) {
                 regionState.getStateExitEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering STATE EXIT event: {} -> {}", exitState, state);
                 callback.eventDetected(regionState.getStateExitEvent());
@@ -124,7 +124,7 @@ public class RegionEventHandler extends BaseEventHandler {
         }
         if (regionState.getStateEnterEvent() != null) {
             String enterState = regionState.getStateEnterEvent().getString(Position.KEY_STATE);
-            if (!hasFilter || matchesRegion(linkedRegions, "state", enterState)) {
+            if (!hasFilter || matchesRegion(linkedRegions, "state", enterState, country, null)) {
                 regionState.getStateEnterEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering STATE ENTER event: {}", enterState);
                 callback.eventDetected(regionState.getStateEnterEvent());
@@ -135,7 +135,7 @@ public class RegionEventHandler extends BaseEventHandler {
 
         if (regionState.getCityExitEvent() != null) {
             String exitCity = regionState.getCityExitEvent().getString(Position.KEY_CITY);
-            if (!hasFilter || matchesRegion(linkedRegions, "city", exitCity)) {
+            if (!hasFilter || matchesRegion(linkedRegions, "city", exitCity, country, state)) {
                 regionState.getCityExitEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering CITY EXIT event: {} -> {}", exitCity, city);
                 callback.eventDetected(regionState.getCityExitEvent());
@@ -145,7 +145,7 @@ public class RegionEventHandler extends BaseEventHandler {
         }
         if (regionState.getCityEnterEvent() != null) {
             String enterCity = regionState.getCityEnterEvent().getString(Position.KEY_CITY);
-            if (!hasFilter || matchesRegion(linkedRegions, "city", enterCity)) {
+            if (!hasFilter || matchesRegion(linkedRegions, "city", enterCity, country, state)) {
                 regionState.getCityEnterEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering CITY ENTER event: {}", enterCity);
                 callback.eventDetected(regionState.getCityEnterEvent());
@@ -155,14 +155,27 @@ public class RegionEventHandler extends BaseEventHandler {
         }
     }
 
-    private boolean matchesRegion(Set<Region> linkedRegions, String type, String value) {
-        if (value == null) {
-            return false;
-        }
-        return linkedRegions.stream()
-                .anyMatch(region -> region.getType().equals(type) && region.getValue().equalsIgnoreCase(value));
+    private boolean matchesRegion(Set<Region> linkedRegions, String type, String value,
+                                  String country, String state) {
+        if (value == null) return false;
+
+        return linkedRegions.stream().anyMatch(region -> {
+            if (!region.getType().equals(type)) return false;
+            if (!region.getValue().equalsIgnoreCase(value)) return false;
+
+            switch (type) {
+                case "city":
+                    return region.getCountry().equalsIgnoreCase(country)
+                            && region.getState().equalsIgnoreCase(state);
+                case "state":
+                    return region.getCountry().equalsIgnoreCase(country);
+                default: // country
+                    return true;
+            }
+        });
     }
 
 
-    }
+
+}
 
