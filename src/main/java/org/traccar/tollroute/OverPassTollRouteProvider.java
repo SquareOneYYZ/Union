@@ -342,7 +342,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         private CachedTollData() { }
 
         private CachedTollData(Boolean toll, String ref, String name, String surface,
-                               String country, String state, String city, String barrierType, Boolean cashPayment, String highway, String enforcement) {
+                               String country, String state, String city, String barrierType, Boolean cashPayment,
+                                    String highway, String enforcement) {
 
             this.toll = toll;
             this.ref = ref;
