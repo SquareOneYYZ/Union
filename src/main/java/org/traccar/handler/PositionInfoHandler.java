@@ -2,6 +2,7 @@ package org.traccar.handler;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import jakarta.ws.rs.HEAD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.model.Position;
@@ -49,6 +50,7 @@ public class PositionInfoHandler extends BasePositionHandler {
                                 position.set(Position.KEY_CITY, data.getCity());
                                 LOGGER.info("Setting city: {}", data.getCity());
                             }
+
                             if (data.getBarrierType() != null) {
                                 position.set(Position.KEY_TOLL_BARRIER_TYPE, data.getBarrierType());
                                 LOGGER.info("Setting barrier type: {}", data.getBarrierType());
@@ -56,6 +58,16 @@ public class PositionInfoHandler extends BasePositionHandler {
                             if (data.getCashPayment() != null) {
                                 position.set(Position.KEY_TOLL_PAYMENT_CASH, data.getCashPayment());
                                 LOGGER.info("Setting cash payment: {}", data.getCashPayment());
+                            }
+
+                            if (data.getHighway() != null) {
+                                position.set(Position.KEY_HIGHWAY, data.getHighway());
+                                LOGGER.info("Setting highway: {}", data.getHighway());
+                            }
+                            if (data.getEnforcement() != null) {
+                                position.set(Position.KEY_ENFORCEMENT, data.getEnforcement());
+                                LOGGER.info("Setting enforcement: {}", data.getEnforcement());
+
                             }
 
                             callback.processed(false);

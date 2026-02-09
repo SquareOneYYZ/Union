@@ -11,11 +11,14 @@ public class TollData {
     private final String city;
     private final String barrierType;
     private final Boolean cashPayment;
+    private final String highway;
+    private final String enforcement;
 
     public TollData(
             Boolean toll, String ref, String name, String surface,
-                    String country, String state, String city,
-                    String barrierType, Boolean cashPayment
+                    String country, String state, String city, String barrierType, Boolean cashPayment,
+                                     String highway, String enforcement
+
     ) {
         this.toll = toll;
         this.ref = ref;
@@ -26,6 +29,9 @@ public class TollData {
         this.city = city;
         this.barrierType = barrierType;
         this.cashPayment = cashPayment;
+        this.highway = highway;
+        this.enforcement = enforcement;
+
     }
 
     public Boolean getToll() {
@@ -48,6 +54,10 @@ public class TollData {
         return state; }
     public String getCity() {
         return city; }
+    public String getHighway() {
+        return highway; }
+    public String getEnforcement() {
+        return enforcement; }
 
     public String getBarrierType() {
         return barrierType;

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+        logicalFilePath="changelog-6.6.5">
+
+    <changeSet author="author" id="changelog-6.6.5-create-segment-table">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_device_geofence_segment"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_device_geofence_segment">
+            <column autoIncrement="true" name="id" type="INT">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="deviceid" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="geofenceid" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="enterpositionid" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="exitpositionid" type="BIGINT">
+                <constraints nullable="true" />
+            </column>
+            <column name="entertime" type="DATETIME">
+                <constraints nullable="false" />
+            </column>
+            <column name="exittime" type="DATETIME">
+                <constraints nullable="true" />
+            </column>
+            <column name="odostart" type="DOUBLE">
+                <constraints nullable="false" />
+            </column>
+            <column name="odoend" type="DOUBLE">
+                <constraints nullable="true" />
+            </column>
+            <column name="distance" type="DOUBLE">
+                <constraints nullable="true" />
+            </column>
+            <column name="open" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.5-segment-indexes">
+
+        <createIndex tableName="tc_device_geofence_segment" indexName="idx_geofence_segment_deviceid">
+            <column name="deviceid" />
+        </createIndex>
+
+        <createIndex tableName="tc_device_geofence_segment" indexName="idx_geofence_segment_geofenceid">
+            <column name="geofenceid" />
+        </createIndex>
+
+        <createIndex tableName="tc_device_geofence_segment" indexName="idx_geofence_segment_device_geofence">
+            <column name="deviceid" />
+            <column name="geofenceid" />
+        </createIndex>
+
+        <createIndex tableName="tc_device_geofence_segment" indexName="idx_geofence_segment_open">
+            <column name="deviceid" />
+            <column name="geofenceid" />
+            <column name="open" />
+        </createIndex>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.5-fix-distance-nullable">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_device_geofence_segment"/>
+        </preConditions>
+
+        <modifyDataType tableName="tc_device_geofence_segment" columnName="distance" newDataType="DOUBLE"/>
+        <dropNotNullConstraint tableName="tc_device_geofence_segment" columnName="distance" columnDataType="DOUBLE"/>
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.5-add-type-column">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_device_geofence_segment"/>
+            <not>
+                <columnExists tableName="tc_device_geofence_segment" columnName="type"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="tc_device_geofence_segment">
+            <column name="type" type="VARCHAR(16)" defaultValue="inside">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>
