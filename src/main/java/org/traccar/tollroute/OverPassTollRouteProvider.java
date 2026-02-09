@@ -34,16 +34,19 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
 
         //! got the url from the config , and set it using the base url , hope this works :)
         final String baseurl = config.getString(Keys.TOLL_ROUTE_URL, url);
-        //for region
-//        final String baseurl = "https://overpass-api.de/api/interpreter";
+
         this.accuracy = config.getInteger(Keys.TOLL_ROUTE_ACCURACY);
         this.roundingDecimals = config.getInteger(Keys.TOLL_ROUTE_ROUNDING_DECIMALS);
 //        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
+
+        //for cash toll
+//        this.url = baseurl + "?data=[out:json];(node(around:" + accuracy + ",%f,%f);"
+//                + "way(around:" + accuracy + ",%f,%f););out%%20tags;";
+
         //for speeding camera
         this.url = baseurl + "?data=[out:json];(way(around:" + accuracy + ",%1$f,%2$f);"
                 + "node(around:100,%1$f,%2$f););out%%20tags;";
-       //for region
-//        this.url = baseurl + "?data=[out:json];is_in(%f,%f);out%%20tags;";
+
 
     }
 
@@ -65,6 +68,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                             cached.getCountry(),
                             cached.getState(),
                             cached.getCity(),
+                            cached.getBarrierType(),
+                            cached.getCashPayment(),
                             cached.getHighway(),
                             cached.getEnforcement()
                     );
@@ -81,7 +86,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             LOGGER.debug(" Skipping Redis (unavailable), using API directly...");
         }
 
-//  always fallback to API
+        //  always fallback to API
         makeApiCall(latitude, longitude, cacheKey, callback);
 
     }
@@ -93,7 +98,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
 //        String formattedUrl = String.format(url, latitude, longitude);
         String formattedUrl = String.format(url, latitude, longitude, latitude, longitude);
 
-        LOGGER.debug(" Overpass Query URL: " + formattedUrl);
+        LOGGER.info("Overpass Query URL: " + formattedUrl);
         AsyncInvoker invoker = client.target(formattedUrl).request().async();
         invoker.get(new InvocationCallback<JsonObject>() {
             @Override
@@ -129,18 +134,20 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             String country = null;
             String state = null;
             String city = null;
+            String barrierType = null;
+            Boolean cashPayment = null;
             String highway = null;
             String enforcement = null;
 
             for (int i = 0; i < elements.size(); i++) {
                 JsonObject element = elements.getJsonObject(i);
-                LOGGER.info("Element {}: type={}", i, element.getString("type"));
+                LOGGER.info("Processing Overpass element {}: type={}", i, element.getString("type"));
                 JsonObject tags = element.getJsonObject("tags");
                 if (tags == null) {
                     LOGGER.debug("Element {} has NO tags", i);
                     continue;
                 }
-                LOGGER.debug("Tags found: {}", tags.toString());
+                LOGGER.debug("All tags for element {}: {}", i, tags.toString());
                 String elementName = tags.containsKey("name") ? tags.getString("name") : null;
                 String adminLevel = tags.containsKey("admin_level") ? tags.getString("admin_level") : null;
 
@@ -158,7 +165,22 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                 }
                 if (surface == null && tags.containsKey("surface")) {
                     surface = tags.getString("surface");
-                    LOGGER.debug("Overpass returned surface: " + surface);
+                    LOGGER.info("Surface type detected: {}", surface);
+                }
+                // Detect barrier type (toll_booth, toll_gantry, etc.)
+                if (barrierType == null && tags.containsKey("barrier")) {
+                    barrierType = tags.getString("barrier");
+                    LOGGER.info("Detected barrier type: {}", barrierType);
+                }
+                // Detect payment methods
+                if (cashPayment == null && tags.containsKey("payment:cash")) {
+                    String cashValue = tags.getString("payment:cash");
+                    cashPayment = cashValue.equalsIgnoreCase("yes") || cashValue.equalsIgnoreCase("only");
+                    LOGGER.info("Payment cash tag detected: {} (parsed as: {})", cashValue, cashPayment);
+                }
+                if (tags.containsKey("payment:electronic_toll_collection")) {
+                    String etcPayment = tags.getString("payment:electronic_toll_collection");
+                    LOGGER.info("Payment ETC tag detected: {}", etcPayment);
                 }
                 if (tags.containsKey("highway")) {
                     String currentHighway = tags.getString("highway");
@@ -197,7 +219,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
 
                 if (!isToll && tags.containsKey("toll") && determineToll(tags.getString("toll"))) {
                     isToll = true;
-                    LOGGER.debug(" Overpass returned toll: " + isToll);
+                    LOGGER.info("Toll detected: toll={}, name={}, ref={}", tags.getString("toll"), name, ref);
                 }
                 if (ref == null && tags.containsKey("ref")) {
                     ref = tags.getString("ref");
@@ -233,10 +255,16 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     break;
                 }
             }
-            return new TollData(isToll, ref, name, surface, country, state, city, highway, enforcement);
+
+
+            LOGGER.info("Final TollData: isToll={}, ref={}, name={}, surface={}, barrierType={}, cashPayment={},"
+                            + " country={}, state={}, city={}",
+                isToll, ref, name, surface, barrierType, cashPayment, country, state, city);
+            return new TollData(isToll, ref, name, surface, country, state, city, barrierType, cashPayment,
+                                                                        highway, enforcement);
         } else {
-            return new TollData(false, null, null, null, null, null,
-                    null, null, null);
+            return new TollData(false, null, null, null, null, null, null, null, null, null, null);
+
         }
     }
 
@@ -250,6 +278,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     tollData.getCountry(),
                     tollData.getState(),
                     tollData.getCity(),
+                    tollData.getBarrierType(),
+                    tollData.getCashPayment(),
                     tollData.getHighway(),
                     tollData.getEnforcement()
             );
@@ -294,17 +324,27 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         @JsonProperty("city")
         private String city;
 
+
+        @JsonProperty("barrierType")
+        private String barrierType;
+
+        @JsonProperty("cashPayment")
+        private Boolean cashPayment;
+
         @JsonProperty("highway")
         private String highway;
 
         @JsonProperty("enforcement")
         private String enforcement;
 
+
         // Default constructor for Jackson
         private CachedTollData() { }
 
         private CachedTollData(Boolean toll, String ref, String name, String surface,
-                               String country, String state, String city, String highway, String enforcement) {
+                               String country, String state, String city, String barrierType, Boolean cashPayment,
+                                    String highway, String enforcement) {
+
             this.toll = toll;
             this.ref = ref;
             this.name = name;
@@ -312,8 +352,11 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             this.country = country;
             this.state = state;
             this.city = city;
+            this.barrierType = barrierType;
+            this.cashPayment = cashPayment;
             this.highway = highway;
             this.enforcement = enforcement;
+
         }
 
         Boolean getToll() {
@@ -342,6 +385,14 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         }
         String getEnforcement() {
             return enforcement;
+        }
+
+        String getBarrierType() {
+            return barrierType;
+        }
+
+        Boolean getCashPayment() {
+            return cashPayment;
         }
 
     }

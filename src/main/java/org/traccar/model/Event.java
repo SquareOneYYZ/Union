@@ -57,6 +57,7 @@ public class Event extends Message {
 
     public static final String TYPE_DEVICE_TOLLROUTE_ENTER = "deviceTollRouteEnter";
     public static final String TYPE_DEVICE_TOLLROUTE_EXIT = "deviceTollRouteExit";
+    public static final String TYPE_DEVICE_CASH_TOLL_BOOTH = "deviceCashTollBooth";
 //    public static final String TYPE_SURFACE_ALERT = "deviceSurfaceType";
     public static final String TYPE_SURFACE_TYPE = "deviceSurfaceType";
 
