@@ -40,12 +40,12 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
 //        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
 
         //for cash toll
-        this.url = baseurl + "?data=[out:json];(node(around:" + accuracy + ",%f,%f);"
-                + "way(around:" + accuracy + ",%f,%f););out%%20tags;";
+//        this.url = baseurl + "?data=[out:json];(node(around:" + accuracy + ",%f,%f);"
+//                + "way(around:" + accuracy + ",%f,%f););out%%20tags;";
 
         //for speeding camera
-//        this.url = baseurl + "?data=[out:json];(way(around:" + accuracy + ",%1$f,%2$f);"
-//                + "node(around:100,%1$f,%2$f););out%%20tags;";
+        this.url = baseurl + "?data=[out:json];(way(around:" + accuracy + ",%1$f,%2$f);"
+                + "node(around:100,%1$f,%2$f););out%%20tags;";
 
 
     }
