@@ -287,7 +287,7 @@ public class DeviceResource extends BaseObjectResource<Device> {
     @GET
     @Path("Vindecoder/{vin}")
     public Response decodeVin(
-            @PathParam("vin") String vin ) {
+            @PathParam("vin") String vin) {
         try {
             if (vin == null || vin.trim().length() != 17) {
                 return Response.status(Response.Status.BAD_REQUEST)
