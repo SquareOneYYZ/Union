@@ -15,6 +15,7 @@
  */
 package org.traccar.api.resource;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.FormParam;
 import org.traccar.api.BaseObjectResource;
 import org.traccar.api.signature.TokenManager;
@@ -31,10 +32,13 @@ import org.traccar.model.User;
 import org.traccar.session.ConnectionManager;
 import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.StorageException;
+import org.traccar.storage.localCache.RedisCache;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
+import org.traccar.vindecoder.VinDecoder;
+import org.traccar.vindecoder.VinDecoderProvider;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -49,14 +53,15 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+
+import java.io.*;
 import java.security.GeneralSecurityException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Path("devices")
 @Produces(MediaType.APPLICATION_JSON)
@@ -65,6 +70,8 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
     private static final int DEFAULT_BUFFER_SIZE = 8192;
     private static final int IMAGE_SIZE_LIMIT = 500000;
+    private static final int CACHE_TTL_SECONDS = 86400;
+    private static final int VIN_DECODE_TIMEOUT_SECONDS = 10;
 
     @Inject
     private Config config;
@@ -83,6 +90,15 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
     @Inject
     private TokenManager tokenManager;
+
+    @Inject
+    private RedisCache redisCache;
+
+    @Inject
+    private VinDecoderProvider vinDecoderProvider;
+
+    private final ObjectMapper mapper = new ObjectMapper();
+
 
     public DeviceResource() {
         super(Device.class);
@@ -265,6 +281,56 @@ public class DeviceResource extends BaseObjectResource<Device> {
         }
 
         return tokenManager.generateToken(share.getId(), expiration);
+    }
+
+
+    @GET
+    @Path("Vindecoder/{vin}")
+    public Response decodeVin(
+            @PathParam("vin") String vin ) {
+        try {
+            if (vin == null || vin.trim().length() != 17) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Invalid VIN. VIN must be 17 characters.")
+                        .build();
+            }
+            String normalizedVin = vin.trim().toUpperCase();
+            String cacheKey = "vin:" + normalizedVin;
+            String cached = redisCache.get(cacheKey);
+            if (cached != null) {
+                return Response.ok(cached).build();
+            }
+            CompletableFuture<VinDecoder> future = new CompletableFuture<>();
+
+            vinDecoderProvider.decodeVin(normalizedVin, new VinDecoderProvider.VinDecoderCallback() {
+                @Override
+                public void onSuccess(VinDecoder vinDecoder) {
+                    future.complete(vinDecoder);
+                }
+
+                @Override
+                public void onFailure(Throwable e) {
+                    future.completeExceptionally(e);
+                }
+            });
+            VinDecoder vinDecoder = future.get(VIN_DECODE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            String responseJson = mapper.writeValueAsString(vinDecoder);
+            redisCache.setWithTTL(cacheKey, responseJson, CACHE_TTL_SECONDS);
+            return Response.ok(responseJson).build();
+
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(e.getMessage())
+                    .build();
+        } catch (java.util.concurrent.TimeoutException e) {
+            return Response.status(Response.Status.GATEWAY_TIMEOUT)
+                    .entity("VIN decode request timed out")
+                    .build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error processing VIN decode request: " + e.getMessage())
+                    .build();
+        }
     }
 
 }

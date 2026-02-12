@@ -98,6 +98,8 @@ import org.traccar.storage.Storage;
 import org.traccar.storage.localCache.RedisCache;
 import org.traccar.tollroute.OverPassTollRouteProvider;
 import org.traccar.tollroute.TollRouteProvider;
+import org.traccar.vindecoder.NHTSAVinDecoderProvider;
+import org.traccar.vindecoder.VinDecoderProvider;
 import org.traccar.web.WebServer;
 import org.traccar.api.security.LoginService;
 
@@ -300,6 +302,12 @@ public class MainModule extends AbstractModule {
             return new TollRouteHandler(tollRouteProvider);
         }
         return null;
+    }
+
+    @Singleton
+    @Provides
+    public static VinDecoderProvider provideVinDecoderProvider(Client client) {
+        return new NHTSAVinDecoderProvider(client);
     }
 
     @Singleton
