@@ -17,6 +17,8 @@ package org.traccar.api.resource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.FormParam;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.api.BaseObjectResource;
 import org.traccar.api.signature.TokenManager;
 import org.traccar.broadcast.BroadcastService;
@@ -37,6 +39,8 @@ import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
+import org.traccar.vindecoder.OverpassProvider;
+import org.traccar.vindecoder.TollWay;
 import org.traccar.vindecoder.VinDecoder;
 import org.traccar.vindecoder.VinDecoderProvider;
 
@@ -62,6 +66,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Path("devices")
 @Produces(MediaType.APPLICATION_JSON)
@@ -96,6 +101,10 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
     @Inject
     private VinDecoderProvider vinDecoderProvider;
+
+    @Inject
+    private OverpassProvider overpassProvider;
+
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -332,5 +341,50 @@ public class DeviceResource extends BaseObjectResource<Device> {
                     .build();
         }
     }
+
+
+    @POST
+    @Path("overpass/toll")
+    @Consumes(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response fetchTollWays(String query) {
+
+        try {
+            if (query == null || query.trim().isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Query cannot be empty")
+                        .build();
+            }
+            String cacheKey = "overpass:v2:" + query.hashCode();
+            String cached = redisCache.get(cacheKey);
+            if (cached != null) {
+                return Response.ok(cached).build();
+            }
+            CompletableFuture<List<TollWay>> future = new CompletableFuture<>();
+            overpassProvider.fetchTollWays(query, new OverpassProvider.Callback() {
+                @Override
+                public void onSuccess(List<TollWay> tollWays) {
+                    future.complete(tollWays);
+                }
+                @Override
+                public void onFailure(Throwable e) {
+                    future.completeExceptionally(e);
+                }
+            });
+            List<TollWay> result = future.get(15, TimeUnit.SECONDS);
+            String responseJson = mapper.writeValueAsString(result);
+            redisCache.setWithTTL(cacheKey, responseJson, CACHE_TTL_SECONDS);
+            return Response.ok(responseJson).build();
+        } catch (TimeoutException e) {
+            return Response.status(Response.Status.GATEWAY_TIMEOUT)
+                    .entity("Overpass API request timed out")
+                    .build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error fetching toll data: " + e.getMessage())
+                    .build();
+        }
+    }
+
 
 }
