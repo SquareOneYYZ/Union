@@ -296,9 +296,9 @@ public class DeviceResource extends BaseObjectResource<Device> {
     public Response decodeVin(
             @PathParam("vin") String vin) {
         try {
-            if (vin == null || vin.trim().length() != 17) {
+            if (vin == null || vin.trim().isEmpty() || vin.trim().length() > 17) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                        .entity("Invalid VIN. VIN must be 17 characters.")
+                        .entity("Invalid VIN. VIN must not exceed 17 characters.")
                         .build();
             }
             String normalizedVin = vin.trim().toUpperCase();

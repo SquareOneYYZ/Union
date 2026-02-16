@@ -33,10 +33,12 @@ public class NHTSAVinDecoderProvider implements VinDecoderProvider {
 
     @Override
     public void decodeVin(String vin, VinDecoderCallback callback) {
-        if (vin == null || vin.trim().length() != 17) {
-            callback.onFailure(new IllegalArgumentException("Invalid VIN. VIN must be 17 characters."));
+        if (vin == null || vin.trim().isEmpty() || vin.trim().length() > 17) {
+            callback.onFailure(
+                    new IllegalArgumentException("Invalid VIN. VIN must not exceed 17 characters."));
             return;
         }
+        vin = vin.trim();
 
         String normalizedVin = vin.trim().toUpperCase();
         String url = VPIC_URL + normalizedVin + "?format=json";
