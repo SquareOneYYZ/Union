@@ -17,8 +17,6 @@ package org.traccar.api.resource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.FormParam;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.traccar.api.BaseObjectResource;
 import org.traccar.api.signature.TokenManager;
 import org.traccar.broadcast.BroadcastService;
