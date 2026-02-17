@@ -23,14 +23,14 @@ public class VinDecoder {
     private String model;
     private String modelYear;
     private String vehicleType;
-    private String Trim;
-    private String BodyClass;
-    private String DriveType;
-    private String BatteryType;
-    private String FuelTypePrimary;
-    private String DisplacementL;
-    private String EngineCylinders;
-    private String EngineHP;
+    private String trim;
+    private String bodyClass;
+    private String driveType;
+    private String batteryType;
+    private String fuelTypePrimary;
+    private String displacementL;
+    private String engineCylinders;
+    private String engineHP;
 
     public String getVin() {
         return vin;
@@ -81,67 +81,67 @@ public class VinDecoder {
     }
 
     public String getTrim() {
-        return Trim;
+        return trim;
     }
 
     public void setTrim(String trim) {
-        Trim = trim;
+        this.trim = trim;
     }
 
     public String getBodyClass() {
-        return BodyClass;
+        return bodyClass;
     }
 
     public void setBodyClass(String bodyClass) {
-        BodyClass = bodyClass;
+        this.bodyClass = bodyClass;
     }
 
     public String getDriveType() {
-        return DriveType;
+        return driveType;
     }
 
     public void setDriveType(String driveType) {
-        DriveType = driveType;
+        this.driveType = driveType;
     }
 
     public String getBatteryType() {
-        return BatteryType;
+        return batteryType;
     }
 
     public void setBatteryType(String batteryType) {
-        BatteryType = batteryType;
+        this.batteryType = batteryType;
     }
 
     public String getFuelTypePrimary() {
-        return FuelTypePrimary;
+        return fuelTypePrimary;
     }
 
     public void setFuelTypePrimary(String fuelTypePrimary) {
-        FuelTypePrimary = fuelTypePrimary;
+        this.fuelTypePrimary = fuelTypePrimary;
     }
 
     public String getDisplacementL() {
-        return DisplacementL;
+        return displacementL;
     }
 
     public void setDisplacementL(String displacementL) {
-        DisplacementL = displacementL;
+        this.displacementL = displacementL;
     }
 
     public String getEngineCylinders() {
-        return EngineCylinders;
+        return engineCylinders;
     }
 
     public void setEngineCylinders(String engineCylinders) {
-        EngineCylinders = engineCylinders;
+        this.engineCylinders = engineCylinders;
     }
 
     public String getEngineHP() {
-        return EngineHP;
+        return engineHP;
     }
 
     public void setEngineHP(String engineHP) {
-        EngineHP = engineHP;
+        this.engineHP = engineHP;
     }
 
 
