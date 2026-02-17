@@ -302,7 +302,7 @@ public class DeviceResource extends BaseObjectResource<Device> {
                         .build();
             }
             String normalizedVin = vin.trim().toUpperCase();
-            String cacheKey = "vin:" + normalizedVin;
+            String cacheKey = "vin:v3:" + normalizedVin;
             String cached = redisCache.get(cacheKey);
             if (cached != null) {
                 return Response.ok(cached).build();

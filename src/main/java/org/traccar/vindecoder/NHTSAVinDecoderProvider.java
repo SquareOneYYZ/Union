@@ -62,6 +62,14 @@ public class NHTSAVinDecoderProvider implements VinDecoderProvider {
                     vinDecoder.setModel(result.getString("Model", ""));
                     vinDecoder.setModelYear(result.getString("ModelYear", ""));
                     vinDecoder.setVehicleType(result.getString("VehicleType", ""));
+                    vinDecoder.setTrim(result.getString("Trim", ""));
+                    vinDecoder.setBodyClass(result.getString("BodyClass", ""));
+                    vinDecoder.setDriveType(result.getString("DriveType", ""));
+                    vinDecoder.setBatteryType(result.getString("BatteryType", ""));
+                    vinDecoder.setFuelTypePrimary(result.getString("FuelTypePrimary", ""));
+                    vinDecoder.setDisplacementL(result.getString("DisplacementL", ""));
+                    vinDecoder.setEngineCylinders(result.getString("EngineCylinders", ""));
+                    vinDecoder.setEngineHP(result.getString("EngineHP", ""));
 
                     callback.onSuccess(vinDecoder);
                 } catch (Exception e) {

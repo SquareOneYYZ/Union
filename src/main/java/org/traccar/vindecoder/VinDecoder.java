@@ -23,6 +23,14 @@ public class VinDecoder {
     private String model;
     private String modelYear;
     private String vehicleType;
+    private String Trim;
+    private String BodyClass;
+    private String DriveType;
+    private String BatteryType;
+    private String FuelTypePrimary;
+    private String DisplacementL;
+    private String EngineCylinders;
+    private String EngineHP;
 
     public String getVin() {
         return vin;
@@ -71,4 +79,70 @@ public class VinDecoder {
     public void setVehicleType(String vehicleType) {
         this.vehicleType = vehicleType;
     }
+
+    public String getTrim() {
+        return Trim;
+    }
+
+    public void setTrim(String trim) {
+        Trim = trim;
+    }
+
+    public String getBodyClass() {
+        return BodyClass;
+    }
+
+    public void setBodyClass(String bodyClass) {
+        BodyClass = bodyClass;
+    }
+
+    public String getDriveType() {
+        return DriveType;
+    }
+
+    public void setDriveType(String driveType) {
+        DriveType = driveType;
+    }
+
+    public String getBatteryType() {
+        return BatteryType;
+    }
+
+    public void setBatteryType(String batteryType) {
+        BatteryType = batteryType;
+    }
+
+    public String getFuelTypePrimary() {
+        return FuelTypePrimary;
+    }
+
+    public void setFuelTypePrimary(String fuelTypePrimary) {
+        FuelTypePrimary = fuelTypePrimary;
+    }
+
+    public String getDisplacementL() {
+        return DisplacementL;
+    }
+
+    public void setDisplacementL(String displacementL) {
+        DisplacementL = displacementL;
+    }
+
+    public String getEngineCylinders() {
+        return EngineCylinders;
+    }
+
+    public void setEngineCylinders(String engineCylinders) {
+        EngineCylinders = engineCylinders;
+    }
+
+    public String getEngineHP() {
+        return EngineHP;
+    }
+
+    public void setEngineHP(String engineHP) {
+        EngineHP = engineHP;
+    }
+
+
 }
