@@ -31,4 +31,15 @@
 
     </changeSet>
 
+    <changeSet author="author" id="changelog-6.6.8-add-unique-vin">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_devices"/>
+        </preConditions>
+        <addUniqueConstraint
+                tableName="tc_devices"
+                columnNames="vin"
+                constraintName="uk_devices_vin"/>
+    </changeSet>
+
+
 </databaseChangeLog>
