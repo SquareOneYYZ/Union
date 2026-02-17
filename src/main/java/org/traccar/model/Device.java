@@ -308,5 +308,126 @@ public class Device extends GroupedModel implements Disableable, Schedulable {
         this.tollrouteTime = tollrouteTime;
     }
 
+    private String make;
+
+    public String getMake() {
+        return make;
+    }
+
+    public void setMake(String make) {
+        this.make = make;
+    }
+
+    private String manufacturer;
+
+    public String getManufacturer() {
+        return manufacturer;
+    }
+
+    public void setManufacturer(String manufacturer) {
+        this.manufacturer = manufacturer;
+    }
+
+    private String modelYear;
+
+    public String getModelYear() {
+        return modelYear;
+    }
+
+    public void setModelYear(String modelYear) {
+        this.modelYear = modelYear;
+    }
+
+    private String vehicleType;
+
+    public String getVehicleType() {
+        return vehicleType;
+    }
+
+    public void setVehicleType(String vehicleType) {
+        this.vehicleType = vehicleType;
+    }
+
+    private String trim;
+
+    public String getTrim() {
+        return trim;
+    }
+
+    public void setTrim(String trim) {
+        this.trim = trim;
+    }
+
+    private String displacementL;
+
+    public String getDisplacementL() {
+        return displacementL;
+    }
+
+    public void setDisplacementL(String displacementL) {
+        this.displacementL = displacementL;
+    }
+
+    private String engineHP;
+
+    public String getEngineHP() {
+        return engineHP;
+    }
+
+    public void setEngineHP(String engineHP) {
+        this.engineHP = engineHP;
+    }
+
+    private String engineCylinders;
+
+    public String getEngineCylinders() {
+        return engineCylinders;
+    }
+
+    public void setEngineCylinders(String engineCylinders) {
+        this.engineCylinders = engineCylinders;
+    }
+
+    private String driveType;
+
+    public String getDriveType() {
+        return driveType;
+    }
+
+    public void setDriveType(String driveType) {
+        this.driveType = driveType;
+    }
+
+    private String bodyClass;
+
+    public String getBodyClass() {
+        return bodyClass;
+    }
+
+    public void setBodyClass(String bodyClass) {
+        this.bodyClass = bodyClass;
+    }
+
+    private String batteryType;
+
+    public String getBatteryType() {
+        return batteryType;
+    }
+
+    public void setBatteryType(String batteryType) {
+        this.batteryType = batteryType;
+    }
+
+    private String fuelTypePrimary;
+
+    public String getFuelTypePrimary() {
+        return fuelTypePrimary;
+    }
+
+    public void setFuelTypePrimary(String fuelTypePrimary) {
+        this.fuelTypePrimary = fuelTypePrimary;
+    }
+
+
 
 }
