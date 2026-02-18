@@ -3,6 +3,7 @@ package org.traccar.api.resource;
 
 import jakarta.ws.rs.*;
 import org.traccar.api.BaseResource;
+import org.traccar.config.Keys;
 import org.traccar.helper.LogAction;
 import org.traccar.model.Device;
 import org.traccar.model.Event;
@@ -10,6 +11,7 @@ import org.traccar.model.User;
 import org.traccar.model.UserRestrictions;
 import org.traccar.reports.DayNightKmReportProvider;
 import org.traccar.reports.WeeklyKmByGroupReportProvider;
+import org.traccar.reports.model.DashboardEventItem;
 import org.traccar.reports.model.DayNightKmSummary;
 import org.traccar.reports.model.VehicleStatusSummary;
 import org.traccar.reports.model.WeeklyKmByGroupItem;
@@ -24,6 +26,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Path("dashboard")
 @Produces(MediaType.APPLICATION_JSON)
@@ -161,4 +164,96 @@ public class DashboardResource extends BaseResource {
                 .limit(limit)
                 .collect(Collectors.toList());
     }
+
+
+
+    @Path("recentEvents")
+    @GET
+    public Collection<DashboardEventItem> getEvents(
+            @QueryParam("limit") @DefaultValue("100") int limit,
+            @QueryParam("deviceId") List<Long> deviceIdsFilter,
+            @QueryParam("groupId") List<Long> groupIds,
+            @QueryParam("eventType") String eventType,
+            @QueryParam("from") Date from,
+            @QueryParam("to") Date to) throws StorageException {
+        Collection<Device> devices = storage.getObjects(Device.class, new Request(
+                new Columns.All(),
+                new Condition.Permission(User.class, getUserId(), Device.class)));
+
+        Stream<Device> deviceStream = devices.stream();
+        if (deviceIdsFilter != null && !deviceIdsFilter.isEmpty()) {
+            deviceStream = deviceStream.filter(d -> deviceIdsFilter.contains(d.getId()));
+        }
+        if (groupIds != null && !groupIds.isEmpty()) {
+            deviceStream = deviceStream.filter(d -> groupIds.contains(d.getGroupId()));
+        }
+        Map<Long, Device> deviceMap = deviceStream
+                .collect(Collectors.toMap(Device::getId, d -> d));
+        if (deviceMap.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Condition> conditions = new ArrayList<>();
+        List<Condition> deviceConditions = deviceMap.keySet().stream()
+                .map(id -> new Condition.Equals("deviceId", id))
+                .collect(Collectors.toList());
+
+        Condition deviceCondition = null;
+        if (!deviceConditions.isEmpty()) {
+            deviceCondition = deviceConditions.get(0);
+            for (int i = 1; i < deviceConditions.size(); i++) {
+                deviceCondition = new Condition.Or(deviceCondition, deviceConditions.get(i));
+            }
+            conditions.add(deviceCondition);
+        }
+        if (eventType != null && !eventType.isEmpty()) {
+            conditions.add(new Condition.Equals("type", eventType));
+        }
+        if (from != null && to != null) {
+            conditions.add(new Condition.Between(
+                    "eventTime",
+                    "from", from,
+                    "to", to));
+        } else if (from != null) {
+            conditions.add(new Condition.Compare("eventTime", ">=", "from", from));
+        } else if (to != null) {
+            conditions.add(new Condition.Compare("eventTime", "<=", "to", to));
+        }
+        Collection<Event> allEvents;
+        if (conditions.isEmpty()) {
+            allEvents = storage.getObjects(Event.class, new Request(
+                    new Columns.All(),
+                    new Order("eventTime", true, limit )
+            ));
+        } else {
+            allEvents = storage.getObjects(Event.class, new Request(
+                    new Columns.All(),
+                    Condition.merge(conditions),
+                    new Order("eventTime", true, limit )
+            ));
+        }
+        return allEvents.stream()
+                .filter(event -> deviceMap.containsKey(event.getDeviceId()))
+                .limit(limit)
+                .map(event -> {
+                    DashboardEventItem item = new DashboardEventItem();
+                    item.setId(event.getId());
+                    item.setAttributes(event.getAttributes());
+                    item.setType(event.getType());
+                    item.setEventTime(event.getEventTime());
+                    item.setDeviceId(event.getDeviceId());
+                    item.setPositionId(event.getPositionId());
+                    item.setGeofenceId(event.getGeofenceId());
+                    item.setMaintenanceId(event.getMaintenanceId());
+
+                    Device device = deviceMap.get(event.getDeviceId());
+                    if (device != null) {
+                        item.setDeviceName(device.getName());
+                    }
+
+                    return item;
+                })
+                .collect(Collectors.toList());
+
+    }
+
 }
