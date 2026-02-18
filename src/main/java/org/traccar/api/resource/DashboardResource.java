@@ -3,7 +3,6 @@ package org.traccar.api.resource;
 
 import jakarta.ws.rs.*;
 import org.traccar.api.BaseResource;
-import org.traccar.config.Keys;
 import org.traccar.helper.LogAction;
 import org.traccar.model.Device;
 import org.traccar.model.Event;
@@ -222,13 +221,13 @@ public class DashboardResource extends BaseResource {
         if (conditions.isEmpty()) {
             allEvents = storage.getObjects(Event.class, new Request(
                     new Columns.All(),
-                    new Order("eventTime", true, limit )
+                    new Order("eventTime", true, limit)
             ));
         } else {
             allEvents = storage.getObjects(Event.class, new Request(
                     new Columns.All(),
                     Condition.merge(conditions),
-                    new Order("eventTime", true, limit )
+                    new Order("eventTime", true, limit)
             ));
         }
         return allEvents.stream()
