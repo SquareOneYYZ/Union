@@ -92,6 +92,8 @@
         maxspeed,speed
     </entry>
 
+    <entry key='cache.ttl.seconds'>86400</entry>
+
 
 
 

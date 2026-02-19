@@ -73,8 +73,10 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
     private static final int DEFAULT_BUFFER_SIZE = 8192;
     private static final int IMAGE_SIZE_LIMIT = 500000;
-    private static final int CACHE_TTL_SECONDS = 86400;
-    private static final int VIN_DECODE_TIMEOUT_SECONDS = 10;
+    private int getCacheTtl() {
+        return config.getInteger("cache.ttl.seconds", 86400);
+    }
+    private static final int VIN_DECODE_TIMEOUT_SECONDS = 30;
 
     @Inject
     private Config config;
@@ -322,7 +324,7 @@ public class DeviceResource extends BaseObjectResource<Device> {
             });
             VinDecoder vinDecoder = future.get(VIN_DECODE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             String responseJson = mapper.writeValueAsString(vinDecoder);
-            redisCache.setWithTTL(cacheKey, responseJson, CACHE_TTL_SECONDS);
+            redisCache.setWithTTL(cacheKey, responseJson, getCacheTtl());
             return Response.ok(responseJson).build();
 
         } catch (IllegalArgumentException e) {
@@ -369,9 +371,9 @@ public class DeviceResource extends BaseObjectResource<Device> {
                     future.completeExceptionally(e);
                 }
             });
-            List<TollWay> result = future.get(15, TimeUnit.SECONDS);
+            List<TollWay> result = future.get(30, TimeUnit.SECONDS);
             String responseJson = mapper.writeValueAsString(result);
-            redisCache.setWithTTL(cacheKey, responseJson, CACHE_TTL_SECONDS);
+            redisCache.setWithTTL(cacheKey, responseJson, getCacheTtl());
             return Response.ok(responseJson).build();
         } catch (TimeoutException e) {
             return Response.status(Response.Status.GATEWAY_TIMEOUT)
