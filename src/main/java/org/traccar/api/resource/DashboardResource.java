@@ -4,16 +4,10 @@ package org.traccar.api.resource;
 import jakarta.ws.rs.*;
 import org.traccar.api.BaseResource;
 import org.traccar.helper.LogAction;
-import org.traccar.model.Device;
-import org.traccar.model.Event;
-import org.traccar.model.User;
-import org.traccar.model.UserRestrictions;
+import org.traccar.model.*;
 import org.traccar.reports.DayNightKmReportProvider;
 import org.traccar.reports.WeeklyKmByGroupReportProvider;
-import org.traccar.reports.model.DashboardEventItem;
-import org.traccar.reports.model.DayNightKmSummary;
-import org.traccar.reports.model.VehicleStatusSummary;
-import org.traccar.reports.model.WeeklyKmByGroupItem;
+import org.traccar.reports.model.*;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
@@ -254,5 +248,85 @@ public class DashboardResource extends BaseResource {
                 .collect(Collectors.toList());
 
     }
+
+
+
+    @Path("powercut")
+    @GET
+    public Collection<PowerCutSummary> getPowerCutSummary() throws StorageException {
+        Collection<Device> devices = storage.getObjects(Device.class, new Request(
+                new Columns.All(),
+                new Condition.Permission(User.class, getUserId(), Device.class)));
+
+        if (devices.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<Long, Device> deviceMap = devices.stream()
+                .collect(Collectors.toMap(Device::getId, d -> d));
+
+        Date timelimit = new Date(System.currentTimeMillis() - (7L * 24 * 60 * 60 * 1000));
+
+        List<Condition> conditions = new ArrayList<>();
+        conditions.add(new Condition.Equals("type", "alarm"));
+        conditions.add(new Condition.Compare("eventTime", ">=", "from", timelimit));
+
+        Collection<Event> events = storage.getObjects(Event.class, new Request(
+                new Columns.All(),
+                Condition.merge(conditions),
+                new Order("eventTime", false, 10000)
+        ));
+
+        Map<Long, List<Event>> grouped = events.stream()
+                .filter(e -> deviceMap.containsKey(e.getDeviceId()))
+                .filter(e -> {
+                    Map<String, Object> attr = e.getAttributes();
+                    return attr != null && attr.toString().contains("powerCut");
+                })
+                .collect(Collectors.groupingBy(Event::getDeviceId));
+
+        List<PowerCutSummary> result = new ArrayList<>();
+        for (Map.Entry<Long, List<Event>> entry : grouped.entrySet()) {
+            long deviceId = entry.getKey();
+            List<Event> deviceEvents = entry.getValue();
+            Device device = deviceMap.get(deviceId);
+            PowerCutSummary summary = new PowerCutSummary();
+            summary.setDeviceId(deviceId);
+            summary.setUniqueId(device.getUniqueId());
+            summary.setDeviceName(device.getName());
+
+            if (device.getGroupId() > 0) {
+                Group group = storage.getObject(Group.class, new Request(
+                        new Columns.All(),
+                        new Condition.Equals("id", device.getGroupId())
+                ));
+                if (group != null) {
+                    summary.setGroupName(group.getName());
+                }
+            }
+            Date min = deviceEvents.stream()
+                    .map(Event::getEventTime)
+                    .min(Date::compareTo)
+                    .orElse(null);
+
+            Date max = deviceEvents.stream()
+                    .map(Event::getEventTime)
+                    .max(Date::compareTo)
+                    .orElse(null);
+
+            summary.setFirstPowerCut(min);
+            summary.setLastPowerCut(max);
+            summary.setTotalPowerCutEvents(deviceEvents.size());
+
+            result.add(summary);
+        }
+        result.sort((a, b) -> Long.compare(
+                b.getTotalPowerCutEvents(),
+                a.getTotalPowerCutEvents()
+        ));
+
+        return result;
+    }
+
 
 }
