@@ -274,7 +274,7 @@ public class DashboardResource extends BaseResource {
         Collection<Event> events = storage.getObjects(Event.class, new Request(
                 new Columns.All(),
                 Condition.merge(conditions),
-                new Order("eventTime", false, 10000)
+                new Order("eventTime", false, 0)
         ));
 
         Map<Long, List<Event>> grouped = events.stream()
