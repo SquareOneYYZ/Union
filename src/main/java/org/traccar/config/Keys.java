@@ -2052,6 +2052,13 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             List.of(KeyType.CONFIG));
 
 
+    public static final ConfigKey<String> ARCHIVE_SPACES_BUCKET = new StringConfigKey(
+            "archive.spaces.bucket",
+            List.of(KeyType.CONFIG));
 
+
+    public static final ConfigKey<String> ARCHIVE_S3CMD_CONFIG_FILE = new StringConfigKey(
+            "archive.s3cmd.configFile",
+            List.of(KeyType.CONFIG));
 
 }

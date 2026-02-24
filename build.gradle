@@ -95,6 +95,19 @@ dependencies {
     implementation "com.rabbitmq:amqp-client:5.24.0"
     implementation "com.warrenstrange:googleauth:1.5.0"
     implementation "com.google.openlocationcode:openlocationcode:1.0.4"
+    implementation("org.apache.parquet:parquet-avro:1.14.3") {
+        exclude group: "org.apache.hadoop", module: "hadoop-mapreduce-client-core"
+    }
+    implementation "org.apache.avro:avro:1.12.0"
+    implementation("org.apache.hadoop:hadoop-common:3.4.1") {
+        exclude group: "org.slf4j", module: "slf4j-reload4j"
+        exclude group: "org.slf4j", module: "slf4j-log4j12"
+        exclude group: "log4j", module: "log4j"
+        exclude group: "org.apache.hadoop", module: "hadoop-annotations"
+        exclude group: "com.sun.jersey"
+        exclude group: "javax.servlet"
+        exclude group: "org.mortbay.jetty"
+    }
     testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
     testImplementation "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
     testImplementation "org.mockito:mockito-core:5.15.2"
