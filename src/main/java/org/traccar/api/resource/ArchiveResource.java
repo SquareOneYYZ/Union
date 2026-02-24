@@ -72,15 +72,13 @@ public class ArchiveResource extends BaseResource {
 
 
     private List<String> buildS3CmdBase() {
+
         List<String> cmd = new ArrayList<>();
-        cmd.add("s3cmd");
-        String cfgFile = config.getString(Keys.ARCHIVE_S3CMD_CONFIG_FILE);
-        if (cfgFile != null && !cfgFile.isBlank()) {
-            String expanded = cfgFile.startsWith("~")
-                    ? System.getProperty("user.home") + cfgFile.substring(1)
-                    : cfgFile;
-            cmd.add("--config=" + expanded);
-        }
+
+        cmd.add("C:\\Python311\\python.exe");
+        cmd.add("C:\\Python311\\Scripts\\s3cmd");
+
+        // DO NOT pass --config
         return cmd;
     }
 
@@ -96,6 +94,7 @@ public class ArchiveResource extends BaseResource {
     }
 
     private List<String> runProcess(List<String> command) throws IOException, InterruptedException {
+        LOGGER.info("Running command: {}", String.join(" ", command));
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.redirectErrorStream(false);
         Process proc = pb.start();
@@ -105,6 +104,7 @@ public class ArchiveResource extends BaseResource {
                 new InputStreamReader(proc.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
+                LOGGER.info("STDOUT: {}", line);
                 lines.add(line);
             }
         }
@@ -114,16 +114,15 @@ public class ArchiveResource extends BaseResource {
                 new InputStreamReader(proc.getErrorStream()))) {
             String line;
             while ((line = errReader.readLine()) != null) {
+                LOGGER.error("STDERR: {}", line);
                 stderr.append(line).append("\n");
             }
         }
 
         int exitCode = proc.waitFor();
+        LOGGER.info("Process exit code: {}", exitCode);
         if (exitCode != 0) {
-            throw new WebApplicationException(
-                    Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                            .entity("{\"error\":\"s3cmd failed: " + stderr.toString().replace("\"", "'") + "\"}")
-                            .build());
+            throw new RuntimeException("s3cmd failed: " + stderr);
         }
         return lines;
     }
@@ -189,9 +188,13 @@ public class ArchiveResource extends BaseResource {
     @GET
     @Path("records")
     public Response getArchiveRecords(@QueryParam("key") String key) throws StorageException {
+        LOGGER.info("=== ARCHIVE RECORDS API CALLED ===");
+        LOGGER.info("Incoming key: {}", key);
         permissionsService.checkAdmin(getUserId());
+        LOGGER.info("Permission check passed");
 
         if (key == null || key.isBlank()) {
+            LOGGER.error("Key is null or blank");
             throw new WebApplicationException(
                     Response.status(Response.Status.BAD_REQUEST)
                             .entity("{\"error\":\"'key' query parameter is required\"}")
@@ -199,10 +202,13 @@ public class ArchiveResource extends BaseResource {
         }
 
         String bucket = requireBucket();
+        LOGGER.info("Using bucket: {}", bucket);
         String s3Url = "s3://" + bucket + "/" + key;
+        LOGGER.info("Full S3 URL: {}", s3Url);
 
         String tmpFileName = "archive_" + UUID.randomUUID() + ".parquet";
         File tmpFile = new File(System.getProperty("java.io.tmpdir"), tmpFileName);
+        LOGGER.info("Temp file path: {}", tmpFile.getAbsolutePath());
 
         try {
             List<String> cmd = buildS3CmdBase();
@@ -210,30 +216,41 @@ public class ArchiveResource extends BaseResource {
             cmd.add("--force");
             cmd.add(s3Url);
             cmd.add(tmpFile.getAbsolutePath());
+            LOGGER.info("Executing s3cmd: {}", String.join(" ", cmd));
 
-            try {
-                runProcess(cmd);
-            } catch (WebApplicationException wae) {
-                throw wae;
-            } catch (Exception e) {
-                LOGGER.error("s3cmd get failed for key: {}", key, e);
-                throw new WebApplicationException(
-                        Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                                .entity("{\"error\":\"" + e.getMessage() + "\"}")
-                                .build());
-            }
+            runProcess(cmd);
+
+            LOGGER.info("Download completed");
+            LOGGER.info("Temp file exists: {}", tmpFile.exists());
+            LOGGER.info("Temp file size: {}", tmpFile.exists() ? tmpFile.length() : -1);
+
+            LOGGER.info("Starting parquet read...");
 
             List<Map<String, Object>> records = readParquetFile(tmpFile);
+
+            LOGGER.info("Parquet read completed. Total records: {}", records.size());
+
             return Response.ok(records).build();
+            } catch (Exception e) {
+                e.printStackTrace(); // VERY IMPORTANT
+                LOGGER.error("Archive read failed", e);
+
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity(Map.of("error", e.getMessage()))
+                        .build();
+
 
         } finally {
+            LOGGER.info("Entering finally block");
             if (tmpFile.exists()) {
                 try {
                     Files.delete(tmpFile.toPath());
+                    LOGGER.info("Temp file deleted");
                 } catch (IOException e) {
                     LOGGER.warn("Could not delete temp file: {}", tmpFile.getAbsolutePath());
                 }
             }
+            LOGGER.info("=== ARCHIVE RECORDS API END ===");
         }
     }
 
@@ -266,6 +283,7 @@ public class ArchiveResource extends BaseResource {
             }
 
         } catch (IOException e) {
+//            e.printStackTrace();
             LOGGER.error("Failed to read Parquet file: {}", file.getAbsolutePath(), e);
             throw new WebApplicationException(
                     Response.status(Response.Status.INTERNAL_SERVER_ERROR)

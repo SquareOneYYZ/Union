@@ -100,12 +100,13 @@ def get_connection(cfg: configparser.ConfigParser):
 # ---------------------------------------------------------------------------
 
 def build_s3cmd_base(s3cmd_config: str) -> list:
-    """Return base s3cmd command list, optionally with --config flag."""
-    cmd = ["s3cmd"]
-    if s3cmd_config and s3cmd_config.strip() and s3cmd_config.strip() != "~/.s3cfg":
-        expanded = os.path.expanduser(s3cmd_config.strip())
-        cmd += [f"--config={expanded}"]
-    return cmd
+
+    return [
+        r"C:\Python311\python.exe",
+        r"C:\Python311\Scripts\s3cmd"
+    ]
+
+
 
 
 def s3cmd_upload(s3cmd_config: str, local_file: str, bucket: str, key: str) -> bool:
