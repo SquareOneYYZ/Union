@@ -277,13 +277,19 @@ public class ArchiveResource extends BaseResource {
                 records = records.stream()
                         .filter(row -> {
                             Object val = row.get("eventtime");
-                            if (val == null) return false;
+                            if (val == null) {
+                                return false;
+                            }
                             try {
                                 java.time.LocalDateTime rowDt =
                                         java.time.LocalDateTime.parse(
                                                 String.valueOf(val).trim(), dbFormatter);
-                                if (finalFrom != null && rowDt.isBefore(finalFrom)) return false;
-                                if (finalTo != null && rowDt.isAfter(finalTo)) return false;
+                                if (finalFrom != null && rowDt.isBefore(finalFrom)){
+                                    return false;
+                                }
+                                if (finalTo != null && rowDt.isAfter(finalTo)){
+                                    return false;
+                                }
                                 return true;
                             } catch (Exception e) {
                                 LOGGER.warn("Could not parse eventtime: {}", val);
