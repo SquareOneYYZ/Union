@@ -187,7 +187,9 @@ public class ArchiveResource extends BaseResource {
 
     @GET
     @Path("records")
-    public Response getArchiveRecords(@QueryParam("key") String key) throws StorageException {
+    public Response getArchiveRecords(
+            @QueryParam("key") String key,
+            @QueryParam("type") String type) throws StorageException {
         LOGGER.info("=== ARCHIVE RECORDS API CALLED ===");
         LOGGER.info("Incoming key: {}", key);
         permissionsService.checkAdmin(getUserId());
@@ -227,6 +229,12 @@ public class ArchiveResource extends BaseResource {
             LOGGER.info("Starting parquet read...");
 
             List<Map<String, Object>> records = readParquetFile(tmpFile);
+            if (type != null && !type.isBlank()) {
+                records = records.stream()
+                        .filter(row -> type.equals(String.valueOf(row.get("type"))))
+                        .collect(java.util.stream.Collectors.toList());
+                LOGGER.info("After type filter '{}': {} records", type, records.size());
+            }
 
             LOGGER.info("Parquet read completed. Total records: {}", records.size());
 
@@ -257,9 +265,11 @@ public class ArchiveResource extends BaseResource {
 
     private List<Map<String, Object>> readParquetFile(File file) {
         List<Map<String, Object>> records = new ArrayList<>();
+        System.setProperty("hadoop.home.dir", "C:/");
 
         Configuration hadoopConf = new Configuration();
         hadoopConf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+        hadoopConf.set("fs.file.impl.disable.cache", "true");
         hadoopConf.setBoolean("mapreduce.job.user.classpath.first", false);
 
         org.apache.hadoop.fs.Path hadoopPath =
