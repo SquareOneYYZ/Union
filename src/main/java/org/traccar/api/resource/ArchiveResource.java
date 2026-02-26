@@ -284,10 +284,10 @@ public class ArchiveResource extends BaseResource {
                                 java.time.LocalDateTime rowDt =
                                         java.time.LocalDateTime.parse(
                                                 String.valueOf(val).trim(), dbFormatter);
-                                if (finalFrom != null && rowDt.isBefore(finalFrom)){
+                                if (finalFrom != null && rowDt.isBefore(finalFrom)) {
                                     return false;
                                 }
-                                if (finalTo != null && rowDt.isAfter(finalTo)){
+                                if (finalTo != null && rowDt.isAfter(finalTo)) {
                                     return false;
                                 }
                                 return true;
