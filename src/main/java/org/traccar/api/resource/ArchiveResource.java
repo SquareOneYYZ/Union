@@ -189,7 +189,10 @@ public class ArchiveResource extends BaseResource {
     @Path("records")
     public Response getArchiveRecords(
             @QueryParam("key") String key,
-            @QueryParam("type") String type) throws StorageException {
+            @QueryParam("type") String type,
+            @QueryParam("deviceId") Integer deviceId,
+            @QueryParam("from") String from,
+            @QueryParam("to") String to) throws StorageException {
         LOGGER.info("=== ARCHIVE RECORDS API CALLED ===");
         LOGGER.info("Incoming key: {}", key);
         permissionsService.checkAdmin(getUserId());
@@ -202,6 +205,31 @@ public class ArchiveResource extends BaseResource {
                             .entity("{\"error\":\"'key' query parameter is required\"}")
                             .build());
         }
+
+        java.time.LocalDateTime fromDt = null;
+        java.time.LocalDateTime toDt = null;
+
+        java.time.format.DateTimeFormatter isoFormatter =
+                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+        java.time.format.DateTimeFormatter dbFormatter =
+                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        try {
+            if (from != null && !from.isBlank()) {
+                fromDt = java.time.LocalDateTime.parse(from, isoFormatter);
+            }
+            if (to != null && !to.isBlank()) {
+                toDt = java.time.LocalDateTime.parse(to, isoFormatter);
+            }
+        } catch (Exception e) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST)
+                            .entity("{\"error\":\"Invalid date format. Use ISO format: 2025-10-09T22:34:44Z\"}")
+                            .build());
+        }
+
+        final java.time.LocalDateTime finalFrom = fromDt;
+        final java.time.LocalDateTime finalTo = toDt;
 
         String bucket = requireBucket();
         LOGGER.info("Using bucket: {}", bucket);
@@ -234,6 +262,36 @@ public class ArchiveResource extends BaseResource {
                         .filter(row -> type.equals(String.valueOf(row.get("type"))))
                         .collect(java.util.stream.Collectors.toList());
                 LOGGER.info("After type filter '{}': {} records", type, records.size());
+            }
+            if (deviceId != null) {
+                records = records.stream()
+                        .filter(row -> {
+                            Object val = row.get("deviceid");
+                            return val != null && Integer.parseInt(String.valueOf(val)) == deviceId;
+                        })
+                        .collect(java.util.stream.Collectors.toList());
+                LOGGER.info("After deviceId filter '{}': {} records", deviceId, records.size());
+            }
+
+            if (finalFrom != null || finalTo != null) {
+                records = records.stream()
+                        .filter(row -> {
+                            Object val = row.get("eventtime");
+                            if (val == null) return false;
+                            try {
+                                java.time.LocalDateTime rowDt =
+                                        java.time.LocalDateTime.parse(
+                                                String.valueOf(val).trim(), dbFormatter);
+                                if (finalFrom != null && rowDt.isBefore(finalFrom)) return false;
+                                if (finalTo != null && rowDt.isAfter(finalTo)) return false;
+                                return true;
+                            } catch (Exception e) {
+                                LOGGER.warn("Could not parse eventtime: {}", val);
+                                return false;
+                            }
+                        })
+                        .collect(java.util.stream.Collectors.toList());
+                LOGGER.info("After time filter from={} to={}: {} records", finalFrom, finalTo, records.size());
             }
 
             LOGGER.info("Parquet read completed. Total records: {}", records.size());
