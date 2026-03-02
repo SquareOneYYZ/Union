@@ -94,5 +94,11 @@
     
     <entry key='archive.spaces.bucket'>iotrides</entry>
     <entry key='archive.s3cmd.configFile'>C:\Users\parid\.s3cfg</entry>
+    <entry key='archive.temp.dir'>F:/RidesIQ/parquet</entry>
+    <entry key='archive.retention.months'>6</entry>
+
+    <entry key='archive.python.exe'>C:\Python311\python.exe</entry>
+    <entry key='archive.s3cmd.script'>C:\Python311\Scripts\s3cmd</entry>
+    <entry key='archive.hadoop.home'>C:/</entry>
 
 </properties>

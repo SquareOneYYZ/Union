@@ -2057,8 +2057,16 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             List.of(KeyType.CONFIG));
 
 
-    public static final ConfigKey<String> ARCHIVE_S3CMD_CONFIG_FILE = new StringConfigKey(
-            "archive.s3cmd.configFile",
+    public static final ConfigKey<String> ARCHIVE_PYTHON_EXE = new StringConfigKey(
+            "archive.python.exe",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_S3CMD_SCRIPT = new StringConfigKey(
+            "archive.s3cmd.script",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_HADOOP_HOME = new StringConfigKey(
+            "archive.hadoop.home",
             List.of(KeyType.CONFIG));
 
 }

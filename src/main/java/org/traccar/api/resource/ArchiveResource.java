@@ -45,19 +45,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-/**
- * REST API for cold-storage archive retrieval.
- *
- * All endpoints are admin-only.
- *
- *   GET /api/archive/list?prefix=archive/positions/42/
- *       Returns JSON array of { key, size, lastModified } for every Parquet
- *       file stored under the given prefix in DigitalOcean Spaces.
- *
- *   GET /api/archive/records?key=archive/positions/42/2024-07.parquet
- *       Downloads the specified Parquet file from Spaces and returns its
- *       rows as a JSON array of field-map objects.
- */
 @Path("archive")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -76,13 +63,25 @@ public class ArchiveResource extends BaseResource {
 
 
     private List<String> buildS3CmdBase() {
+        String pythonExe = config.getString(Keys.ARCHIVE_PYTHON_EXE);
+        String s3cmdScript = config.getString(Keys.ARCHIVE_S3CMD_SCRIPT);
+
+        if (pythonExe == null || pythonExe.isBlank()) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                            .entity("{\"error\":\"archive.python.exe not configured in debug.xml\"}")
+                            .build());
+        }
+        if (s3cmdScript == null || s3cmdScript.isBlank()) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                            .entity("{\"error\":\"archive.s3cmd.script not configured in debug.xml\"}")
+                            .build());
+        }
 
         List<String> cmd = new ArrayList<>();
-
-        cmd.add("C:\\Python311\\python.exe");
-        cmd.add("C:\\Python311\\Scripts\\s3cmd");
-
-        // DO NOT pass --config
+        cmd.add(pythonExe);
+        cmd.add(s3cmdScript);
         return cmd;
     }
 
@@ -333,7 +332,14 @@ public class ArchiveResource extends BaseResource {
 
     private List<Map<String, Object>> readParquetFile(File file) {
         List<Map<String, Object>> records = new ArrayList<>();
-        System.setProperty("hadoop.home.dir", "C:/");
+        String hadoopHome = config.getString(Keys.ARCHIVE_HADOOP_HOME);
+        if (hadoopHome == null || hadoopHome.isBlank()) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                            .entity("{\"error\":\"archive.hadoop.home not configured in debug.xml\"}")
+                            .build());
+        }
+        System.setProperty("hadoop.home.dir", hadoopHome);
 
         Configuration hadoopConf = new Configuration();
         hadoopConf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
@@ -384,9 +390,12 @@ public class ArchiveResource extends BaseResource {
         LOGGER.info("=== ARCHIVE TRIPS API CALLED === deviceId={} from={} to={}", deviceId, from, to);
         permissionsService.checkAdmin(getUserId());
 
-        if (deviceId == null) return badRequest("'deviceId' query parameter is required");
-        if (from == null || from.isBlank() || to == null || to.isBlank())
+        if (deviceId == null) {
+            return badRequest("'deviceId' query parameter is required");
+        }
+        if (from == null || from.isBlank() || to == null || to.isBlank()) {
             return badRequest("'from' and 'to' query parameters are required");
+        }
 
         DateTimeFormatter isoFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
         LocalDateTime fromDt, toDt;
@@ -396,10 +405,14 @@ public class ArchiveResource extends BaseResource {
         } catch (Exception e) {
             return badRequest("Invalid date format. Use: 2025-01-01T00:00:00Z");
         }
-        if (!fromDt.isBefore(toDt)) return badRequest("'from' must be before 'to'");
+        if (!fromDt.isBefore(toDt)) {
+            return badRequest("'from' must be before 'to'");
+        }
 
         List<PositionRow> positions = loadPositions(deviceId, fromDt, toDt);
-        if (positions.isEmpty()) return Response.ok(new ArrayList<>()).build();
+        if (positions.isEmpty()) {
+            return Response.ok(new ArrayList<>()).build();
+        }
 
         List<Map<String, Object>> trips = detectTrips(positions, deviceId);
         LOGGER.info("Detected {} trips", trips.size());
@@ -420,9 +433,12 @@ public class ArchiveResource extends BaseResource {
         LOGGER.info("=== ARCHIVE STOPS API CALLED === deviceId={} from={} to={}", deviceId, from, to);
         permissionsService.checkAdmin(getUserId());
 
-        if (deviceId == null) return badRequest("'deviceId' query parameter is required");
-        if (from == null || from.isBlank() || to == null || to.isBlank())
+        if (deviceId == null) {
+            return badRequest("'deviceId' query parameter is required");
+        }
+        if (from == null || from.isBlank() || to == null || to.isBlank()) {
             return badRequest("'from' and 'to' query parameters are required");
+        }
 
         DateTimeFormatter isoFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
         LocalDateTime fromDt, toDt;
@@ -432,10 +448,14 @@ public class ArchiveResource extends BaseResource {
         } catch (Exception e) {
             return badRequest("Invalid date format. Use: 2025-01-01T00:00:00Z");
         }
-        if (!fromDt.isBefore(toDt)) return badRequest("'from' must be before 'to'");
+        if (!fromDt.isBefore(toDt)) {
+            return badRequest("'from' must be before 'to'");
+        }
 
         List<PositionRow> positions = loadPositions(deviceId, fromDt, toDt);
-        if (positions.isEmpty()) return Response.ok(new ArrayList<>()).build();
+        if (positions.isEmpty()) {
+            return Response.ok(new ArrayList<>()).build();
+        }
 
         List<Map<String, Object>> stops = detectStops(positions, deviceId);
         LOGGER.info("Detected {} stops", stops.size());
@@ -447,7 +467,9 @@ public class ArchiveResource extends BaseResource {
     private List<Map<String, Object>> detectTrips(List<PositionRow> positions, int deviceId) {
         List<Map<String, Object>> trips = new ArrayList<>();
 
-        if (positions.size() < 2) return trips;
+        if (positions.size() < 2) {
+            return trips;
+        }
 
         int    tripStart          = -1;
         double accumulatedDistance = 0.0;
@@ -477,7 +499,9 @@ public class ArchiveResource extends BaseResource {
                         curr.latitude, curr.longitude);
                 accumulatedDistance += segmentDist;
 
-                if (curr.speed > maxSpeed) maxSpeed = curr.speed;
+                if (curr.speed > maxSpeed) {
+                    maxSpeed = curr.speed;
+                }
                 totalSpeed += curr.speed;
                 speedCount++;
 
@@ -524,7 +548,9 @@ public class ArchiveResource extends BaseResource {
     private List<Map<String, Object>> detectStops(List<PositionRow> positions, int deviceId) {
         List<Map<String, Object>> stops = new ArrayList<>();
 
-        if (positions.size() < 2) return stops;
+        if (positions.size() < 2) {
+            return stops;
+        }
         boolean hasIgnitionData = positions.stream().anyMatch(p -> p.ignition != null);
         int stopStart = -1;
 
@@ -654,13 +680,13 @@ public class ArchiveResource extends BaseResource {
 
 
     private static double haversineMetres(double lat1, double lon1, double lat2, double lon2) {
-        final double R = 6_371_000.0;
+        final double r = 6_371_000.0;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
 
@@ -694,14 +720,26 @@ public class ArchiveResource extends BaseResource {
     private static double extractDoubleFromJson(String json, String key) {
         String search = "\"" + key + "\"";
         int idx = json.indexOf(search);
-        if (idx < 0) return 0.0;
+        if (idx < 0) {
+            return 0.0;
+        }
         int colon = json.indexOf(':', idx + search.length());
-        if (colon < 0) return 0.0;
+        if (colon < 0) {
+            return 0.0;
+        }
         int start = colon + 1;
-        while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '\t')) start++;
+        while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '\t')) {
+            start++;
+        }
         int end = start;
-        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '.' || json.charAt(end) == '-')) end++;
-        if (start == end) return 0.0;
+        while (end < json.length() && (Character.isDigit(json.charAt(end))
+                || json.charAt(end) == '.'
+                || json.charAt(end) == '-')) {
+            end++;
+        }
+        if (start == end) {
+            return 0.0;
+        }
         try {
             return Double.parseDouble(json.substring(start, end));
         } catch (NumberFormatException e) {
@@ -712,38 +750,62 @@ public class ArchiveResource extends BaseResource {
     private static Boolean extractBooleanFromJson(String json, String key) {
         String search = "\"" + key + "\"";
         int idx = json.indexOf(search);
-        if (idx < 0) return null;
+        if (idx < 0) {
+            return null;
+        }
         int colon = json.indexOf(':', idx + search.length());
-        if (colon < 0) return null;
+        if (colon < 0) {
+            return null;
+        }
         String rest = json.substring(colon + 1).trim();
-        if (rest.startsWith("true"))  return Boolean.TRUE;
-        if (rest.startsWith("false")) return Boolean.FALSE;
+        if (rest.startsWith("true"))  {
+            return Boolean.TRUE;
+        }
+        if (rest.startsWith("false")) {
+            return Boolean.FALSE;
+        }
         return null;
     }
 
 
     private static long toLong(Object o) {
-        if (o == null) return 0L;
-        if (o instanceof Number) return ((Number) o).longValue();
+        if (o == null) {
+            return 0L;
+        }
+        if (o instanceof Number) {
+            return ((Number) o).longValue();
+        }
         return Long.parseLong(o.toString().trim());
     }
 
     private static int toInt(Object o) {
-        if (o == null) return 0;
-        if (o instanceof Number) return ((Number) o).intValue();
+        if (o == null) {
+            return 0;
+        }
+        if (o instanceof Number) {
+            return ((Number) o).intValue();
+        }
         return Integer.parseInt(o.toString().trim());
     }
 
     private static double toDouble(Object o) {
-        if (o == null) return 0.0;
-        if (o instanceof Number) return ((Number) o).doubleValue();
+        if (o == null) {
+            return 0.0;
+        }
+        if (o instanceof Number) {
+            return ((Number) o).doubleValue();
+        }
         return Double.parseDouble(o.toString().trim());
     }
 
     private static LocalDateTime parseDateTime(Object o, DateTimeFormatter fmt) {
-        if (o == null) return null;
+        if (o == null) {
+            return null;
+        }
         String s = o.toString().trim();
-        if (s.isEmpty()) return null;
+        if (s.isEmpty()) {
+            return null;
+        }
         try {
             return LocalDateTime.parse(s, fmt);
         } catch (Exception e) {
@@ -759,16 +821,28 @@ public class ArchiveResource extends BaseResource {
 
 
     private static class PositionRow {
-        long          id;
-        int           deviceId;
-        LocalDateTime fixTime;
-        double        latitude;
-        double        longitude;
-        double        speed;
-        double        course;
-        double        altitude;
-        double        odometer;
-        Boolean       ignition;
+        private long          id;
+        private int           deviceId;
+        private LocalDateTime fixTime;
+        private double        latitude;
+        private double        longitude;
+        private double        speed;
+        private double        course;
+        private double        altitude;
+        private double        odometer;
+        private Boolean       ignition;
+
+        public long getId() { return id; }
+        public int getDeviceId() { return deviceId; }
+        public LocalDateTime getFixTime() { return fixTime; }
+        public double getLatitude() { return latitude; }
+        public double getLongitude() { return longitude; }
+        public double getSpeed() { return speed; }
+        public double getCourse() { return course; }
+        public double getAltitude() { return altitude; }
+        public double getOdometer() { return odometer; }
+        public Boolean getIgnition() { return ignition; }
+
     }
 
 
@@ -824,9 +898,15 @@ public class ArchiveResource extends BaseResource {
                     p.ignition = extractBooleanFromJson(attrs, "ignition");
                 }
 
-                if (p.deviceId != deviceId) continue;
-                if (p.fixTime == null)       continue;
-                if (p.fixTime.isBefore(fromDt) || p.fixTime.isAfter(toDt)) continue;
+                if (p.deviceId != deviceId) {
+                    continue;
+                }
+                if (p.fixTime == null) {
+                    continue;
+                }
+                if (p.fixTime.isBefore(fromDt) || p.fixTime.isAfter(toDt)) {
+                    continue;
+                }
 
                 positions.add(p);
             } catch (Exception e) {

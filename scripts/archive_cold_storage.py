@@ -50,52 +50,86 @@ import pymysql.cursors
 
 def parse_args():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    parser = argparse.ArgumentParser(
-        description="Archive old Traccar positions & events to DigitalOcean Spaces"
-    )
+    project_root = os.path.dirname(script_dir)
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config",
-        default=os.path.join(script_dir, "archive.config"),
-        help="Path to the config file (default: archive.config next to the script)",
+        default=os.path.join(project_root, "debug.xml"),
+        help="Path to debug.xml (default: debug.xml next to the script)",
     )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Upload Parquet files to Spaces but do NOT delete rows from DB",
-    )
-    parser.add_argument(
-        "--months",
-        type=int,
-        default=None,
-        help="Override retention_months from config",
-    )
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--months", type=int, default=None)
     return parser.parse_args()
 
 
 # ---------------------------------------------------------------------------
 # Config loading
 # ---------------------------------------------------------------------------
+import xml.etree.ElementTree as ET
 
-def load_config(config_path: str) -> configparser.ConfigParser:
-    if not os.path.exists(config_path):
-        print(f"[ERROR] Config file not found: {config_path}")
+def load_debug_xml(xml_path: str) -> dict:
+    if not os.path.exists(xml_path):
+        print(f"[ERROR] debug.xml not found: {xml_path}")
         sys.exit(1)
-    cfg = configparser.ConfigParser()
-    cfg.read(config_path)
-    return cfg
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    props = {}
+    for entry in root.findall("entry"):
+        key = entry.get("key")
+        value = (entry.text or "").strip()
+        props[key] = value
+    return props
+
+
+
+class PropsConfig:
+    """Wraps a flat dict to mimic configparser.get() used in helpers."""
+    def __init__(self, props):
+        self._props = props
+        # Map (section, key) → flat XML key
+        self._map = {
+            ("database", "host"):        None,
+            ("database", "port"):        None,
+            ("database", "name"):        None,
+            ("database", "user"):        "database.user",
+            ("database", "password"):    "database.password",
+            ("spaces",   "bucket"):      "archive.spaces.bucket",
+            ("spaces",   "s3cmd_config"):"archive.s3cmd.configFile",
+            ("spaces",   "temp_dir"):    "archive.temp.dir",
+            ("archive",  "retention_months"): "archive.retention.months",
+            ("spaces", "python_exe"):   "archive.python.exe",
+            ("spaces", "s3cmd_script"): "archive.s3cmd.script",
+        }
+
+    def get(self, section, key, fallback=""):
+        flat_key = self._map.get((section, key))
+        if flat_key is None:
+            return fallback
+        return self._props.get(flat_key, fallback)
+
+    def getint(self, section, key):
+        return int(self.get(section, key, 0))
 
 
 # ---------------------------------------------------------------------------
 # DB helpers
 # ---------------------------------------------------------------------------
 
-def get_connection(cfg: configparser.ConfigParser):
+def get_connection_from_props(props: dict):
+    # Parse jdbc URL: jdbc:mysql://localhost:3306/traccar
+    url = props.get("database.url", "")
+    # Extract host, port, dbname
+    import re
+    match = re.match(r"jdbc:mysql://([^:/]+)(?::(\d+))?/(\w+)", url)
+    host   = match.group(1) if match else "localhost"
+    port   = int(match.group(2)) if match and match.group(2) else 3306
+    dbname = match.group(3) if match else "traccar"
     return pymysql.connect(
-        host=cfg.get("database", "host"),
-        port=cfg.getint("database", "port"),
-        user=cfg.get("database", "user"),
-        password=cfg.get("database", "password"),
-        database=cfg.get("database", "name"),
+        host=host,
+        port=port,
+        user=props.get("database.user", "root"),
+        password=props.get("database.password", ""),
+        database=dbname,
         charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor,
     )
@@ -105,17 +139,22 @@ def get_connection(cfg: configparser.ConfigParser):
 # s3cmd helpers
 # ---------------------------------------------------------------------------
 
-def build_s3cmd_base(s3cmd_config: str) -> list:
-    return [
-        r"C:\Python311\python.exe",
-        r"C:\Python311\Scripts\s3cmd"
-    ]
+def build_s3cmd_base(cfg) -> list:
+    python_exe  = cfg.get("spaces", "python_exe")
+    s3cmd_script = cfg.get("spaces", "s3cmd_script")
+    if not python_exe:
+        print("[ERROR] archive.python.exe not configured in debug.xml")
+        sys.exit(1)
+    if not s3cmd_script:
+        print("[ERROR] archive.s3cmd.script not configured in debug.xml")
+        sys.exit(1)
+    return [python_exe, s3cmd_script]
 
 
-def s3cmd_upload(s3cmd_config: str, local_file: str, bucket: str, key: str) -> bool:
+def s3cmd_upload(cfg, local_file: str, bucket: str, key: str) -> bool:
     """Upload a local file to Spaces. Returns True on success."""
     dest = f"s3://{bucket}/{key}"
-    cmd = build_s3cmd_base(s3cmd_config) + ["put", "--acl-private", local_file, dest]
+    cmd = build_s3cmd_base(cfg) + ["put", "--acl-private", local_file, dest]
     print(f"  [S3] Uploading {os.path.basename(local_file)} → {dest}")
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -149,7 +188,7 @@ def do_upload(cfg, local_path: str, spaces_key: str) -> bool:
         if not bucket:
             print(f"  [ERROR] bucket not configured and local_upload_dir is empty.")
             return False
-        return s3cmd_upload(s3cmd_config, local_path, bucket, spaces_key)
+        return s3cmd_upload(cfg, local_path, bucket, spaces_key)
 
 
 # ---------------------------------------------------------------------------
@@ -256,9 +295,6 @@ POSITIONS_COLUMNS = [
 
 def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> int:
     """Archive tc_positions older than cutoff. Returns total rows archived."""
-    bucket = cfg.get("spaces", "bucket", fallback="")
-    s3cmd_config = cfg.get("spaces", "s3cmd_config", fallback="")
-    local_upload_dir = cfg.get("spaces", "local_upload_dir", fallback="")
     total = 0
 
     with conn.cursor() as cur:
@@ -537,10 +573,11 @@ def snapshot_device_geofence_segments(conn, cfg, temp_dir: str) -> int:
 
 def main():
     args = parse_args()
-    cfg = load_config(args.config)
+    props = load_debug_xml(args.config)
+    cfg = PropsConfig(props)
 
-    retention_months = args.months if args.months is not None else cfg.getint("archive", "retention_months")
-    temp_dir = ensure_temp_dir(cfg.get("spaces", "temp_dir", fallback="/tmp/traccar-archive"))
+    retention_months = args.months if args.months is not None else int(props.get("archive.retention.months", 6))
+    temp_dir = ensure_temp_dir(props.get("archive.temp.dir", "/tmp/traccar-archive"))
     dry_run = args.dry_run
 
     cutoff = (datetime.utcnow() - relativedelta(months=retention_months)).date()
@@ -561,7 +598,7 @@ def main():
     print("=" * 60)
 
     try:
-        conn = get_connection(cfg)
+        conn = get_connection_from_props(props)
     except Exception as e:
         print(f"[ERROR] Cannot connect to DB: {e}")
         sys.exit(1)
