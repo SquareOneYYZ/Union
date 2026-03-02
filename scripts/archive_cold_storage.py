@@ -8,6 +8,13 @@ in Parquet format using s3cmd.
 Each table is archived INDEPENDENTLY (no joins).
 Data is grouped by deviceid × year × month — one Parquet file per group.
 
+SNAPSHOT TABLES (store only, NEVER deleted from DB):
+  - tc_geofences
+  - tc_drivers
+  - tc_devices
+  - tc_device_geofence_segment
+  These are snapshotted on every run into a single file each.
+
 Usage (from Git Bash):
     python archive_cold_storage.py [--config archive.config] [--dry-run] [--months 6]
 
@@ -21,8 +28,7 @@ Requirements:
 
 s3cmd must be installed and configured:
     pip install s3cmd
-    s3cmd --configure   # enter DO Spaces access key, secret key,
-                        # endpoint = nyc3.digitaloceanspaces.com (adjust region)
+    s3cmd --configure
 """
 
 import argparse
@@ -100,13 +106,10 @@ def get_connection(cfg: configparser.ConfigParser):
 # ---------------------------------------------------------------------------
 
 def build_s3cmd_base(s3cmd_config: str) -> list:
-
     return [
         r"C:\Python311\python.exe",
         r"C:\Python311\Scripts\s3cmd"
     ]
-
-
 
 
 def s3cmd_upload(s3cmd_config: str, local_file: str, bucket: str, key: str) -> bool:
@@ -134,6 +137,21 @@ def local_upload(local_file: str, upload_dir: str, key: str) -> bool:
         return False
 
 
+def do_upload(cfg, local_path: str, spaces_key: str) -> bool:
+    """Route upload to either local dir or DO Spaces based on config."""
+    bucket = cfg.get("spaces", "bucket", fallback="")
+    s3cmd_config = cfg.get("spaces", "s3cmd_config", fallback="")
+    local_upload_dir = cfg.get("spaces", "local_upload_dir", fallback="")
+
+    if local_upload_dir:
+        return local_upload(local_path, local_upload_dir, spaces_key)
+    else:
+        if not bucket:
+            print(f"  [ERROR] bucket not configured and local_upload_dir is empty.")
+            return False
+        return s3cmd_upload(s3cmd_config, local_path, bucket, spaces_key)
+
+
 # ---------------------------------------------------------------------------
 # Parquet helpers
 # ---------------------------------------------------------------------------
@@ -150,7 +168,83 @@ def write_parquet(df: pd.DataFrame, path: str):
 
 
 # ---------------------------------------------------------------------------
-# Archive positions
+# Generic snapshot helper
+# (store ALL rows in one file, NEVER delete from DB)
+# ---------------------------------------------------------------------------
+
+def snapshot_table(conn, cfg, table_name: str, columns: list,
+                   spaces_prefix: str, temp_dir: str,
+                   datetime_cols: list = None) -> int:
+    """
+    Reads ALL rows from table_name and uploads a single Parquet snapshot to Spaces.
+    Data is NEVER deleted from the database — this is a read-only snapshot.
+
+    File is stored at:  archive/{spaces_prefix}/latest.parquet
+    A timestamped copy is also stored at:
+                        archive/{spaces_prefix}/YYYY-MM-DDTHH-MM-SS.parquet
+    so you have a full history of snapshots.
+
+    Returns number of rows snapshotted (0 on error or empty table).
+    """
+    label = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%S")
+    filename_ts    = f"{table_name}_{label}.parquet"
+    filename_latest = f"{table_name}_latest.parquet"
+
+    local_path_ts     = os.path.join(temp_dir, filename_ts)
+    local_path_latest = os.path.join(temp_dir, filename_latest)
+
+    spaces_key_ts     = f"archive/{spaces_prefix}/{label}.parquet"
+    spaces_key_latest = f"archive/{spaces_prefix}/latest.parquet"
+
+    print(f"\n  [{table_name}] Reading all rows...")
+
+    try:
+        with conn.cursor() as cur:
+            cols_sql = ", ".join(columns)
+            cur.execute(f"SELECT {cols_sql} FROM {table_name} ORDER BY id")
+            rows = cur.fetchall()
+
+        if not rows:
+            print(f"  [{table_name}] Table is empty — nothing to snapshot.")
+            return 0
+
+        df = pd.DataFrame(rows)
+
+        # Convert any datetime columns to strings for safe Parquet serialisation
+        if datetime_cols:
+            for col in datetime_cols:
+                if col in df.columns:
+                    df[col] = df[col].astype(str)
+
+        # Write two copies: timestamped + latest
+        write_parquet(df, local_path_ts)
+        write_parquet(df, local_path_latest)
+        print(f"  [{table_name}] Parquet written ({len(df)} rows)")
+
+        # Upload timestamped snapshot (history)
+        ok_ts = do_upload(cfg, local_path_ts, spaces_key_ts)
+        # Upload latest snapshot (overwrite)
+        ok_latest = do_upload(cfg, local_path_latest, spaces_key_latest)
+
+        if ok_ts and ok_latest:
+            print(f"  [{table_name}] Snapshot uploaded successfully. DB data NOT deleted.")
+        else:
+            print(f"  [{table_name}] WARNING: one or both uploads failed.")
+
+        return len(df)
+
+    except Exception as exc:
+        print(f"  [{table_name}] ERROR: {exc}")
+        return 0
+
+    finally:
+        for p in [local_path_ts, local_path_latest]:
+            if os.path.exists(p):
+                os.remove(p)
+
+
+# ---------------------------------------------------------------------------
+# Archive positions  (store + DELETE from DB after archival)
 # ---------------------------------------------------------------------------
 
 POSITIONS_COLUMNS = [
@@ -168,7 +262,6 @@ def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> 
     total = 0
 
     with conn.cursor() as cur:
-        # Find distinct (deviceid, year, month) groups to archive
         cur.execute("""
             SELECT deviceid,
                    YEAR(fixtime)  AS yr,
@@ -194,7 +287,6 @@ def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> 
         cnt = g["cnt"]
 
         period_start = date(yr, mo, 1)
-        # First day of next month
         if mo == 12:
             period_end = date(yr + 1, 1, 1)
         else:
@@ -208,7 +300,6 @@ def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> 
         print(f"\n  [positions] device={device_id} period={label} rows={cnt}")
 
         try:
-            # --- Read rows ---
             with conn.cursor() as cur:
                 cols = ", ".join(POSITIONS_COLUMNS)
                 cur.execute(
@@ -223,29 +314,19 @@ def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> 
                 print(f"  [positions] No rows found (skipping).")
                 continue
 
-            # --- Write Parquet ---
             df = pd.DataFrame(rows)
-            # Convert datetime objects to ISO strings for safe Parquet serialization
             for col in ["servertime", "devicetime", "fixtime"]:
                 if col in df.columns:
                     df[col] = df[col].astype(str)
             write_parquet(df, local_path)
             print(f"  [positions] Parquet written: {local_path} ({len(df)} rows)")
 
-            # --- Upload to Spaces (or local for testing) ---
-            if local_upload_dir:
-                success = local_upload(local_path, local_upload_dir, spaces_key)
-            else:
-                if not bucket:
-                    print(f"  [positions] ERROR: bucket not configured and local_upload_dir is empty.")
-                    continue
-                success = s3cmd_upload(s3cmd_config, local_path, bucket, spaces_key)
+            success = do_upload(cfg, local_path, spaces_key)
 
             if not success:
                 print(f"  [positions] Storage failed — skipping deletion for safety.")
                 continue
 
-            # --- Delete from DB (only if not dry-run and upload succeeded) ---
             if dry_run:
                 print(f"  [positions] --dry-run: skipping DB deletion.")
             else:
@@ -262,10 +343,8 @@ def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> 
 
         except Exception as exc:
             print(f"  [positions] ERROR for device={device_id} {label}: {exc}")
-            # Safe: skip deletion; don't propagate — continue with next group
 
         finally:
-            # Clean up local temp file
             if os.path.exists(local_path):
                 os.remove(local_path)
 
@@ -273,7 +352,7 @@ def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> 
 
 
 # ---------------------------------------------------------------------------
-# Archive events
+# Archive events  (store + DELETE from DB after archival)
 # ---------------------------------------------------------------------------
 
 EVENTS_COLUMNS = [
@@ -284,13 +363,9 @@ EVENTS_COLUMNS = [
 
 def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> int:
     """Archive tc_events older than cutoff. Returns total rows archived."""
-    bucket = cfg.get("spaces", "bucket", fallback="")
-    s3cmd_config = cfg.get("spaces", "s3cmd_config", fallback="")
-    local_upload_dir = cfg.get("spaces", "local_upload_dir", fallback="")
     total = 0
 
     with conn.cursor() as cur:
-        # Find distinct (deviceid, year, month) groups to archive
         cur.execute("""
             SELECT deviceid,
                    YEAR(eventtime)  AS yr,
@@ -329,7 +404,6 @@ def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> int
         print(f"\n  [events] device={device_id} period={label} rows={cnt}")
 
         try:
-            # --- Read rows ---
             with conn.cursor() as cur:
                 cols = ", ".join(EVENTS_COLUMNS)
                 cur.execute(
@@ -344,7 +418,6 @@ def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> int
                 print(f"  [events] No rows found (skipping).")
                 continue
 
-            # --- Write Parquet ---
             df = pd.DataFrame(rows)
             for col in ["eventtime"]:
                 if col in df.columns:
@@ -352,20 +425,12 @@ def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> int
             write_parquet(df, local_path)
             print(f"  [events] Parquet written: {local_path} ({len(df)} rows)")
 
-            # --- Upload to Spaces (or local for testing) ---
-            if local_upload_dir:
-                success = local_upload(local_path, local_upload_dir, spaces_key)
-            else:
-                if not bucket:
-                    print(f"  [events] ERROR: bucket not configured and local_upload_dir is empty.")
-                    continue
-                success = s3cmd_upload(s3cmd_config, local_path, bucket, spaces_key)
+            success = do_upload(cfg, local_path, spaces_key)
 
             if not success:
                 print(f"  [events] Storage failed — skipping deletion for safety.")
                 continue
 
-            # --- Delete from DB ---
             if dry_run:
                 print(f"  [events] --dry-run: skipping DB deletion.")
             else:
@@ -391,6 +456,82 @@ def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> int
 
 
 # ---------------------------------------------------------------------------
+# SNAPSHOT TABLES  (store only — NEVER delete from DB)
+# ---------------------------------------------------------------------------
+
+# tc_geofences
+GEOFENCES_COLUMNS = [
+    "id", "name", "description", "area", "calendarid", "attributes",
+]
+
+# tc_drivers
+DRIVERS_COLUMNS = [
+    "id", "name", "uniqueid", "attributes",
+]
+
+# tc_devices
+DEVICES_COLUMNS = [
+    "id", "name", "uniqueid", "status", "lastupdate", "positionid",
+    "groupid", "phone", "model", "contact", "category", "disabled",
+    "expirationtime", "calendarid", "attributes",
+]
+
+# tc_device_geofence_segment
+DEVICE_GEOFENCE_SEGMENT_COLUMNS = [
+    "id", "deviceid", "geofenceid", "type",
+    "enterpositionid", "exitpositionid",
+    "entertime", "exittime",
+    "odostart", "odoend", "distance", "open",
+]
+
+
+def snapshot_geofences(conn, cfg, temp_dir: str) -> int:
+    """Snapshot tc_geofences → store only, no DB delete."""
+    return snapshot_table(
+        conn, cfg,
+        table_name="tc_geofences",
+        columns=GEOFENCES_COLUMNS,
+        spaces_prefix="geofences",
+        temp_dir=temp_dir,
+    )
+
+
+def snapshot_drivers(conn, cfg, temp_dir: str) -> int:
+    """Snapshot tc_drivers → store only, no DB delete."""
+    return snapshot_table(
+        conn, cfg,
+        table_name="tc_drivers",
+        columns=DRIVERS_COLUMNS,
+        spaces_prefix="drivers",
+        temp_dir=temp_dir,
+    )
+
+
+def snapshot_devices(conn, cfg, temp_dir: str) -> int:
+    """Snapshot tc_devices → store only, no DB delete."""
+    return snapshot_table(
+        conn, cfg,
+        table_name="tc_devices",
+        columns=DEVICES_COLUMNS,
+        spaces_prefix="devices",
+        temp_dir=temp_dir,
+        datetime_cols=["lastupdate", "expirationtime"],
+    )
+
+
+def snapshot_device_geofence_segments(conn, cfg, temp_dir: str) -> int:
+    """Snapshot tc_device_geofence_segment → store only, no DB delete."""
+    return snapshot_table(
+        conn, cfg,
+        table_name="tc_device_geofence_segment",
+        columns=DEVICE_GEOFENCE_SEGMENT_COLUMNS,
+        spaces_prefix="device_geofence_segments",
+        temp_dir=temp_dir,
+        datetime_cols=["entertime", "exittime"],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -408,7 +549,7 @@ def main():
     print(f"  Traccar Cold Storage Archiver")
     print(f"  Started  : {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print(f"  Cutoff   : {cutoff}  (retention = {retention_months} months)")
-    
+
     local_upload_dir = cfg.get("spaces", "local_upload_dir", fallback="")
     if local_upload_dir:
         print(f"  Mode     : LOCAL TEST (Upload → {local_upload_dir})")
@@ -426,25 +567,43 @@ def main():
         sys.exit(1)
 
     try:
-        print("\n--- Archiving POSITIONS ---")
+        # --- Time-series tables: archive old rows + delete from DB ---
+        print("\n--- Archiving POSITIONS (old rows → Spaces, then delete from DB) ---")
         pos_total = archive_positions(conn, cfg, cutoff, temp_dir, dry_run)
 
-        print("\n--- Archiving EVENTS ---")
+        print("\n--- Archiving EVENTS (old rows → Spaces, then delete from DB) ---")
         evt_total = archive_events(conn, cfg, cutoff, temp_dir, dry_run)
+
+        # --- Snapshot tables: copy to Spaces, NEVER delete from DB ---
+        print("\n--- Snapshotting GEOFENCES (store only, DB unchanged) ---")
+        geo_total = snapshot_geofences(conn, cfg, temp_dir)
+
+        print("\n--- Snapshotting DRIVERS (store only, DB unchanged) ---")
+        drv_total = snapshot_drivers(conn, cfg, temp_dir)
+
+        print("\n--- Snapshotting DEVICES (store only, DB unchanged) ---")
+        dev_total = snapshot_devices(conn, cfg, temp_dir)
+
+        print("\n--- Snapshotting DEVICE GEOFENCE SEGMENTS (store only, DB unchanged) ---")
+        seg_total = snapshot_device_geofence_segments(conn, cfg, temp_dir)
+
     finally:
         conn.close()
 
     print("\n" + "=" * 60)
     print(f"  Archive complete.")
-    print(f"  Positions archived : {pos_total}")
-    print(f"  Events archived    : {evt_total}")
+    print(f"  Positions archived         : {pos_total}  (deleted from DB)")
+    print(f"  Events archived            : {evt_total}  (deleted from DB)")
+    print(f"  Geofences snapshotted      : {geo_total}  (DB unchanged)")
+    print(f"  Drivers snapshotted        : {drv_total}  (DB unchanged)")
+    print(f"  Devices snapshotted        : {dev_total}  (DB unchanged)")
+    print(f"  Geofence segments snap.    : {seg_total}  (DB unchanged)")
     if dry_run:
         print(f"  NOTE: --dry-run mode — no rows were deleted from the DB.")
     print("=" * 60)
 
 
 if __name__ == "__main__":
-    # Check required packages
     missing = []
     for pkg in ("pymysql", "pandas", "pyarrow", "dateutil"):
         try:

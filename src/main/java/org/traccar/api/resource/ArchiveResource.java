@@ -41,11 +41,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 /**
  * REST API for cold-storage archive retrieval.
@@ -66,6 +64,12 @@ import java.util.UUID;
 public class ArchiveResource extends BaseResource {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ArchiveResource.class);
+
+    private static final double MIN_SPEED_KNOTS = 0.5;
+    private static final long MAX_GAP_SECONDS = 5 * 60;
+    private static final long MIN_TRIP_DURATION_SECONDS = 60;
+    private static final double MIN_TRIP_DISTANCE_METRES = 100.0;
+    private static final long MIN_STOP_DURATION_SECONDS = 5 * 60;
 
     @Inject
     private Config config;
@@ -367,5 +371,475 @@ public class ArchiveResource extends BaseResource {
 
         return records;
     }
+
+
+
+    @GET
+    @Path("trips")
+    public Response getArchiveTrips(
+            @QueryParam("deviceId") Integer deviceId,
+            @QueryParam("from") String from,
+            @QueryParam("to") String to) throws StorageException {
+
+        LOGGER.info("=== ARCHIVE TRIPS API CALLED === deviceId={} from={} to={}", deviceId, from, to);
+        permissionsService.checkAdmin(getUserId());
+
+        if (deviceId == null) return badRequest("'deviceId' query parameter is required");
+        if (from == null || from.isBlank() || to == null || to.isBlank())
+            return badRequest("'from' and 'to' query parameters are required");
+
+        DateTimeFormatter isoFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+        LocalDateTime fromDt, toDt;
+        try {
+            fromDt = LocalDateTime.parse(from, isoFormatter);
+            toDt   = LocalDateTime.parse(to,   isoFormatter);
+        } catch (Exception e) {
+            return badRequest("Invalid date format. Use: 2025-01-01T00:00:00Z");
+        }
+        if (!fromDt.isBefore(toDt)) return badRequest("'from' must be before 'to'");
+
+        List<PositionRow> positions = loadPositions(deviceId, fromDt, toDt);
+        if (positions.isEmpty()) return Response.ok(new ArrayList<>()).build();
+
+        List<Map<String, Object>> trips = detectTrips(positions, deviceId);
+        LOGGER.info("Detected {} trips", trips.size());
+
+        return Response.ok(trips).build();
+    }
+
+
+
+
+    @GET
+    @Path("stops")
+    public Response getArchiveStops(
+            @QueryParam("deviceId") Integer deviceId,
+            @QueryParam("from") String from,
+            @QueryParam("to") String to) throws StorageException {
+
+        LOGGER.info("=== ARCHIVE STOPS API CALLED === deviceId={} from={} to={}", deviceId, from, to);
+        permissionsService.checkAdmin(getUserId());
+
+        if (deviceId == null) return badRequest("'deviceId' query parameter is required");
+        if (from == null || from.isBlank() || to == null || to.isBlank())
+            return badRequest("'from' and 'to' query parameters are required");
+
+        DateTimeFormatter isoFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+        LocalDateTime fromDt, toDt;
+        try {
+            fromDt = LocalDateTime.parse(from, isoFormatter);
+            toDt   = LocalDateTime.parse(to,   isoFormatter);
+        } catch (Exception e) {
+            return badRequest("Invalid date format. Use: 2025-01-01T00:00:00Z");
+        }
+        if (!fromDt.isBefore(toDt)) return badRequest("'from' must be before 'to'");
+
+        List<PositionRow> positions = loadPositions(deviceId, fromDt, toDt);
+        if (positions.isEmpty()) return Response.ok(new ArrayList<>()).build();
+
+        List<Map<String, Object>> stops = detectStops(positions, deviceId);
+        LOGGER.info("Detected {} stops", stops.size());
+
+        return Response.ok(stops).build();
+    }
+
+
+    private List<Map<String, Object>> detectTrips(List<PositionRow> positions, int deviceId) {
+        List<Map<String, Object>> trips = new ArrayList<>();
+
+        if (positions.size() < 2) return trips;
+
+        int    tripStart          = -1;
+        double accumulatedDistance = 0.0;
+        double maxSpeed            = 0.0;
+        double totalSpeed          = 0.0;
+        int    speedCount          = 0;
+
+        for (int i = 0; i < positions.size(); i++) {
+            PositionRow curr = positions.get(i);
+            boolean moving = curr.speed >= MIN_SPEED_KNOTS;
+
+            if (tripStart == -1 && moving) {
+                tripStart = i;
+                accumulatedDistance = 0.0;
+                maxSpeed   = curr.speed;
+                totalSpeed = curr.speed;
+                speedCount = 1;
+                continue;
+            }
+
+            if (tripStart != -1) {
+                PositionRow prev = positions.get(i - 1);
+                long gapSeconds = java.time.Duration.between(prev.fixTime, curr.fixTime).getSeconds();
+
+                double segmentDist = haversineMetres(
+                        prev.latitude, prev.longitude,
+                        curr.latitude, curr.longitude);
+                accumulatedDistance += segmentDist;
+
+                if (curr.speed > maxSpeed) maxSpeed = curr.speed;
+                totalSpeed += curr.speed;
+                speedCount++;
+
+                boolean gapTooLong = gapSeconds > MAX_GAP_SECONDS;
+                boolean lastPoint  = (i == positions.size() - 1);
+                boolean stopped    = !moving && gapTooLong;
+
+                if (stopped || lastPoint) {
+                    int tripEnd = (lastPoint && moving) ? i : i - 1;
+
+                    PositionRow startPos = positions.get(tripStart);
+                    PositionRow endPos   = positions.get(tripEnd);
+
+                    long durationMs  = java.time.Duration.between(startPos.fixTime, endPos.fixTime).toMillis();
+                    long durationSec = durationMs / 1000;
+
+                    if (durationSec >= MIN_TRIP_DURATION_SECONDS
+                            && accumulatedDistance >= MIN_TRIP_DISTANCE_METRES) {
+
+                        double avgSpeedKmh = speedCount > 0 ? (totalSpeed / speedCount) * 1.852 : 0.0;
+                        double maxSpeedKmh = maxSpeed * 1.852;
+
+                        trips.add(buildTripItem(deviceId, startPos, endPos,
+                                accumulatedDistance, avgSpeedKmh, maxSpeedKmh, durationMs));
+                    }
+
+                    tripStart = -1;
+                    accumulatedDistance = 0.0;
+
+                    if (stopped && moving) {
+                        tripStart  = i;
+                        maxSpeed   = curr.speed;
+                        totalSpeed = curr.speed;
+                        speedCount = 1;
+                    }
+                }
+            }
+        }
+
+        return trips;
+    }
+
+
+    private List<Map<String, Object>> detectStops(List<PositionRow> positions, int deviceId) {
+        List<Map<String, Object>> stops = new ArrayList<>();
+
+        if (positions.size() < 2) return stops;
+        boolean hasIgnitionData = positions.stream().anyMatch(p -> p.ignition != null);
+        int stopStart = -1;
+
+        for (int i = 0; i < positions.size(); i++) {
+            PositionRow curr = positions.get(i);
+            boolean stopped = curr.speed < MIN_SPEED_KNOTS;
+
+            if (stopStart == -1 && stopped) {
+                stopStart = i;
+                continue;
+            }
+
+            if (stopStart != -1) {
+                boolean moving    = curr.speed >= MIN_SPEED_KNOTS;
+                boolean lastPoint = (i == positions.size() - 1);
+
+                if (moving || lastPoint) {
+                    int stopEnd = moving ? i - 1 : i;
+
+                    PositionRow firstStopPos = positions.get(stopStart);
+                    PositionRow lastStopPos  = positions.get(stopEnd);
+
+                    long durationMs  = java.time.Duration
+                            .between(firstStopPos.fixTime, lastStopPos.fixTime)
+                            .toMillis();
+                    long durationSec = durationMs / 1000;
+
+                    if (durationSec >= MIN_STOP_DURATION_SECONDS) {
+                        long engineHoursMs = 0L;
+                        if (hasIgnitionData) {
+                            for (int j = stopStart; j < stopEnd; j++) {
+                                PositionRow a = positions.get(j);
+                                PositionRow b = positions.get(j + 1);
+                                if (Boolean.TRUE.equals(a.ignition)) {
+                                    engineHoursMs += java.time.Duration
+                                            .between(a.fixTime, b.fixTime)
+                                            .toMillis();
+                                }
+                            }
+                        } else {
+                            engineHoursMs = durationMs;
+                        }
+
+                        stops.add(buildStopItem(
+                                deviceId,
+                                firstStopPos,
+                                lastStopPos,
+                                durationMs,
+                                engineHoursMs));
+                    }
+
+                    stopStart = -1;
+
+                    if (!moving) {
+                        stopStart = i;
+                    }
+                }
+            }
+        }
+
+        return stops;
+    }
+
+
+    private Map<String, Object> buildTripItem(
+            int deviceId,
+            PositionRow startPos, PositionRow endPos,
+            double distanceMetres,
+            double averageSpeedKmh, double maxSpeedKmh,
+            long durationMs) {
+
+        DateTimeFormatter isoOut = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'+00:00'");
+
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("deviceId",        deviceId);
+        item.put("deviceName",      null);
+        item.put("distance",        Math.round(distanceMetres * 10.0) / 10.0);
+        item.put("averageSpeed",    averageSpeedKmh);
+        item.put("maxSpeed",        maxSpeedKmh);
+        item.put("spentFuel",       0.0);
+        item.put("startOdometer",   startPos.odometer > 0 ? startPos.odometer : null);
+        item.put("endOdometer",     endPos.odometer   > 0 ? endPos.odometer   : null);
+        item.put("startTime",       startPos.fixTime.format(isoOut));
+        item.put("endTime",         endPos.fixTime.format(isoOut));
+        item.put("startPositionId", startPos.id);
+        item.put("endPositionId",   endPos.id);
+        item.put("startLat",        startPos.latitude);
+        item.put("startLon",        startPos.longitude);
+        item.put("endLat",          endPos.latitude);
+        item.put("endLon",          endPos.longitude);
+        item.put("startAddress",    null);
+        item.put("endAddress",      null);
+        item.put("duration",        durationMs);
+        item.put("driverUniqueId",  null);
+        item.put("driverName",      null);
+        return item;
+    }
+
+    private Map<String, Object> buildStopItem(
+            int deviceId,
+            PositionRow firstStopPos,
+            PositionRow lastStopPos,
+            long durationMs,
+            long engineHoursMs) {
+
+        DateTimeFormatter isoOut = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'+00:00'");
+
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("deviceId",       deviceId);
+        item.put("deviceName",     null);
+        item.put("distance",       0.0);
+        item.put("averageSpeed",   0.0);
+        item.put("maxSpeed",       0.0);
+        item.put("spentFuel",      0.0);
+        item.put("startOdometer",  firstStopPos.odometer > 0 ? firstStopPos.odometer : null);
+        item.put("endOdometer",    lastStopPos.odometer  > 0 ? lastStopPos.odometer  : null);
+        item.put("startTime",      firstStopPos.fixTime.format(isoOut));
+        item.put("endTime",        lastStopPos.fixTime.format(isoOut));
+        item.put("positionId",     firstStopPos.id);       // first position of the stop
+        item.put("latitude",       firstStopPos.latitude);
+        item.put("longitude",      firstStopPos.longitude);
+        item.put("address",        null);
+        item.put("duration",       durationMs);
+        item.put("engineHours",    engineHoursMs);
+        return item;
+    }
+
+
+    private static double haversineMetres(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6_371_000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+
+    private File downloadFromSpaces(String bucket, String key) throws Exception {
+        String s3Url = "s3://" + bucket + "/" + key;
+        String tmpFileName = "archive_" + UUID.randomUUID() + ".parquet";
+        File tmpFile = new File(System.getProperty("java.io.tmpdir"), tmpFileName);
+
+        List<String> cmd = buildS3CmdBase();
+        cmd.add("get");
+        cmd.add("--force");
+        cmd.add(s3Url);
+        cmd.add(tmpFile.getAbsolutePath());
+
+        LOGGER.info("Downloading: {} → {}", s3Url, tmpFile.getAbsolutePath());
+        runProcess(cmd);
+        return tmpFile;
+    }
+
+    private void deleteTempFile(File file) {
+        if (file != null && file.exists()) {
+            try {
+                Files.delete(file.toPath());
+            } catch (IOException e) {
+                LOGGER.warn("Could not delete temp file: {}", file.getAbsolutePath());
+            }
+        }
+    }
+
+
+    private static double extractDoubleFromJson(String json, String key) {
+        String search = "\"" + key + "\"";
+        int idx = json.indexOf(search);
+        if (idx < 0) return 0.0;
+        int colon = json.indexOf(':', idx + search.length());
+        if (colon < 0) return 0.0;
+        int start = colon + 1;
+        while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '\t')) start++;
+        int end = start;
+        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '.' || json.charAt(end) == '-')) end++;
+        if (start == end) return 0.0;
+        try {
+            return Double.parseDouble(json.substring(start, end));
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
+    }
+
+    private static Boolean extractBooleanFromJson(String json, String key) {
+        String search = "\"" + key + "\"";
+        int idx = json.indexOf(search);
+        if (idx < 0) return null;
+        int colon = json.indexOf(':', idx + search.length());
+        if (colon < 0) return null;
+        String rest = json.substring(colon + 1).trim();
+        if (rest.startsWith("true"))  return Boolean.TRUE;
+        if (rest.startsWith("false")) return Boolean.FALSE;
+        return null;
+    }
+
+
+    private static long toLong(Object o) {
+        if (o == null) return 0L;
+        if (o instanceof Number) return ((Number) o).longValue();
+        return Long.parseLong(o.toString().trim());
+    }
+
+    private static int toInt(Object o) {
+        if (o == null) return 0;
+        if (o instanceof Number) return ((Number) o).intValue();
+        return Integer.parseInt(o.toString().trim());
+    }
+
+    private static double toDouble(Object o) {
+        if (o == null) return 0.0;
+        if (o instanceof Number) return ((Number) o).doubleValue();
+        return Double.parseDouble(o.toString().trim());
+    }
+
+    private static LocalDateTime parseDateTime(Object o, DateTimeFormatter fmt) {
+        if (o == null) return null;
+        String s = o.toString().trim();
+        if (s.isEmpty()) return null;
+        try {
+            return LocalDateTime.parse(s, fmt);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static Response badRequest(String message) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity("{\"error\":\"" + message + "\"}")
+                .build();
+    }
+
+
+    private static class PositionRow {
+        long          id;
+        int           deviceId;
+        LocalDateTime fixTime;
+        double        latitude;
+        double        longitude;
+        double        speed;
+        double        course;
+        double        altitude;
+        double        odometer;
+        Boolean       ignition;
+    }
+
+
+
+    private List<PositionRow> loadPositions(
+            int deviceId, LocalDateTime fromDt, LocalDateTime toDt) {
+
+        String bucket = requireBucket();
+        List<Map<String, Object>> allPositions = new ArrayList<>();
+        DateTimeFormatter dbFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        LocalDateTime cursor = fromDt.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+        while (!cursor.isAfter(toDt)) {
+            String label = String.format("%04d-%02d", cursor.getYear(), cursor.getMonthValue());
+            String key   = "archive/positions/" + deviceId + "/" + label + ".parquet";
+            LOGGER.info("Trying to fetch Parquet: {}", key);
+
+            File tmpFile = null;
+            try {
+                tmpFile = downloadFromSpaces(bucket, key);
+                List<Map<String, Object>> rows = readParquetFile(tmpFile);
+                LOGGER.info("Loaded {} positions from {}", rows.size(), key);
+                allPositions.addAll(rows);
+            } catch (Exception e) {
+                LOGGER.warn("Could not load {}: {}", key, e.getMessage());
+            } finally {
+                deleteTempFile(tmpFile);
+            }
+            cursor = cursor.plusMonths(1);
+        }
+
+        LOGGER.info("Total raw positions loaded: {}", allPositions.size());
+
+        List<PositionRow> positions = new ArrayList<>();
+        for (Map<String, Object> row : allPositions) {
+            try {
+                PositionRow p = new PositionRow();
+                p.id        = toLong(row.get("id"));
+                p.deviceId  = toInt(row.get("deviceid"));
+                p.fixTime   = parseDateTime(row.get("fixtime"), dbFormatter);
+                p.latitude  = toDouble(row.get("latitude"));
+                p.longitude = toDouble(row.get("longitude"));
+                p.speed     = toDouble(row.get("speed"));
+                p.course    = toDouble(row.get("course"));
+                p.altitude  = toDouble(row.get("altitude"));
+
+                String attrs = row.get("attributes") != null ? row.get("attributes").toString() : null;
+                if (attrs != null && !attrs.isBlank() && attrs.startsWith("{")) {
+                    p.odometer = extractDoubleFromJson(attrs, "odometer");
+                    if (p.odometer == 0.0) {
+                        p.odometer = extractDoubleFromJson(attrs, "totalDistance");
+                    }
+                    p.ignition = extractBooleanFromJson(attrs, "ignition");
+                }
+
+                if (p.deviceId != deviceId) continue;
+                if (p.fixTime == null)       continue;
+                if (p.fixTime.isBefore(fromDt) || p.fixTime.isAfter(toDt)) continue;
+
+                positions.add(p);
+            } catch (Exception e) {
+                LOGGER.warn("Skipping bad position row: {}", e.getMessage());
+            }
+        }
+
+        positions.sort(Comparator.comparing(p -> p.fixTime));
+        LOGGER.info("Positions after filter & sort: {}", positions.size());
+        return positions;
+    }
+
+
+
 
 }
