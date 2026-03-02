@@ -48,7 +48,7 @@ import java.util.*;
 @Path("archive")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-public class ArchiveResource extends BaseResource {
+public final class ArchiveResource extends BaseResource {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ArchiveResource.class);
 
@@ -832,16 +832,36 @@ public class ArchiveResource extends BaseResource {
         private double        odometer;
         private Boolean       ignition;
 
-        public long getId() { return id; }
-        public int getDeviceId() { return deviceId; }
-        public LocalDateTime getFixTime() { return fixTime; }
-        public double getLatitude() { return latitude; }
-        public double getLongitude() { return longitude; }
-        public double getSpeed() { return speed; }
-        public double getCourse() { return course; }
-        public double getAltitude() { return altitude; }
-        public double getOdometer() { return odometer; }
-        public Boolean getIgnition() { return ignition; }
+        public long getId() {
+            return id;
+        }
+        public int getDeviceId() {
+            return deviceId;
+        }
+        public LocalDateTime getFixTime() {
+            return fixTime;
+        }
+        public double getLatitude() {
+            return latitude;
+        }
+        public double getLongitude() {
+            return longitude;
+        }
+        public double getSpeed() {
+            return speed;
+        }
+        public double getCourse() {
+            return course;
+        }
+        public double getAltitude() {
+            return altitude;
+        }
+        public double getOdometer() {
+            return odometer;
+        }
+        public Boolean getIgnition() {
+            return ignition;
+        }
 
     }
 
