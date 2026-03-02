@@ -48,7 +48,7 @@ import java.util.*;
 @Path("archive")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-public final class ArchiveResource extends BaseResource {
+public class ArchiveResource extends BaseResource {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ArchiveResource.class);
 
@@ -820,7 +820,7 @@ public final class ArchiveResource extends BaseResource {
     }
 
 
-    private static class PositionRow {
+    private static final class PositionRow {
         private long          id;
         private int           deviceId;
         private LocalDateTime fixTime;
