@@ -93,7 +93,8 @@
     </entry>
     
     <entry key='archive.spaces.bucket'>iotrides</entry>
-    <entry key='archive.s3cmd.configFile'>C:\Users\parid\.s3cfg</entry>
+<!--    <entry key='archive.s3cmd.configFile'>C:\Users\parid\.s3cfg</entry>-->
+    <entry key='archive.s3cmd.configFile'>C:/Users/parid/AppData/Roaming/s3cmd.ini</entry>
     <entry key='archive.temp.dir'>F:/RidesIQ/parquet</entry>
     <entry key='archive.retention.months'>6</entry>
 
