@@ -215,9 +215,13 @@ public class ArchiveResource extends BaseResource {
         String                    bucketPrefix = "s3://" + bucket + "/";
 
         for (String line : lines) {
-            if (line == null || line.isBlank()) continue;
+            if (line == null || line.isBlank()) {
+                continue;
+            }
             String[] parts = line.trim().split("\\s+", 4);
-            if (parts.length < 4) continue;
+            if (parts.length < 4) {
+                continue;
+            }
             try {
                 String lastModified = parts[0] + " " + parts[1];
                 long   size         = Long.parseLong(parts[2]);
@@ -313,12 +317,18 @@ public class ArchiveResource extends BaseResource {
                         .filter(row -> {
                             String timeCol = row.containsKey("fixtime") ? "fixtime" : "eventtime";
                             Object val     = row.get(timeCol);
-                            if (val == null) return false;
+                            if (val == null) {
+                                return false;
+                            }
                             try {
                                 LocalDateTime rowDt = LocalDateTime.parse(
                                         String.valueOf(val).trim(), dbFormatter);
-                                if (finalFrom != null && rowDt.isBefore(finalFrom)) return false;
-                                if (finalTo   != null && rowDt.isAfter(finalTo))   return false;
+                                if (finalFrom != null && rowDt.isBefore(finalFrom)) {
+                                    return false;
+                                }
+                                if (finalTo   != null && rowDt.isAfter(finalTo)) {
+                                    return false;
+                                }
                                 return true;
                             } catch (Exception e) {
                                 LOGGER.warn("Could not parse time value: {}", val);
@@ -372,12 +382,16 @@ public class ArchiveResource extends BaseResource {
         LOGGER.info("Archive trips: deviceId={} from={} to={}", deviceId, from, to);
         permissionsService.checkAdmin(getUserId());
 
-        if (deviceId == null) return badRequest("'deviceId' query parameter is required");
+        if (deviceId == null) {
+            return badRequest("'deviceId' query parameter is required");
+        }
 
         LocalDateTime fromDt = parseUtcParam(from, "from");
         LocalDateTime toDt   = parseUtcParam(to,   "to");
 
-        if (!fromDt.isBefore(toDt)) return badRequest("'from' must be before 'to'");
+        if (!fromDt.isBefore(toDt)) {
+            return badRequest("'from' must be before 'to'");
+        }
 
         List<PositionRow> positions = loadPositions(deviceId, fromDt, toDt);
         if (positions.isEmpty()) {
@@ -410,12 +424,16 @@ public class ArchiveResource extends BaseResource {
         LOGGER.info("Archive stops: deviceId={} from={} to={}", deviceId, from, to);
         permissionsService.checkAdmin(getUserId());
 
-        if (deviceId == null) return badRequest("'deviceId' query parameter is required");
+        if (deviceId == null) {
+            return badRequest("'deviceId' query parameter is required");
+        }
 
         LocalDateTime fromDt = parseUtcParam(from, "from");
         LocalDateTime toDt   = parseUtcParam(to,   "to");
 
-        if (!fromDt.isBefore(toDt)) return badRequest("'from' must be before 'to'");
+        if (!fromDt.isBefore(toDt)) {
+            return badRequest("'from' must be before 'to'");
+        }
 
         List<PositionRow> positions = loadPositions(deviceId, fromDt, toDt);
         if (positions.isEmpty()) {
@@ -482,7 +500,9 @@ public class ArchiveResource extends BaseResource {
 
     private List<Map<String, Object>> detectTrips(List<PositionRow> positions, int deviceId) {
         List<Map<String, Object>> trips = new ArrayList<>();
-        if (positions.size() < 2) return trips;
+        if (positions.size() < 2) {
+            return trips;
+        }
 
         int    tripStart           = -1;
         double accumulatedDistance = 0.0;
@@ -512,7 +532,9 @@ public class ArchiveResource extends BaseResource {
                         prev.latitude, prev.longitude,
                         curr.latitude, curr.longitude);
 
-                if (curr.speed > maxSpeed) maxSpeed = curr.speed;
+                if (curr.speed > maxSpeed) {
+                    maxSpeed = curr.speed;
+                }
                 totalSpeed += curr.speed;
                 speedCount++;
 
@@ -554,7 +576,9 @@ public class ArchiveResource extends BaseResource {
 
     private List<Map<String, Object>> detectStops(List<PositionRow> positions, int deviceId) {
         List<Map<String, Object>> stops = new ArrayList<>();
-        if (positions.size() < 2) return stops;
+        if (positions.size() < 2) {
+            return stops;
+        }
 
         boolean hasIgnitionData = positions.stream().anyMatch(p -> p.ignition != null);
         int     stopStart       = -1;
@@ -563,7 +587,9 @@ public class ArchiveResource extends BaseResource {
             PositionRow curr    = positions.get(i);
             boolean     stopped = curr.speed < MIN_SPEED_KNOTS;
 
-            if (stopStart == -1 && stopped) { stopStart = i; continue; }
+            if (stopStart == -1 && stopped) {
+                stopStart = i; continue;
+            }
 
             if (stopStart != -1) {
                 boolean moving    = curr.speed >= MIN_SPEED_KNOTS;
@@ -597,7 +623,9 @@ public class ArchiveResource extends BaseResource {
                     }
 
                     stopStart = -1;
-                    if (!moving) stopStart = i;
+                    if (!moving) {
+                        stopStart = i;
+                    }
                 }
             }
         }
@@ -690,8 +718,9 @@ public class ArchiveResource extends BaseResource {
 
     private void deleteTempFile(File file) {
         if (file != null && file.exists()) {
-            try { Files.delete(file.toPath()); }
-            catch (IOException e) {
+            try {
+                Files.delete(file.toPath());
+            } catch (IOException e) {
                 LOGGER.warn("Could not delete temp file: {}", file.getAbsolutePath());
             }
         }
@@ -701,40 +730,63 @@ public class ArchiveResource extends BaseResource {
         try {
             JsonNode val = OBJECT_MAPPER.readTree(json).get(key);
             return (val != null && val.isNumber()) ? val.asDouble() : 0.0;
-        } catch (Exception e) { return 0.0; }
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
 
     private static Boolean extractBooleanFromJson(String json, String key) {
         try {
             JsonNode val = OBJECT_MAPPER.readTree(json).get(key);
             return (val != null && val.isBoolean()) ? val.asBoolean() : null;
-        } catch (Exception e) { return null; }
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static long toLong(Object o) {
-        if (o == null) return 0L;
-        if (o instanceof Number) return ((Number) o).longValue();
+        if (o == null) {
+            return 0L;
+        }
+        if (o instanceof Number) {
+            return ((Number) o).longValue();
+        }
         return Long.parseLong(o.toString().trim());
     }
 
     private static int toInt(Object o) {
-        if (o == null) return 0;
-        if (o instanceof Number) return ((Number) o).intValue();
+        if (o == null) {
+            return 0;
+        }
+        if (o instanceof Number) {
+            return ((Number) o).intValue();
+        }
         return Integer.parseInt(o.toString().trim());
     }
 
     private static double toDouble(Object o) {
-        if (o == null) return 0.0;
-        if (o instanceof Number) return ((Number) o).doubleValue();
+        if (o == null) {
+            return 0.0;
+        }
+        if (o instanceof Number) {
+            return ((Number) o).doubleValue();
+        }
         return Double.parseDouble(o.toString().trim());
     }
 
     private static LocalDateTime parseDateTime(Object o, DateTimeFormatter fmt) {
-        if (o == null) return null;
+        if (o == null) {
+            return null;
+        }
         String s = o.toString().trim();
-        if (s.isEmpty()) return null;
-        try { return LocalDateTime.parse(s, fmt); }
-        catch (Exception e) { return null; }
+        if (s.isEmpty()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(s, fmt);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
 
@@ -793,9 +845,15 @@ public class ArchiveResource extends BaseResource {
                     p.ignition = extractBooleanFromJson(attrs, "ignition");
                 }
 
-                if (p.deviceId != deviceId) continue;
-                if (p.fixTime == null)       continue;
-                if (p.fixTime.isBefore(fromDt) || p.fixTime.isAfter(toDt)) continue;
+                if (p.deviceId != deviceId) {
+                    continue;
+                }
+                if (p.fixTime == null) {
+                    continue;
+                }
+                if (p.fixTime.isBefore(fromDt) || p.fixTime.isAfter(toDt)) {
+                    continue;
+                }
 
                 positions.add(p);
             } catch (Exception e) {
