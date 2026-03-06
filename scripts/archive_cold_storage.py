@@ -176,6 +176,45 @@ def verify_upload(cfg, spaces_key: str) -> bool:
     return exists
 
 
+def verify_row_count(cfg, spaces_key: str, expected_rows: int) -> bool:
+    """Download uploaded Parquet and verify row count matches DB."""
+    bucket     = cfg.get("spaces", "bucket")
+    temp_dir   = cfg.get("spaces", "temp_dir") or "/tmp/traccar-archive"
+    local_path = os.path.join(temp_dir, f"verify_{os.path.basename(spaces_key)}")
+
+    cmd = build_s3cmd_base(cfg) + ["get", "--force",
+                                    f"s3://{bucket}/{spaces_key}",
+                                    local_path]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.warning("  [VERIFY] Could not download for row count check: %s",
+                           result.stderr.strip())
+            return False
+
+        df           = pd.read_parquet(local_path)
+        actual_rows  = len(df)
+
+        if actual_rows != expected_rows:
+            logger.error(
+                "  [VERIFY] ROW COUNT MISMATCH! DB had %d rows, Parquet has %d rows"
+                " -- skipping deletion.", expected_rows, actual_rows
+            )
+            return False
+
+        logger.info("  [VERIFY] Row count OK: DB=%d, Parquet=%d ✓",
+                    expected_rows, actual_rows)
+        return True
+
+    except Exception as e:
+        logger.error("  [VERIFY] Row count check failed: %s", e)
+        return False
+
+    finally:
+        if os.path.exists(local_path):
+            os.remove(local_path)
+
+
 def s3cmd_upload(cfg, local_file: str, bucket: str, key: str) -> bool:
     dest   = f"s3://{bucket}/{key}"
     cmd    = build_s3cmd_base(cfg) + ["put", "--acl-private", local_file, dest]
@@ -333,9 +372,14 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                 failures += 1
                 continue
 
-            # #4 fix: verify before delete
+            # #4 fix: verify file exists in Spaces
             if not verify_upload(cfg, spaces_key):
                 logger.error("  [%s] Verification failed -- skipping deletion.", table)
+                failures += 1
+                continue
+
+            if not verify_row_count(cfg, spaces_key, len(df)):
+                logger.error("  [%s] Row count mismatch -- skipping deletion.", table)
                 failures += 1
                 continue
 

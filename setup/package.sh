@@ -131,6 +131,10 @@ package_linux () {
   cp setup.sh out
   cp traccar.service out
 
+    mkdir -p out/scripts
+    cp ../scripts/archive_cold_storage.py out/scripts
+    cp traccar-archive.service out
+
   tar -xf OpenJDK*$2_linux*.tar.gz
   jlink --module-path jdk-*/jmods --add-modules java.se,jdk.charsets,jdk.crypto.ec,jdk.unsupported --output out/jre
   rm -rf jdk-*
@@ -142,6 +146,7 @@ package_linux () {
   rm traccar.run
   rm out/setup.sh
   rm out/traccar.service
+  rm -f out/traccar-archive.service
 }
 
 package_linux_64 () {

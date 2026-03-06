@@ -19,8 +19,14 @@ fi
 mv /opt/traccar/traccar.service /etc/systemd/system
 chmod 664 /etc/systemd/system/traccar.service
 
+mkdir -p /opt/traccar/scripts
+chmod +x /opt/traccar/scripts/archive_cold_storage.py
+mv /opt/traccar/traccar-archive.service /etc/systemd/system
+chmod 664 /etc/systemd/system/traccar-archive.service
+
 systemctl daemon-reload
 systemctl enable traccar.service
+systemctl enable traccar-archive.service
 
 rm /opt/traccar/setup.sh
 rm -r ../out
