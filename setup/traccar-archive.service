@@ -1,0 +1,25 @@
+[Unit]
+Description=Traccar Cold Storage Archiver
+After=network.target mysql.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/traccar/scripts
+
+ExecStart=/usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py \
+    --config /opt/traccar/conf/traccar.xml
+
+# Logging — output goes to journald (view with: journalctl -u traccar-archive)
+StandardOutput=journal
+StandardError=journal
+
+# If script exits with non-zero (partial failures), mark service as failed
+SuccessExitStatus=0
+
+# Restart on failure — but since this is oneshot, only the timer retries
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
