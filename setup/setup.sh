@@ -26,7 +26,6 @@ mkdir -p /opt/traccar/parquet
 systemctl daemon-reload
 systemctl enable traccar.service
 
-(crontab -l 2>/dev/null; echo "0 9 1 * * /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml >> /opt/traccar/logs/archive.log 2>&1") | crontab -
-
+(crontab -l 2>/dev/null | grep -v "archive_cold_storage.py"; echo "0 4 1 * * /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml >> /opt/traccar/logs/archive.log 2>&1") | crontab -
 rm /opt/traccar/setup.sh
 rm -r ../out
