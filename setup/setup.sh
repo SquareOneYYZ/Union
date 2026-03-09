@@ -21,12 +21,11 @@ chmod 664 /etc/systemd/system/traccar.service
 
 mkdir -p /opt/traccar/scripts
 chmod +x /opt/traccar/scripts/archive_cold_storage.py
-mv /opt/traccar/traccar-archive.service /etc/systemd/system
-chmod 664 /etc/systemd/system/traccar-archive.service
 
 systemctl daemon-reload
 systemctl enable traccar.service
-systemctl enable traccar-archive.service
+
+(crontab -l 2>/dev/null; echo "0 9 1 * * /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml >> /opt/traccar/logs/archive.log 2>&1") | crontab -
 
 rm /opt/traccar/setup.sh
 rm -r ../out
