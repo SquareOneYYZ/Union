@@ -21,6 +21,7 @@ chmod 664 /etc/systemd/system/traccar.service
 
 mkdir -p /opt/traccar/scripts
 chmod +x /opt/traccar/scripts/archive_cold_storage.py
+mkdir -p /opt/traccar/parquet
 
 systemctl daemon-reload
 systemctl enable traccar.service
