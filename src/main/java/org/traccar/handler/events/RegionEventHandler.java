@@ -36,6 +36,10 @@ public class RegionEventHandler extends BaseEventHandler {
     public void onPosition(Position position, Callback callback) {
         long deviceId = position.getDeviceId();
         LOGGER.debug("RegionEventHandler received position for deviceId={}", deviceId);
+        if (position.getBoolean("regionLookupFailed")) {
+            LOGGER.debug("Skipping region processing due to lookup failure for deviceId={}", deviceId);
+            return;
+        }
         String cacheKey = "region:" + deviceId;
 
         String country = position.getString(Position.KEY_COUNTRY);
@@ -95,6 +99,7 @@ public class RegionEventHandler extends BaseEventHandler {
                 regionState.getCountryExitEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering COUNTRY EXIT event: {} -> {}", exitCountry, country);
                 callback.eventDetected(regionState.getCountryExitEvent());
+                regionState.setCountryExitEvent(null);
             } else {
                 LOGGER.debug(" Skipping COUNTRY EXIT event (not in filter): {}", exitCountry);
             }
@@ -106,6 +111,7 @@ public class RegionEventHandler extends BaseEventHandler {
                 regionState.getCountryEnterEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering COUNTRY ENTER event: {}", enterCountry);
                 callback.eventDetected(regionState.getCountryEnterEvent());
+                regionState.setCountryEnterEvent(null);
             } else {
                 LOGGER.debug(" Skipping COUNTRY ENTER event (not in filter): {}", enterCountry);
             }
@@ -114,10 +120,12 @@ public class RegionEventHandler extends BaseEventHandler {
 
         if (regionState.getStateExitEvent() != null) {
             String exitState = regionState.getStateExitEvent().getString(Position.KEY_STATE);
-            if (!hasFilter || matchesRegion(linkedRegions, "state", exitState, country, null)) {
+            String exitCountry = regionState.getStateExitEvent().getString(Position.KEY_COUNTRY);
+            if (!hasFilter || matchesRegion(linkedRegions, "state", exitState, exitCountry, null)) {
                 regionState.getStateExitEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering STATE EXIT event: {} -> {}", exitState, state);
                 callback.eventDetected(regionState.getStateExitEvent());
+                regionState.setStateExitEvent(null);
             } else {
                 LOGGER.debug(" Skipping STATE EXIT event (not in filter): {}", exitState);
             }
@@ -128,6 +136,7 @@ public class RegionEventHandler extends BaseEventHandler {
                 regionState.getStateEnterEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering STATE ENTER event: {}", enterState);
                 callback.eventDetected(regionState.getStateEnterEvent());
+                regionState.setStateEnterEvent(null);
             } else {
                 LOGGER.debug(" Skipping STATE ENTER event (not in filter): {}", enterState);
             }
@@ -135,10 +144,13 @@ public class RegionEventHandler extends BaseEventHandler {
 
         if (regionState.getCityExitEvent() != null) {
             String exitCity = regionState.getCityExitEvent().getString(Position.KEY_CITY);
-            if (!hasFilter || matchesRegion(linkedRegions, "city", exitCity, country, state)) {
+            String exitCountry = regionState.getCityExitEvent().getString(Position.KEY_COUNTRY);
+            String exitState = regionState.getCityExitEvent().getString(Position.KEY_STATE);
+            if (!hasFilter || matchesRegion(linkedRegions, "city", exitCity, exitCountry, exitState)) {
                 regionState.getCityExitEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering CITY EXIT event: {} -> {}", exitCity, city);
                 callback.eventDetected(regionState.getCityExitEvent());
+                regionState.setCityExitEvent(null);
             } else {
                 LOGGER.debug(" Skipping CITY EXIT event (not in filter): {}", exitCity);
             }
@@ -149,6 +161,7 @@ public class RegionEventHandler extends BaseEventHandler {
                 regionState.getCityEnterEvent().setDeviceId(deviceId);
                 LOGGER.debug(" Triggering CITY ENTER event: {}", enterCity);
                 callback.eventDetected(regionState.getCityEnterEvent());
+                regionState.setCityEnterEvent(null);
             } else {
                 LOGGER.debug(" Skipping CITY ENTER event (not in filter): {}", enterCity);
             }
@@ -169,10 +182,16 @@ public class RegionEventHandler extends BaseEventHandler {
             }
             switch (type) {
                 case "city":
-                    return region.getCountry().equalsIgnoreCase(country)
+                    return region.getCountry() != null
+                            && region.getState() != null
+                            && country != null
+                            && state != null
+                            && region.getCountry().equalsIgnoreCase(country)
                             && region.getState().equalsIgnoreCase(state);
                 case "state":
-                    return region.getCountry().equalsIgnoreCase(country);
+                    return region.getCountry() != null
+                            && country != null
+                            && region.getCountry().equalsIgnoreCase(country);
                 default: // country
                     return true;
             }

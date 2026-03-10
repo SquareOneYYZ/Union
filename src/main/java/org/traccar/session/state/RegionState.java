@@ -51,6 +51,7 @@ public class RegionState {
             if (lastState != null) {
                 stateExitEvent = new Event(Event.TYPE_REGION_STATE_EXIT, position);
                 stateExitEvent.set(Position.KEY_STATE, lastState);
+                stateExitEvent.set(Position.KEY_COUNTRY, lastCountry);
             }
             if (state != null) {
                 stateEnterEvent = new Event(Event.TYPE_REGION_STATE_ENTER, position);
@@ -63,6 +64,8 @@ public class RegionState {
             if (lastCity != null) {
                 cityExitEvent = new Event(Event.TYPE_REGION_CITY_EXIT, position);
                 cityExitEvent.set(Position.KEY_CITY, lastCity);
+                cityExitEvent.set(Position.KEY_COUNTRY, lastCountry);
+                cityExitEvent.set(Position.KEY_STATE, lastState);
             }
             if (city != null) {
                 cityEnterEvent = new Event(Event.TYPE_REGION_CITY_ENTER, position);
@@ -77,26 +80,59 @@ public class RegionState {
         return enterEvent;
     }
 
+    public Event setEnterEvent(Event enterEvent) {
+        this.enterEvent = enterEvent;
+        return enterEvent;
+    }
+
     public Event getExitEvent() {
+        return exitEvent;
+    }
+    public Event setExitEvent(Event exitEvent) {
+        this.exitEvent = exitEvent;
         return exitEvent;
     }
 
     public Event getCountryEnterEvent() {
         return countryEnterEvent;
     }
+    public Event setCountryEnterEvent(Event countryEnterEvent) {
+        this.countryEnterEvent = countryEnterEvent;
+        return countryEnterEvent;
+    }
     public Event getCountryExitEvent() {
+        return countryExitEvent;
+    }
+    public Event setCountryExitEvent(Event countryExitEvent) {
+        this.countryExitEvent = countryExitEvent;
         return countryExitEvent;
     }
     public Event getStateEnterEvent() {
         return stateEnterEvent;
     }
+    public Event setStateEnterEvent(Event stateEnterEvent) {
+        this.stateEnterEvent = stateEnterEvent;
+        return stateEnterEvent;
+    }
     public Event getStateExitEvent() {
+        return stateExitEvent;
+    }
+    public Event setStateExitEvent(Event stateExitEvent) {
+        this.stateExitEvent = stateExitEvent;
         return stateExitEvent;
     }
     public Event getCityEnterEvent() {
         return cityEnterEvent;
     }
+    public Event setCityEnterEvent(Event cityEnterEvent) {
+        this.cityEnterEvent = cityEnterEvent;
+        return cityEnterEvent;
+    }
     public Event getCityExitEvent() {
+        return cityExitEvent;
+    }
+    public Event setCityExitEvent(Event cityExitEvent) {
+        this.cityExitEvent = cityExitEvent;
         return cityExitEvent;
     }
 

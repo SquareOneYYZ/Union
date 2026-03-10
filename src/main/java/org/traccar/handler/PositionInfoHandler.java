@@ -54,6 +54,7 @@ public class PositionInfoHandler extends BasePositionHandler {
                         @Override
                         public void onFailure(Throwable e) {
                             LOGGER.warn("LocationIQ region query failed", e);
+                            position.set("regionLookupFailed", true);
                             if (pendingCallbacks.decrementAndGet() == 0) {
                                 callback.processed(false);
                             }
