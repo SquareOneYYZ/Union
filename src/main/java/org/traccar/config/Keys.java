@@ -2066,7 +2066,7 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
     public static final ConfigKey<Integer> REGION_CACHE_ROUNDING_DECIMALS = new IntegerConfigKey(
             "region.cache.roundingDecimals",
             List.of(KeyType.CONFIG),
-            4);
+            2);
 
 
 

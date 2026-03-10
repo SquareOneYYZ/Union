@@ -32,7 +32,7 @@ public class LocationIQRegionProvider implements RegionProvider {
 
         final String baseUrl = config.getString(Keys.REGION_PROVIDER_URL, url);
         final String apiKey = config.getString(Keys.GEOCODER_KEY);
-        this.roundingDecimals = config.getInteger(Keys.REGION_CACHE_ROUNDING_DECIMALS, 3);
+        this.roundingDecimals = config.getInteger(Keys.REGION_CACHE_ROUNDING_DECIMALS, 2);
         this.url = baseUrl + "?key=" + apiKey + "&lat=%f&lon=%f&format=json";
         LOGGER.info("LocationIQRegionProvider initialized with URL: {}", baseUrl);
     }
