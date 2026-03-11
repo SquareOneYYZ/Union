@@ -2052,6 +2052,9 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             List.of(KeyType.CONFIG));
 
 
-
+    public static final ConfigKey<Boolean> USER_ONBOARDING_ENABLED = new BooleanConfigKey(
+            "userOnboarding.enabled",
+            List.of(KeyType.CONFIG));
 
 }
+

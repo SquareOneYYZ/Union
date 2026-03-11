@@ -81,10 +81,10 @@ public class PasswordResource extends BaseResource {
                 new Columns.All(), new Condition.Equals("id", userId)));
         if (user != null) {
             user.setPassword(password);
-            // Clear temporary flag when user sets their password
-            user.setTemporary(false);
+            // Clear onboarding reset flag when user sets their password
+            user.getAttributes().remove("mustResetPassword");
             storage.updateObject(user, new Request(
-                    new Columns.Include("hashedPassword", "salt", "temporary"),
+                    new Columns.Include("hashedPassword", "salt", "attributes"),
                     new Condition.Equals("id", userId)));
             return Response.ok().build();
         }

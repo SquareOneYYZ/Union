@@ -24,7 +24,6 @@ import org.traccar.api.BaseObjectResource;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.helper.LogAction;
-import org.traccar.helper.PasswordGenerator;
 import org.traccar.helper.SessionHelper;
 import org.traccar.helper.TotpHelper;
 import org.traccar.helper.model.UserUtil;
@@ -114,7 +113,7 @@ public class UserResource extends BaseObjectResource<User> {
         if (currentUser == null || !currentUser.getAdministrator()) {
             permissionsService.checkUserUpdate(getUserId(), new User(), entity);
             if (isSubaccountAdmin) {
-                LOGGER.debug("[USER_CREATION] Subaccount admin detected - will generate credentials and send email");
+                LOGGER.debug("[USER_CREATION] Subaccount admin detected - checking onboarding flag");
                 int userLimit = currentUser.getUserLimit();
                 if (userLimit > 0) {
                     int userCount = storage.getObjects(baseClass, new Request(
@@ -128,20 +127,21 @@ public class UserResource extends BaseObjectResource<User> {
                         throw new SecurityException("Manager user limit reached");
                     }
                 }
-                LOGGER.debug("[USER_CREATION] Generating temporary password for user: {}", entity.getEmail());
-                temporaryPassword = PasswordGenerator.generate();
-                entity.setPassword(temporaryPassword);
-                LOGGER.debug("[USER_CREATION] Temporary password generated successfully");
-                if (entity.getTotpKey() == null) {
-                    LOGGER.debug("[USER_CREATION] Generating TOTP secret for user: {}", entity.getEmail());
-                    String totpSecret = new GoogleAuthenticator().createCredentials().getKey();
-                    entity.setTotpKey(totpSecret);
-                    LOGGER.debug("[USER_CREATION] TOTP secret generated successfully");
+                if (config.getBoolean(Keys.USER_ONBOARDING_ENABLED)) {
+                    LOGGER.debug("[USER_CREATION] userOnboarding.enabled=true — generating credentials");
+                    if (entity.getTotpKey() == null) {
+                        LOGGER.debug("[USER_CREATION] Generating TOTP secret for user: {}", entity.getEmail());
+                        String totpSecret = new GoogleAuthenticator().createCredentials().getKey();
+                        entity.setTotpKey(totpSecret);
+                        LOGGER.debug("[USER_CREATION] TOTP secret generated successfully");
+                    } else {
+                        LOGGER.debug("[USER_CREATION] TOTP secret already provided, skipping generation");
+                    }
+                    entity.getAttributes().put("mustResetPassword", true);
+                    LOGGER.debug("[USER_CREATION] User marked mustResetPassword=true in attributes map");
                 } else {
-                    LOGGER.debug("[USER_CREATION] TOTP secret already provided, skipping generation");
+                    LOGGER.debug("[USER_CREATION] userOnboarding.enabled=false — skipping credential generation");
                 }
-                entity.setTemporary(true);
-                LOGGER.debug("[USER_CREATION] User marked as temporary (must reset password on first login)");
             } else {
                 if (UserUtil.isEmpty(storage)) {
                     entity.setAdministrator(true);
@@ -159,7 +159,7 @@ public class UserResource extends BaseObjectResource<User> {
         LOGGER.debug("[USER_CREATION] Saving user to database: {}", entity.getEmail());
         entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
         storage.updateObject(entity, new Request(
-                new Columns.Include("hashedPassword", "salt", "totpKey", "temporary"),
+                new Columns.Include("hashedPassword", "salt", "totpKey"),
                 new Condition.Equals("id", entity.getId())));
         LOGGER.debug("[USER_CREATION] User saved successfully with ID: {}", entity.getId());
 
@@ -170,25 +170,25 @@ public class UserResource extends BaseObjectResource<User> {
                     getUserId(), entity.getId());
             storage.addPermission(new Permission(User.class, getUserId(), ManagedUser.class, entity.getId()));
             LogAction.link(getUserId(), User.class, getUserId(), ManagedUser.class, entity.getId());
-            if (temporaryPassword != null && entity.getEmail() != null && !entity.getEmail().isEmpty()) {
+            if (entity.getEmail() != null && !entity.getEmail().isEmpty()) {
                 LOGGER.debug("[EMAIL_SENDING] Preparing to send onboarding email to: {}", entity.getEmail());
                 try {
-                    sendOnboardingEmail(entity, temporaryPassword);
+                    sendOnboardingEmail(entity);
                     LOGGER.debug("[EMAIL_SENDING] Onboarding email sent successfully to: {}", entity.getEmail());
                     LogAction.emailDispatched(getUserId(), "userOnboarding", entity.getEmail());
                 } catch (Exception e) {
                     LOGGER.error("[EMAIL_SENDING] Failed to send onboarding email to user: " + entity.getEmail(), e);
                 }
             } else {
-                LOGGER.warn("[EMAIL_SENDING] Skipping email - temporaryPassword={}, email={}",
-                    (temporaryPassword != null), entity.getEmail());
+                LOGGER.warn("[EMAIL_SENDING] Skipping email - email={}", entity.getEmail());
             }
         } else {
             LOGGER.debug("[USER_CREATION] Not a subaccount admin - skipping email sending");
         }
         return Response.ok(entity).build();
     }
-    private void sendOnboardingEmail(User user, String temporaryPassword) throws Exception {
+
+    private void sendOnboardingEmail(User user) throws Exception {
         LOGGER.debug("[EMAIL_TEMPLATE] Preparing email template for user: {}", user.getEmail());
         var velocityContext = textTemplateFormatter.prepareContext(permissionsService.getServer(), user);
         LOGGER.debug("[EMAIL_TEMPLATE] Velocity context prepared with user and server details");
@@ -200,7 +200,7 @@ public class UserResource extends BaseObjectResource<User> {
             "RidesIQ"
         );
         velocityContext.put("totpQrCodeUrl", totpQrCodeUrl);
-        LOGGER.debug("[EMAIL_TEMPLATE] TOTP QR code URL generated: {}", totpQrCodeUrl);
+        LOGGER.debug("[EMAIL_TEMPLATE] TOTP QR code data URI generated (length={})", totpQrCodeUrl.length());
         LOGGER.debug("[EMAIL_TEMPLATE] Formatting email message using userOnboarding template");
         var fullMessage = textTemplateFormatter.formatMessage(velocityContext, "userOnboarding", "full");
         LOGGER.debug("[EMAIL_TEMPLATE] Email subject: {}", fullMessage.getSubject());

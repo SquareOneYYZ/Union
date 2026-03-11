@@ -84,6 +84,7 @@
     <entry key='dc600.livestream.ip'>143.198.33.215</entry>
     <entry key='dc600.livestream.port'>9101</entry>
 
-
+    <!-- Feature flag: set to false to disable onboarding email for subaccount admin user creation -->
+    <entry key='userOnboarding.enabled'>true</entry>
 
 </properties>

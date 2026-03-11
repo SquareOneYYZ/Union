@@ -15,9 +15,22 @@
  */
 package org.traccar.helper;
 
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
+import com.google.zxing.WriterException;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 public final class TotpHelper {
 
@@ -26,17 +39,25 @@ public final class TotpHelper {
 
     public static String generateQrCodeUrl(String accountName, String secret, String issuer) {
         try {
-            String encodedAccount = URLEncoder.encode(accountName, StandardCharsets.UTF_8.name());
-            String encodedIssuer = URLEncoder.encode(issuer, StandardCharsets.UTF_8.name());
-            return String.format(
-         "https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=otpauth://totp/%s:%s?secret=%s&issuer=%s",
-                encodedIssuer,
-                encodedAccount,
-                secret,
-                encodedIssuer
-            );
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException("UTF-8 encoding not supported", e);
+            String provisioningUri = generateProvisioningUri(accountName, secret, issuer);
+
+            Map<EncodeHintType, Object> hints = new HashMap<>();
+            hints.put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.M);
+            hints.put(EncodeHintType.MARGIN, 1);
+            hints.put(EncodeHintType.CHARACTER_SET, "UTF-8");
+
+            QRCodeWriter writer = new QRCodeWriter();
+            BitMatrix bitMatrix = writer.encode(provisioningUri, BarcodeFormat.QR_CODE, 200, 200, hints);
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            MatrixToImageWriter.writeToStream(bitMatrix, "PNG", outputStream);
+            byte[] pngBytes = outputStream.toByteArray();
+
+            String base64 = Base64.getEncoder().encodeToString(pngBytes);
+            return "data:image/png;base64," + base64;
+
+        } catch (WriterException | IOException e) {
+            throw new RuntimeException("Failed to generate QR code", e);
         }
     }
 
