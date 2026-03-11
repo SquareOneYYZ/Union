@@ -67,6 +67,7 @@ public class Event extends Message {
 //    public static final String TYPE_REGION_CITY_ENTER = "deviceRegionCityEnter";
 //    public static final String TYPE_REGION_CITY_EXIT = "deviceRegionCityExit";
     public static final String TYPE_DEVICE_CUSTOM_TOLL = "deviceCustomToll";
+    public static final String TYPE_SPEED_CAMERA = "speedCamera";
 //
 //
 

@@ -86,5 +86,15 @@
 
     <!-- Feature flag: set to false to disable onboarding email for subaccount admin user creation -->
     <entry key='userOnboarding.enabled'>true</entry>
+    <entry key='event.speedCamera.highwayTypes'>
+        speed_camera,motorway_link,motorway,primary,secondary_link.bus_stop,crossing
+    </entry>
+
+    <entry key='event.speedCamera.enforcementTypes'>
+        maxspeed,speed
+    </entry>
+
+
+
 
 </properties>

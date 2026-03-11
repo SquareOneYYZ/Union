@@ -23,6 +23,7 @@ import org.traccar.model.Position;
 import org.traccar.model.Report;
 import org.traccar.model.UserRestrictions;
 import org.traccar.reports.CombinedReportProvider;
+import org.traccar.reports.DeviceGeofenceDistanceReportProvider;
 import org.traccar.reports.DevicesReportProvider;
 import org.traccar.reports.EventsReportProvider;
 import org.traccar.reports.RouteReportProvider;
@@ -83,6 +84,9 @@ public class ReportResource extends SimpleObjectResource<Report> {
 
     @Inject
     private ReportMailer reportMailer;
+
+    @Inject
+    private DeviceGeofenceDistanceReportProvider deviceGeofenceDistanceReportProvider;
 
     public ReportResource() {
         super(Report.class, "description");
@@ -343,6 +347,35 @@ public class ReportResource extends SimpleObjectResource<Report> {
             devicesReportProvider.getExcel(stream, getUserId(),
                     deviceIds, groupIds, model, status, name, identifier, vin);
         });
+    }
+
+    @Path("devicegeofencedistances")
+    @GET
+    @Produces(EXCEL)
+    public Response getDeviceGeofenceDistancesExcel(
+            @QueryParam("deviceId") long deviceId,
+            @QueryParam("geofenceId") long geofenceId,
+            @QueryParam("from") Date from,
+            @QueryParam("to") Date to,
+            @QueryParam("mail") boolean mail) throws StorageException {
+        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+        return executeReport(getUserId(), mail, stream -> {
+            List<Long> deviceIds = deviceId > 0 ? List.of(deviceId) : List.of();
+            LogAction.report(getUserId(), mail, "devicegeofencedistances", from, to, deviceIds, List.of());
+            deviceGeofenceDistanceReportProvider.getExcel(stream, getUserId(), deviceId, geofenceId, from, to);
+        });
+    }
+
+    @Path("devicegeofencedistances/{type:xlsx|mail}")
+    @GET
+    @Produces(EXCEL)
+    public Response getDeviceGeofenceDistancesExcel(
+            @QueryParam("deviceId") long deviceId,
+            @QueryParam("geofenceId") long geofenceId,
+            @QueryParam("from") Date from,
+            @QueryParam("to") Date to,
+            @PathParam("type") String type) throws StorageException {
+        return getDeviceGeofenceDistancesExcel(deviceId, geofenceId, from, to, type.equals("mail"));
     }
 
 }

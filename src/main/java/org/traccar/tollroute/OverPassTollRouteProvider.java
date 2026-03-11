@@ -38,7 +38,10 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
 //        final String baseurl = "https://overpass-api.de/api/interpreter";
         this.accuracy = config.getInteger(Keys.TOLL_ROUTE_ACCURACY);
         this.roundingDecimals = config.getInteger(Keys.TOLL_ROUTE_ROUNDING_DECIMALS);
-        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
+//        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
+        //for speeding camera
+        this.url = baseurl + "?data=[out:json];(way(around:" + accuracy + ",%1$f,%2$f);"
+                + "node(around:100,%1$f,%2$f););out%%20tags;";
        //for region
 //        this.url = baseurl + "?data=[out:json];is_in(%f,%f);out%%20tags;";
 
@@ -61,7 +64,9 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                             cached.getSurface(),
                             cached.getCountry(),
                             cached.getState(),
-                            cached.getCity()
+                            cached.getCity(),
+                            cached.getHighway(),
+                            cached.getEnforcement()
                     );
                     LOGGER.debug("Cache hit. Restored region: country={}, state={}, city={}",
                             cached.getCountry(), cached.getState(), cached.getCity());
@@ -124,6 +129,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             String country = null;
             String state = null;
             String city = null;
+            String highway = null;
+            String enforcement = null;
 
             for (int i = 0; i < elements.size(); i++) {
                 JsonObject element = elements.getJsonObject(i);
@@ -137,7 +144,6 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                 String elementName = tags.containsKey("name") ? tags.getString("name") : null;
                 String adminLevel = tags.containsKey("admin_level") ? tags.getString("admin_level") : null;
 
-                // Country detection (admin_level=2)
                 if ("2".equals(adminLevel) && country == null) {
                     country = elementName;
                     LOGGER.debug("Found country: {}", country);
@@ -150,10 +156,24 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     city = elementName;
                     LOGGER.debug("Found city: {}", city);
                 }
-                // Collect surface if available
                 if (surface == null && tags.containsKey("surface")) {
                     surface = tags.getString("surface");
                     LOGGER.debug("Overpass returned surface: " + surface);
+                }
+                if (tags.containsKey("highway")) {
+                    String currentHighway = tags.getString("highway");
+                    if (highway == null || currentHighway.equalsIgnoreCase("speed_camera")) {
+                        highway = currentHighway;
+                        LOGGER.debug("Overpass returned highway tag: {}", highway);
+                    }
+                }
+                if (tags.containsKey("enforcement")) {
+                    String currentEnforcement = tags.getString("enforcement");
+                    if (enforcement == null || currentEnforcement.equalsIgnoreCase("maxspeed")
+                            || currentEnforcement.equalsIgnoreCase("speed")) {
+                        enforcement = currentEnforcement;
+                        LOGGER.debug("Overpass returned enforcement tag: {}", enforcement);
+                    }
                 }
                 if (tags.containsKey("addr:country")) {
                     country = tags.getString("addr:country");
@@ -175,7 +195,6 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                 }
 
 
-                // Toll-specific check
                 if (!isToll && tags.containsKey("toll") && determineToll(tags.getString("toll"))) {
                     isToll = true;
                     LOGGER.debug(" Overpass returned toll: " + isToll);
@@ -214,9 +233,10 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     break;
                 }
             }
-            return new TollData(isToll, ref, name, surface, country, state, city);
+            return new TollData(isToll, ref, name, surface, country, state, city, highway, enforcement);
         } else {
-            return new TollData(false, null, null, null, null, null, null);
+            return new TollData(false, null, null, null, null, null,
+                    null, null, null);
         }
     }
 
@@ -229,17 +249,17 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
                     tollData.getSurface(),
                     tollData.getCountry(),
                     tollData.getState(),
-                    tollData.getCity()
+                    tollData.getCity(),
+                    tollData.getHighway(),
+                    tollData.getEnforcement()
             );
 
             String jsonData = objectMapper.writeValueAsString(cached);
-            // Set with TTL (24 hours)
             redisCache.setWithTTL(cacheKey, jsonData, CACHE_TTL_SECONDS);
 
             LOGGER.debug("Cached toll data for key: " + cacheKey);
         } catch (Exception e) {
             LOGGER.debug("Failed to cache toll data: " + e.getMessage());
-            // Don't fail the whole operation if caching fails
         }
     }
 
@@ -274,11 +294,17 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         @JsonProperty("city")
         private String city;
 
+        @JsonProperty("highway")
+        private String highway;
+
+        @JsonProperty("enforcement")
+        private String enforcement;
+
         // Default constructor for Jackson
         private CachedTollData() { }
 
         private CachedTollData(Boolean toll, String ref, String name, String surface,
-                               String country, String state, String city) {
+                               String country, String state, String city, String highway, String enforcement) {
             this.toll = toll;
             this.ref = ref;
             this.name = name;
@@ -286,6 +312,8 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
             this.country = country;
             this.state = state;
             this.city = city;
+            this.highway = highway;
+            this.enforcement = enforcement;
         }
 
         Boolean getToll() {
@@ -308,6 +336,12 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         }
         String getCity() {
             return city;
+        }
+        String getHighway() {
+            return highway;
+        }
+        String getEnforcement() {
+            return enforcement;
         }
 
     }

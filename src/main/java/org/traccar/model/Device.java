@@ -308,4 +308,5 @@ public class Device extends GroupedModel implements Disableable, Schedulable {
         this.tollrouteTime = tollrouteTime;
     }
 
+
 }

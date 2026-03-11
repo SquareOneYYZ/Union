@@ -202,7 +202,8 @@ public class TeltonikaProtocolDecoder extends BaseProtocolDecoder {
         register(2, null, (p, b) -> p.set(Position.PREFIX_IN + 2, b.readUnsignedByte() > 0));
         register(3, null, (p, b) -> p.set(Position.PREFIX_IN + 3, b.readUnsignedByte() > 0));
         register(4, null, (p, b) -> p.set(Position.PREFIX_IN + 4, b.readUnsignedByte() > 0));
-        register(9, fmbXXX, (p, b) -> p.set(Position.PREFIX_ADC + 1, b.readUnsignedShort() * 0.001));
+        register(6, null, (p, b) -> p.set(Position.PREFIX_ADC + 2, b.readUnsignedShort() * 0.001));
+        register(9, null, (p, b) -> p.set(Position.PREFIX_ADC + 1, b.readUnsignedShort() * 0.001));
         register(10, fmbXXX, (p, b) -> p.set(Position.PREFIX_ADC + 2, b.readUnsignedShort() * 0.001));
         register(11, fmbXXX, (p, b) -> p.set(Position.KEY_ICCID, String.valueOf(b.readLong())));
         register(12, fmbXXX, (p, b) -> p.set(Position.KEY_FUEL_USED, b.readUnsignedInt() * 0.001));
@@ -212,27 +213,32 @@ public class TeltonikaProtocolDecoder extends BaseProtocolDecoder {
         register(18, null, (p, b) -> p.set("axisY", b.readShort()));
         register(19, null, (p, b) -> p.set("axisZ", b.readShort()));
         register(21, null, (p, b) -> p.set(Position.KEY_RSSI, b.readUnsignedByte()));
-        register(24, fmbXXX, (p, b) -> p.setSpeed(UnitsConverter.knotsFromKph(b.readUnsignedShort())));
+        register(24, null, (p, b) -> p.setSpeed(UnitsConverter.knotsFromKph(b.readUnsignedShort())));
         register(25, null, (p, b) -> p.set("bleTemp1", b.readShort() * 0.01));
         register(26, null, (p, b) -> p.set("bleTemp2", b.readShort() * 0.01));
         register(27, null, (p, b) -> p.set("bleTemp3", b.readShort() * 0.01));
         register(28, null, (p, b) -> p.set("bleTemp4", b.readShort() * 0.01));
-        register(30, fmbXXX, (p, b) -> p.set("faultCount", b.readUnsignedByte()));
-        register(32, fmbXXX, (p, b) -> p.set(Position.KEY_COOLANT_TEMP, b.readByte()));
+        register(30, null, (p, b) -> p.set("dtcCount", b.readUnsignedByte()));
+        register(31, null, (p, b) -> p.set(Position.KEY_ENGINE_LOAD, b.readUnsignedByte()));
+        register(32, null, (p, b) -> p.set(Position.KEY_COOLANT_TEMP, b.readByte()));
+        register(36, null, (p, b) -> p.set(Position.KEY_RPM, b.readUnsignedShort()));
+        register(37, null, (p, b) -> p.set(Position.KEY_OBD_SPEED, b.readUnsignedByte()));
+        register(48, null, (p, b) -> p.set(Position.KEY_FUEL_LEVEL, b.readUnsignedByte()));
         register(66, null, (p, b) -> p.set(Position.KEY_POWER, b.readUnsignedShort() * 0.001));
         register(67, null, (p, b) -> p.set(Position.KEY_BATTERY, b.readUnsignedShort() * 0.001));
-        register(68, fmbXXX, (p, b) -> p.set("batteryCurrent", b.readUnsignedShort() * 0.001));
-        register(72, fmbXXX, (p, b) -> p.set(Position.PREFIX_TEMP + 1, b.readInt() * 0.1));
-        register(73, fmbXXX, (p, b) -> p.set(Position.PREFIX_TEMP + 2, b.readInt() * 0.1));
-        register(74, fmbXXX, (p, b) -> p.set(Position.PREFIX_TEMP + 3, b.readInt() * 0.1));
-        register(75, fmbXXX, (p, b) -> p.set(Position.PREFIX_TEMP + 4, b.readInt() * 0.1));
+        register(68, null, (p, b) -> p.set("batteryCurrent", b.readUnsignedShort() * 0.001));
+        register(69, null, (p, b) -> p.set("gnssStatus", b.readUnsignedByte()));
+        register(72, null, (p, b) -> p.set(Position.PREFIX_TEMP + 1, b.readInt() * 0.1));
+        register(73, null, (p, b) -> p.set(Position.PREFIX_TEMP + 2, b.readInt() * 0.1));
+        register(74, null, (p, b) -> p.set(Position.PREFIX_TEMP + 3, b.readInt() * 0.1));
+        register(75, null, (p, b) -> p.set(Position.PREFIX_TEMP + 4, b.readInt() * 0.1));
         register(78, null, (p, b) -> {
             long driverUniqueId = b.readLongLE();
             if (driverUniqueId != 0) {
                 p.set(Position.KEY_DRIVER_UNIQUE_ID, String.format("%016X", driverUniqueId));
             }
         });
-        register(80, fmbXXX, (p, b) -> p.set("dataMode", b.readUnsignedByte()));
+        register(80, null, (p, b) -> p.set("dataMode", b.readUnsignedByte()));
         register(81, fmbXXX, (p, b) -> p.set(Position.KEY_OBD_SPEED, b.readUnsignedByte()));
         register(82, fmbXXX, (p, b) -> p.set(Position.KEY_THROTTLE, b.readUnsignedByte()));
         register(83, fmbXXX, (p, b) -> p.set(Position.KEY_FUEL_USED, b.readUnsignedInt() * 0.1));
@@ -252,9 +258,9 @@ public class TeltonikaProtocolDecoder extends BaseProtocolDecoder {
         register(181, null, (p, b) -> p.set(Position.KEY_PDOP, b.readUnsignedShort() * 0.1));
         register(182, null, (p, b) -> p.set(Position.KEY_HDOP, b.readUnsignedShort() * 0.1));
         register(199, null, (p, b) -> p.set(Position.KEY_ODOMETER_TRIP, b.readUnsignedInt()));
-        register(200, fmbXXX, (p, b) -> p.set("sleepMode", b.readUnsignedByte()));
-        register(205, fmbXXX, (p, b) -> p.set("cid2g", b.readUnsignedShort()));
-        register(206, fmbXXX, (p, b) -> p.set("lac", b.readUnsignedShort()));
+        register(200, null, (p, b) -> p.set("sleepMode", b.readUnsignedByte()));
+        register(205, null, (p, b) -> p.set("gsmCellId", b.readUnsignedShort()));
+        register(206, null, (p, b) -> p.set("gsmAreaCode", b.readUnsignedShort()));
         register(232, fmbXXX, (p, b) -> p.set("cngStatus", b.readUnsignedByte() > 0));
         register(233, fmbXXX, (p, b) -> p.set("cngUsed", b.readUnsignedInt() * 0.1));
         register(234, fmbXXX, (p, b) -> p.set("cngLevel", b.readUnsignedShort()));
@@ -262,22 +268,24 @@ public class TeltonikaProtocolDecoder extends BaseProtocolDecoder {
         register(236, null, (p, b) -> {
             p.addAlarm(b.readUnsignedByte() > 0 ? Position.ALARM_GENERAL : null);
         });
+        register(237, null, (p, b) -> p.set("networkType", b.readUnsignedByte()));
         register(239, null, (p, b) -> p.set(Position.KEY_IGNITION, b.readUnsignedByte() > 0));
         register(240, null, (p, b) -> p.set(Position.KEY_MOTION, b.readUnsignedByte() > 0));
         register(241, null, (p, b) -> p.set(Position.KEY_OPERATOR, b.readUnsignedInt()));
-        register(246, fmbXXX, (p, b) -> {
+        register(246, null, (p, b) -> {
             p.addAlarm(b.readUnsignedByte() > 0 ? Position.ALARM_TOW : null);
         });
-        register(247, fmbXXX, (p, b) -> {
+        register(247, null, (p, b) -> {
             p.addAlarm(b.readUnsignedByte() > 0 ? Position.ALARM_ACCIDENT : null);
         });
-        register(249, fmbXXX, (p, b) -> {
+        register(249, null, (p, b) -> {
             p.addAlarm(b.readUnsignedByte() > 0 ? Position.ALARM_JAMMING : null);
         });
-        register(251, fmbXXX, (p, b) -> {
+        register(250, null, (p, b) -> p.set("trip", b.readUnsignedByte()));
+        register(251, null, (p, b) -> {
             p.addAlarm(b.readUnsignedByte() > 0 ? Position.ALARM_IDLE : null);
         });
-        register(252, fmbXXX, (p, b) -> {
+        register(252, null, (p, b) -> {
             p.addAlarm(b.readUnsignedByte() > 0 ? Position.ALARM_POWER_CUT : null);
         });
         register(253, null, (p, b) -> {
@@ -287,7 +295,10 @@ public class TeltonikaProtocolDecoder extends BaseProtocolDecoder {
                 case 3 -> p.addAlarm(Position.ALARM_CORNERING);
             }
         });
-        register(636, fmbXXX, (p, b) -> p.set("cid4g", b.readUnsignedInt()));
+        register(254, null, (p, b) -> p.set("greenDrivingValue", b.readUnsignedByte()));
+        register(255, null, (p, b) -> p.set("overSpeeding", b.readUnsignedByte()));
+        register(263, null, (p, b) -> p.set("btStatus", b.readUnsignedByte()));
+        register(636, null, (p, b) -> p.set("gsmCellId4g", b.readUnsignedInt()));
         register(662, fmbXXX, (p, b) -> p.set(Position.KEY_DOOR, b.readUnsignedByte() > 0));
         register(10800, fmbXXX, (p, b) -> p.set("eyeTemp1", b.readShort() / 100.0));
         register(10801, fmbXXX, (p, b) -> p.set("eyeTemp2", b.readShort() / 100.0));
@@ -361,16 +372,16 @@ public class TeltonikaProtocolDecoder extends BaseProtocolDecoder {
                 position.setNetwork(network);
             }
         } else {
-            Integer cid2g = position.removeInteger("cid2g");
-            Long cid4g = position.removeLong("cid4g");
-            Integer lac = position.removeInteger("lac");
-            if (lac != null && (cid2g != null || cid4g != null)) {
+            Integer gsmCellId = position.removeInteger("gsmCellId");
+            Long gsmCellId4g = position.removeLong("gsmCellId4g");
+            Integer gsmAreaCode = position.removeInteger("gsmAreaCode");
+            if (gsmAreaCode != null && (gsmCellId != null || gsmCellId4g != null)) {
                 Network network = new Network();
                 CellTower cellTower;
-                if (cid2g != null) {
-                    cellTower = CellTower.fromLacCid(getConfig(), lac, cid2g);
+                if (gsmCellId != null) {
+                    cellTower = CellTower.fromLacCid(getConfig(), gsmAreaCode, gsmCellId);
                 } else {
-                    cellTower = CellTower.fromLacCid(getConfig(), lac, cid4g);
+                    cellTower = CellTower.fromLacCid(getConfig(), gsmAreaCode, gsmCellId4g);
                     network.setRadioType("lte");
                 }
                 long operator = position.getInteger(Position.KEY_OPERATOR);
