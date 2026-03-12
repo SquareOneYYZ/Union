@@ -6,6 +6,7 @@ import org.traccar.api.BaseResource;
 import org.traccar.helper.LogAction;
 import org.traccar.model.*;
 import org.traccar.reports.DayNightKmReportProvider;
+import org.traccar.reports.UtilizationReportProvider;
 import org.traccar.reports.WeeklyKmByGroupReportProvider;
 import org.traccar.reports.model.*;
 import org.traccar.storage.StorageException;
@@ -31,6 +32,11 @@ public class DashboardResource extends BaseResource {
 
     @Inject
     private DayNightKmReportProvider dayNightKmReportProvider;
+
+    @Inject
+    private UtilizationReportProvider utilizationReportProvider;
+
+
 
     @Path("weeklykm")
     @GET
@@ -326,6 +332,23 @@ public class DashboardResource extends BaseResource {
         ));
 
         return result;
+    }
+
+
+
+
+    @Path("utilization")
+    @GET
+    public UtilizationResponse  getUtilization(
+            @QueryParam("deviceId") List<Long> deviceIds,
+            @QueryParam("groupId") List<Long> groupIds,
+            @QueryParam("from") Date from,
+            @QueryParam("to") Date to) throws StorageException {
+
+        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+        LogAction.report(getUserId(), false, "utilization", from, to, deviceIds, groupIds);
+        return utilizationReportProvider.getUtilization(
+                getUserId(), deviceIds, groupIds, from, to);
     }
 
 
