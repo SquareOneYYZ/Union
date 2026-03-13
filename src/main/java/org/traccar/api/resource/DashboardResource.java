@@ -1,6 +1,7 @@
 
 package org.traccar.api.resource;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.*;
 import org.traccar.api.BaseResource;
 import org.traccar.helper.LogAction;
@@ -10,6 +11,7 @@ import org.traccar.reports.UtilizationReportProvider;
 import org.traccar.reports.WeeklyKmByGroupReportProvider;
 import org.traccar.reports.model.*;
 import org.traccar.storage.StorageException;
+import org.traccar.storage.localCache.RedisCache;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
@@ -27,6 +29,8 @@ import java.util.stream.Stream;
 @Consumes(MediaType.APPLICATION_JSON)
 public class DashboardResource extends BaseResource {
 
+    private static final int TTL = 86400;
+
     @Inject
     private WeeklyKmByGroupReportProvider weeklyKmByGroupReportProvider;
 
@@ -36,7 +40,11 @@ public class DashboardResource extends BaseResource {
     @Inject
     private UtilizationReportProvider utilizationReportProvider;
 
+    @Inject
+    private RedisCache redisCache;
 
+    @Inject
+    private ObjectMapper objectMapper;
 
     @Path("weeklykm")
     @GET
@@ -44,15 +52,44 @@ public class DashboardResource extends BaseResource {
             @QueryParam("deviceId") List<Long> deviceIds,
             @QueryParam("groupId") List<Long> groupIds,
             @QueryParam("from") Date from,
-            @QueryParam("to") Date to) throws StorageException {
+            @QueryParam("to") Date to,
+            @QueryParam("refresh") @DefaultValue("false") boolean refresh) throws StorageException {
+        String key = "dashboard:weeklykm:" + getUserId() + ":" + deviceIds + ":" + groupIds + ":" + from + ":" + to;
+        if (!refresh) {
+            try {
+                String cached = redisCache.get(key);
+                if (cached != null) {
+                    return objectMapper.readValue(cached, objectMapper.getTypeFactory()
+                            .constructCollectionType(List.class, WeeklyKmByGroupItem.class));
+                }
+            } catch (Exception e) {
+            }
+        }
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         LogAction.report(getUserId(), false, "weeklykm", from, to, deviceIds, groupIds);
-        return weeklyKmByGroupReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
+        Collection<WeeklyKmByGroupItem> result = weeklyKmByGroupReportProvider.getObjects(
+                getUserId(), deviceIds, groupIds, from, to);
+        try {
+            redisCache.setWithTTL(key, objectMapper.writeValueAsString(result), TTL);
+        } catch (Exception e) {
+        }
+        return result;
     }
 
     @Path("vehiclestatus")
     @GET
-    public VehicleStatusSummary getVehicleStatusSummary() throws StorageException {
+    public VehicleStatusSummary getVehicleStatusSummary(
+            @QueryParam("refresh") @DefaultValue("false") boolean refresh) throws StorageException {
+        String key = "dashboard:vehiclestatus:" + getUserId();
+        if (!refresh) {
+            try {
+                String cached = redisCache.get(key);
+                if (cached != null) {
+                    return objectMapper.readValue(cached, VehicleStatusSummary.class);
+                }
+            } catch (Exception e) {
+            }
+        }
         Collection<Device> devices = storage.getObjects(Device.class, new Request(
                 new Columns.All(),
                 new Condition.Permission(User.class, getUserId(), Device.class)));
@@ -100,6 +137,10 @@ public class DashboardResource extends BaseResource {
         summary.setTotalParked(totalParked);
         summary.setTotalInactive(totalInactive);
         summary.setTotalNoData(totalNoData);
+        try {
+            redisCache.setWithTTL(key, objectMapper.writeValueAsString(summary), TTL);
+        } catch (Exception e) {
+        }
         return summary;
     }
 
@@ -109,10 +150,27 @@ public class DashboardResource extends BaseResource {
             @QueryParam("deviceId") List<Long> deviceIds,
             @QueryParam("groupId") List<Long> groupIds,
             @QueryParam("from") Date from,
-            @QueryParam("to") Date to) throws StorageException {
+            @QueryParam("to") Date to,
+            @QueryParam("refresh") @DefaultValue("false") boolean refresh) throws StorageException {
+        String key = "dashboard:daynightkm:" + getUserId() + ":" + deviceIds + ":" + groupIds + ":" + from + ":" + to;
+        if (!refresh) {
+            try {
+                String cached = redisCache.get(key);
+                if (cached != null) {
+                    return objectMapper.readValue(cached, DayNightKmSummary.class);
+                }
+            } catch (Exception e) {
+            }
+        }
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         LogAction.report(getUserId(), false, "daynightkm", from, to, deviceIds, groupIds);
-        return dayNightKmReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
+        DayNightKmSummary result = dayNightKmReportProvider.getObjects(
+                getUserId(), deviceIds, groupIds, from, to);
+        try {
+            redisCache.setWithTTL(key, objectMapper.writeValueAsString(result), TTL);
+        } catch (Exception e) {
+        }
+        return result;
     }
 
     @Path("events")
@@ -121,8 +179,19 @@ public class DashboardResource extends BaseResource {
             @QueryParam("limit") @DefaultValue("100") int limit,
             @QueryParam("eventType") String eventType,
             @QueryParam("from") Date from,
-            @QueryParam("to") Date to) throws StorageException {
-
+            @QueryParam("to") Date to,
+            @QueryParam("refresh") @DefaultValue("false") boolean refresh) throws StorageException {
+        String key = "dashboard:events:" + getUserId() + ":" + limit + ":" + eventType + ":" + from + ":" + to;
+        if (!refresh) {
+            try {
+                String cached = redisCache.get(key);
+                if (cached != null) {
+                    return objectMapper.readValue(cached, objectMapper.getTypeFactory()
+                            .constructCollectionType(List.class, Event.class));
+                }
+            } catch (Exception e) {
+            }
+        }
         Collection<Device> devices = storage.getObjects(Device.class, new Request(
                 new Columns.All(),
                 new Condition.Permission(User.class, getUserId(), Device.class)));
@@ -158,13 +227,16 @@ public class DashboardResource extends BaseResource {
                     new Order("eventTime", true, limit * 10)));
         }
 
-        return allEvents.stream()
+        Collection<Event> result = allEvents.stream()
                 .filter(event -> deviceIds.contains(event.getDeviceId()))
                 .limit(limit)
                 .collect(Collectors.toList());
+        try {
+            redisCache.setWithTTL(key, objectMapper.writeValueAsString(result), TTL);
+        } catch (Exception e) {
+        }
+        return result;
     }
-
-
 
     @Path("recentEvents")
     @GET
@@ -174,7 +246,19 @@ public class DashboardResource extends BaseResource {
             @QueryParam("groupId") List<Long> groupIds,
             @QueryParam("eventType") String eventType,
             @QueryParam("from") Date from,
-            @QueryParam("to") Date to) throws StorageException {
+            @QueryParam("to") Date to,
+            @QueryParam("refresh") @DefaultValue("false") boolean refresh) throws StorageException {
+        String key = "dashboard:recentEvents:" + getUserId() + ":" + limit + ":" + deviceIdsFilter + ":" + groupIds + ":" + eventType + ":" + from + ":" + to;
+        if (!refresh) {
+            try {
+                String cached = redisCache.get(key);
+                if (cached != null) {
+                    return objectMapper.readValue(cached, objectMapper.getTypeFactory()
+                            .constructCollectionType(List.class, DashboardEventItem.class));
+                }
+            } catch (Exception e) {
+            }
+        }
         Collection<Device> devices = storage.getObjects(Device.class, new Request(
                 new Columns.All(),
                 new Condition.Permission(User.class, getUserId(), Device.class)));
@@ -208,10 +292,7 @@ public class DashboardResource extends BaseResource {
             conditions.add(new Condition.Equals("type", eventType));
         }
         if (from != null && to != null) {
-            conditions.add(new Condition.Between(
-                    "eventTime",
-                    "from", from,
-                    "to", to));
+            conditions.add(new Condition.Between("eventTime", "from", from, "to", to));
         } else if (from != null) {
             conditions.add(new Condition.Compare("eventTime", ">=", "from", from));
         } else if (to != null) {
@@ -221,16 +302,14 @@ public class DashboardResource extends BaseResource {
         if (conditions.isEmpty()) {
             allEvents = storage.getObjects(Event.class, new Request(
                     new Columns.All(),
-                    new Order("eventTime", true, limit)
-            ));
+                    new Order("eventTime", true, limit)));
         } else {
             allEvents = storage.getObjects(Event.class, new Request(
                     new Columns.All(),
                     Condition.merge(conditions),
-                    new Order("eventTime", true, limit)
-            ));
+                    new Order("eventTime", true, limit)));
         }
-        return allEvents.stream()
+        Collection<DashboardEventItem> result = allEvents.stream()
                 .filter(event -> deviceMap.containsKey(event.getDeviceId()))
                 .limit(limit)
                 .map(event -> {
@@ -243,23 +322,35 @@ public class DashboardResource extends BaseResource {
                     item.setPositionId(event.getPositionId());
                     item.setGeofenceId(event.getGeofenceId());
                     item.setMaintenanceId(event.getMaintenanceId());
-
                     Device device = deviceMap.get(event.getDeviceId());
                     if (device != null) {
                         item.setDeviceName(device.getName());
                     }
-
                     return item;
                 })
                 .collect(Collectors.toList());
-
+        try {
+            redisCache.setWithTTL(key, objectMapper.writeValueAsString(result), TTL);
+        } catch (Exception e) {
+        }
+        return result;
     }
-
-
 
     @Path("powercut")
     @GET
-    public Collection<PowerCutSummary> getPowerCutSummary() throws StorageException {
+    public Collection<PowerCutSummary> getPowerCutSummary(
+            @QueryParam("refresh") @DefaultValue("false") boolean refresh) throws StorageException {
+        String key = "dashboard:powercut:" + getUserId();
+        if (!refresh) {
+            try {
+                String cached = redisCache.get(key);
+                if (cached != null) {
+                    return objectMapper.readValue(cached, objectMapper.getTypeFactory()
+                            .constructCollectionType(List.class, PowerCutSummary.class));
+                }
+            } catch (Exception e) {
+            }
+        }
         Collection<Device> devices = storage.getObjects(Device.class, new Request(
                 new Columns.All(),
                 new Condition.Permission(User.class, getUserId(), Device.class)));
@@ -280,8 +371,7 @@ public class DashboardResource extends BaseResource {
         Collection<Event> events = storage.getObjects(Event.class, new Request(
                 new Columns.All(),
                 Condition.merge(conditions),
-                new Order("eventTime", false, 0)
-        ));
+                new Order("eventTime", false, 0)));
 
         Map<Long, List<Event>> grouped = events.stream()
                 .filter(e -> deviceMap.containsKey(e.getDeviceId()))
@@ -300,55 +390,56 @@ public class DashboardResource extends BaseResource {
             summary.setDeviceId(deviceId);
             summary.setUniqueId(device.getUniqueId());
             summary.setDeviceName(device.getName());
-
             if (device.getGroupId() > 0) {
                 Group group = storage.getObject(Group.class, new Request(
                         new Columns.All(),
-                        new Condition.Equals("id", device.getGroupId())
-                ));
+                        new Condition.Equals("id", device.getGroupId())));
                 if (group != null) {
                     summary.setGroupName(group.getName());
                 }
             }
-            Date min = deviceEvents.stream()
-                    .map(Event::getEventTime)
-                    .min(Date::compareTo)
-                    .orElse(null);
-
-            Date max = deviceEvents.stream()
-                    .map(Event::getEventTime)
-                    .max(Date::compareTo)
-                    .orElse(null);
-
+            Date min = deviceEvents.stream().map(Event::getEventTime).min(Date::compareTo).orElse(null);
+            Date max = deviceEvents.stream().map(Event::getEventTime).max(Date::compareTo).orElse(null);
             summary.setFirstPowerCut(min);
             summary.setLastPowerCut(max);
             summary.setTotalPowerCutEvents(deviceEvents.size());
-
             result.add(summary);
         }
-        result.sort((a, b) -> Long.compare(
-                b.getTotalPowerCutEvents(),
-                a.getTotalPowerCutEvents()
-        ));
-
+        result.sort((a, b) -> Long.compare(b.getTotalPowerCutEvents(), a.getTotalPowerCutEvents()));
+        try {
+            redisCache.setWithTTL(key, objectMapper.writeValueAsString(result), TTL);
+        } catch (Exception e) {
+        }
         return result;
     }
 
-
-
-
     @Path("utilization")
     @GET
-    public UtilizationResponse  getUtilization(
+    public UtilizationResponse getUtilization(
             @QueryParam("deviceId") List<Long> deviceIds,
             @QueryParam("groupId") List<Long> groupIds,
             @QueryParam("from") Date from,
-            @QueryParam("to") Date to) throws StorageException {
-
+            @QueryParam("to") Date to,
+            @QueryParam("refresh") @DefaultValue("false") boolean refresh) throws StorageException {
+        String key = "dashboard:utilization:" + getUserId() + ":" + deviceIds + ":" + groupIds + ":" + from + ":" + to;
+        if (!refresh) {
+            try {
+                String cached = redisCache.get(key);
+                if (cached != null) {
+                    return objectMapper.readValue(cached, UtilizationResponse.class);
+                }
+            } catch (Exception e) {
+            }
+        }
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         LogAction.report(getUserId(), false, "utilization", from, to, deviceIds, groupIds);
-        return utilizationReportProvider.getUtilization(
+        UtilizationResponse result = utilizationReportProvider.getUtilization(
                 getUserId(), deviceIds, groupIds, from, to);
+        try {
+            redisCache.setWithTTL(key, objectMapper.writeValueAsString(result), TTL);
+        } catch (Exception e) {
+        }
+        return result;
     }
 
 
