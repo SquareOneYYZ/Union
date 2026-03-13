@@ -248,7 +248,8 @@ public class DashboardResource extends BaseResource {
             @QueryParam("from") Date from,
             @QueryParam("to") Date to,
             @QueryParam("refresh") @DefaultValue("false") boolean refresh) throws StorageException {
-        String key = "dashboard:recentEvents:" + getUserId() + ":" + limit + ":" + deviceIdsFilter + ":" + groupIds + ":" + eventType + ":" + from + ":" + to;
+        String key = "dashboard:recentEvents:" + getUserId() + ":" + limit + ":"
+                + deviceIdsFilter + ":" + groupIds + ":" + eventType + ":" + from + ":" + to;
         if (!refresh) {
             try {
                 String cached = redisCache.get(key);
