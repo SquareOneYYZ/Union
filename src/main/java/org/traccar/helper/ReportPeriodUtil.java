@@ -13,18 +13,21 @@ public final class ReportPeriodUtil {
     }
 
     public static String detectPeriod(Date from, Date to) {
+        return detectPeriod(from, to, ZoneId.of("UTC"));
+    }
+
+    public static String detectPeriod(Date from, Date to, ZoneId zoneId) {
         if (from == null || to == null) {
             return "Custom";
         }
 
-        // Convert to LocalDate for easier comparison
         LocalDate fromDate = Instant.ofEpochMilli(from.getTime())
-                .atZone(ZoneId.systemDefault())
+                .atZone(zoneId)
                 .toLocalDate();
         LocalDate toDate = Instant.ofEpochMilli(to.getTime())
-                .atZone(ZoneId.systemDefault())
+                .atZone(zoneId)
                 .toLocalDate();
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(zoneId);
 
         if (fromDate.equals(today) && toDate.equals(today)) {
             return "Today";
