@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.traccar.api.BaseResource;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
+import org.traccar.model.Device;
 import org.traccar.storage.StorageException;
 
 import java.io.BufferedReader;
@@ -43,6 +44,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -55,13 +59,12 @@ public class ArchiveResource extends BaseResource {
     private static final Logger LOGGER = LoggerFactory.getLogger(ArchiveResource.class);
 
     private static final double MIN_SPEED_KNOTS = 0.5;
-    private static final long   MAX_GAP_SECONDS = 5 * 60;
-    private static final long   MIN_TRIP_DURATION_SECONDS = 60;
-    private static final double MIN_TRIP_DISTANCE_METRES  = 100.0;
-    private static final long   MIN_STOP_DURATION_SECONDS = 5 * 60;
+    private static final long MAX_GAP_SECONDS = 5 * 60;
+    private static final long MIN_TRIP_DURATION_SECONDS = 60;
+    private static final double MIN_TRIP_DISTANCE_METRES = 100.0;
+    private static final long MIN_STOP_DURATION_SECONDS = 5 * 60;
 
-    private static final Pattern SAFE_KEY_PATTERN =
-            Pattern.compile("^[a-zA-Z0-9/_.,\\-]+$");
+    private static final Pattern SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9/_.,\\-]+$");
 
     private static final AtomicBoolean HADOOP_INITIALIZED = new AtomicBoolean(false);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -79,7 +82,7 @@ public class ArchiveResource extends BaseResource {
     }
 
     private List<String> buildS3CmdBase() {
-        String pythonExe   = config.getString(Keys.ARCHIVE_PYTHON_EXE);
+        String pythonExe = config.getString(Keys.ARCHIVE_PYTHON_EXE);
         String s3cmdScript = config.getString(Keys.ARCHIVE_S3CMD_SCRIPT);
         String s3cmdConfig = config.getString(Keys.ARCHIVE_S3CMD_CONFIG_FILE);
 
@@ -177,7 +180,6 @@ public class ArchiveResource extends BaseResource {
                 .build();
     }
 
-
     @GET
     @Path("list")
     public Response listArchiveFiles(
@@ -190,7 +192,7 @@ public class ArchiveResource extends BaseResource {
         }
 
         String bucket = requireBucket();
-        String s3Url  = "s3://" + bucket + "/" + (prefix == null ? "" : prefix);
+        String s3Url = "s3://" + bucket + "/" + (prefix == null ? "" : prefix);
 
         List<String> cmd = buildS3CmdBase();
         cmd.add("ls");
@@ -206,13 +208,12 @@ public class ArchiveResource extends BaseResource {
             LOGGER.error("s3cmd ls failed", e);
             throw new WebApplicationException(
                     Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                            .entity(Map.of("error",
-                                    e.getMessage() != null ? e.getMessage() : "s3cmd ls failed"))
+                            .entity(Map.of("error", "Failed to list archive files"))
                             .build());
         }
 
-        List<Map<String, Object>> result   = new ArrayList<>();
-        String                    bucketPrefix = "s3://" + bucket + "/";
+        List<Map<String, Object>> result = new ArrayList<>();
+        String bucketPrefix = "s3://" + bucket + "/";
 
         for (String line : lines) {
             if (line == null || line.isBlank()) {
@@ -224,15 +225,15 @@ public class ArchiveResource extends BaseResource {
             }
             try {
                 String lastModified = parts[0] + " " + parts[1];
-                long   size         = Long.parseLong(parts[2]);
-                String fullS3Url    = parts[3];
-                String key          = fullS3Url.startsWith(bucketPrefix)
+                long size = Long.parseLong(parts[2]);
+                String fullS3Url = parts[3];
+                String key = fullS3Url.startsWith(bucketPrefix)
                         ? fullS3Url.substring(bucketPrefix.length())
                         : fullS3Url;
 
                 Map<String, Object> entry = new HashMap<>();
-                entry.put("key",          key);
-                entry.put("size",         size);
+                entry.put("key", key);
+                entry.put("size", size);
                 entry.put("lastModified", lastModified);
                 result.add(entry);
             } catch (NumberFormatException ignored) {
@@ -245,16 +246,20 @@ public class ArchiveResource extends BaseResource {
     @GET
     @Path("records")
     public Response getArchiveRecords(
-            @QueryParam("key")      String  key,
-            @QueryParam("type")     String  type,
+            @QueryParam("key") String key,
+            @QueryParam("type") String type,
             @QueryParam("deviceId") Integer deviceId,
-            @QueryParam("from")     String  from,
-            @QueryParam("to")       String  to,
-            @QueryParam("limit")  @DefaultValue("1000") int limit,
-            @QueryParam("offset") @DefaultValue("0")    int offset) throws StorageException {
+            @QueryParam("from") String from,
+            @QueryParam("to") String to,
+            @QueryParam("limit") @DefaultValue("1000") int limit,
+            @QueryParam("offset") @DefaultValue("0") int offset) throws StorageException {
 
         LOGGER.debug("Archive records: key={} type={} deviceId={} from={} to={}", key, type, deviceId, from, to);
         permissionsService.checkAdmin(getUserId());
+
+        if (deviceId != null) {
+            permissionsService.checkPermission(Device.class, getUserId(), deviceId);
+        }
 
         if (key == null || key.isBlank()) {
             throw new WebApplicationException(badRequest("'key' query parameter is required"));
@@ -263,7 +268,7 @@ public class ArchiveResource extends BaseResource {
         validateS3Key(key, "key");
 
         LocalDateTime fromDt = null;
-        LocalDateTime toDt   = null;
+        LocalDateTime toDt = null;
         DateTimeFormatter dbFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         try {
@@ -279,11 +284,11 @@ public class ArchiveResource extends BaseResource {
         }
 
         final LocalDateTime finalFrom = fromDt;
-        final LocalDateTime finalTo   = toDt;
+        final LocalDateTime finalTo = toDt;
 
-        String bucket      = requireBucket();
+        String bucket = requireBucket();
         String tmpFileName = "archive_" + UUID.randomUUID() + ".parquet";
-        File   tmpFile     = new File(System.getProperty("java.io.tmpdir"), tmpFileName);
+        File tmpFile = new File(System.getProperty("java.io.tmpdir"), tmpFileName);
 
         try {
             List<String> cmd = buildS3CmdBase();
@@ -294,7 +299,7 @@ public class ArchiveResource extends BaseResource {
 
             runProcess(cmd);
 
-            List<Map<String, Object>> records = readParquetFile(tmpFile);
+            List<Map<String, Object>> records = readParquetFile(tmpFile, Integer.MAX_VALUE, 0);
 
             if (type != null && !type.isBlank()) {
                 records = records.stream()
@@ -316,7 +321,7 @@ public class ArchiveResource extends BaseResource {
                 records = records.stream()
                         .filter(row -> {
                             String timeCol = row.containsKey("fixtime") ? "fixtime" : "eventtime";
-                            Object val     = row.get(timeCol);
+                            Object val = row.get(timeCol);
                             if (val == null) {
                                 return false;
                             }
@@ -326,7 +331,7 @@ public class ArchiveResource extends BaseResource {
                                 if (finalFrom != null && rowDt.isBefore(finalFrom)) {
                                     return false;
                                 }
-                                if (finalTo   != null && rowDt.isAfter(finalTo)) {
+                                if (finalTo != null && rowDt.isAfter(finalTo)) {
                                     return false;
                                 }
                                 return true;
@@ -339,16 +344,14 @@ public class ArchiveResource extends BaseResource {
             }
 
             int total = records.size();
-            List<Map<String, Object>> paged = records.stream()
-                    .skip(offset).limit(limit).collect(Collectors.toList());
 
-            LOGGER.info("Archive records: total={} returned={}", total, paged.size());
+            LOGGER.info("Archive records: total={} returned={}", total, records.size());
 
             Map<String, Object> response = new LinkedHashMap<>();
-            response.put("total",   total);
-            response.put("offset",  offset);
-            response.put("limit",   limit);
-            response.put("records", paged);
+            response.put("total", total);
+            response.put("offset", offset);
+            response.put("limit", limit);
+            response.put("records", records);
             return Response.ok(response).build();
 
         } catch (WebApplicationException wae) {
@@ -356,8 +359,7 @@ public class ArchiveResource extends BaseResource {
         } catch (Exception e) {
             LOGGER.error("Archive read failed", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity(Map.of("error",
-                            e.getMessage() != null ? e.getMessage() : "Archive read failed"))
+                    .entity(Map.of("error", "Failed to read archive records"))
                     .build();
         } finally {
             if (tmpFile.exists()) {
@@ -374,10 +376,10 @@ public class ArchiveResource extends BaseResource {
     @Path("trips")
     public Response getArchiveTrips(
             @QueryParam("deviceId") Integer deviceId,
-            @QueryParam("from")     String  from,
-            @QueryParam("to")       String  to,
-            @QueryParam("limit")  @DefaultValue("1000") int limit,
-            @QueryParam("offset") @DefaultValue("0")    int offset) throws StorageException {
+            @QueryParam("from") String from,
+            @QueryParam("to") String to,
+            @QueryParam("limit") @DefaultValue("1000") int limit,
+            @QueryParam("offset") @DefaultValue("0") int offset) throws StorageException {
 
         LOGGER.info("Archive trips: deviceId={} from={} to={}", deviceId, from, to);
         permissionsService.checkAdmin(getUserId());
@@ -385,9 +387,10 @@ public class ArchiveResource extends BaseResource {
         if (deviceId == null) {
             return badRequest("'deviceId' query parameter is required");
         }
+        permissionsService.checkPermission(Device.class, getUserId(), deviceId);
 
         LocalDateTime fromDt = parseUtcParam(from, "from");
-        LocalDateTime toDt   = parseUtcParam(to,   "to");
+        LocalDateTime toDt = parseUtcParam(to, "to");
 
         if (!fromDt.isBefore(toDt)) {
             return badRequest("'from' must be before 'to'");
@@ -396,30 +399,27 @@ public class ArchiveResource extends BaseResource {
         List<PositionRow> positions = loadPositions(deviceId, fromDt, toDt);
         if (positions.isEmpty()) {
             return Response.ok(
-                    Map.of("total", 0, "offset", offset, "limit", limit, "records", List.of())
-            ).build();
+                    Map.of("total", 0, "offset", offset, "limit", limit, "records", List.of())).build();
         }
 
         List<Map<String, Object>> trips = detectTrips(positions, deviceId);
 
         int total = trips.size();
-        List<Map<String, Object>> paged =
-                trips.stream().skip(offset).limit(limit).collect(Collectors.toList());
+        List<Map<String, Object>> paged = trips.stream().skip(offset).limit(limit).collect(Collectors.toList());
 
         LOGGER.info("Trips: total={} returned={}", total, paged.size());
         return Response.ok(
-                Map.of("total", total, "offset", offset, "limit", limit, "records", paged)
-        ).build();
+                Map.of("total", total, "offset", offset, "limit", limit, "records", paged)).build();
     }
 
     @GET
     @Path("stops")
     public Response getArchiveStops(
             @QueryParam("deviceId") Integer deviceId,
-            @QueryParam("from")     String  from,
-            @QueryParam("to")       String  to,
-            @QueryParam("limit")  @DefaultValue("1000") int limit,
-            @QueryParam("offset") @DefaultValue("0")    int offset) throws StorageException {
+            @QueryParam("from") String from,
+            @QueryParam("to") String to,
+            @QueryParam("limit") @DefaultValue("1000") int limit,
+            @QueryParam("offset") @DefaultValue("0") int offset) throws StorageException {
 
         LOGGER.info("Archive stops: deviceId={} from={} to={}", deviceId, from, to);
         permissionsService.checkAdmin(getUserId());
@@ -427,9 +427,10 @@ public class ArchiveResource extends BaseResource {
         if (deviceId == null) {
             return badRequest("'deviceId' query parameter is required");
         }
+        permissionsService.checkPermission(Device.class, getUserId(), deviceId);
 
         LocalDateTime fromDt = parseUtcParam(from, "from");
-        LocalDateTime toDt   = parseUtcParam(to,   "to");
+        LocalDateTime toDt = parseUtcParam(to, "to");
 
         if (!fromDt.isBefore(toDt)) {
             return badRequest("'from' must be before 'to'");
@@ -438,43 +439,46 @@ public class ArchiveResource extends BaseResource {
         List<PositionRow> positions = loadPositions(deviceId, fromDt, toDt);
         if (positions.isEmpty()) {
             return Response.ok(
-                    Map.of("total", 0, "offset", offset, "limit", limit, "records", List.of())
-            ).build();
+                    Map.of("total", 0, "offset", offset, "limit", limit, "records", List.of())).build();
         }
 
         List<Map<String, Object>> stops = detectStops(positions, deviceId);
 
         int total = stops.size();
-        List<Map<String, Object>> paged =
-                stops.stream().skip(offset).limit(limit).collect(Collectors.toList());
+        List<Map<String, Object>> paged = stops.stream().skip(offset).limit(limit).collect(Collectors.toList());
 
         LOGGER.info("Stops: total={} returned={}", total, paged.size());
         return Response.ok(
-                Map.of("total", total, "offset", offset, "limit", limit, "records", paged)
-        ).build();
+                Map.of("total", total, "offset", offset, "limit", limit, "records", paged)).build();
     }
 
-
-    private List<Map<String, Object>> readParquetFile(File file) {
+    private List<Map<String, Object>> readParquetFile(File file, int limit, int offset) {
         initHadoopOnce();
 
         List<Map<String, Object>> records = new ArrayList<>();
-
         Configuration hadoopConf = new Configuration();
         hadoopConf.set("fs.file.impl",
                 org.apache.hadoop.fs.LocalFileSystem.class.getName());
         hadoopConf.set("fs.file.impl.disable.cache", "true");
         hadoopConf.setBoolean("mapreduce.job.user.classpath.first", false);
 
-        org.apache.hadoop.fs.Path hadoopPath =
-                new org.apache.hadoop.fs.Path(file.getAbsolutePath());
+        org.apache.hadoop.fs.Path hadoopPath = new org.apache.hadoop.fs.Path(file.getAbsolutePath());
 
         try (ParquetReader<GenericRecord> reader = AvroParquetReader
                 .<GenericRecord>builder(HadoopInputFile.fromPath(hadoopPath, hadoopConf))
                 .build()) {
 
             GenericRecord record;
+            int skipped = 0;
+            int collected = 0;
             while ((record = reader.read()) != null) {
+                if (skipped < offset) {
+                    skipped++;
+                    continue;
+                }
+                if (collected >= limit) {
+                    break;
+                }
                 Map<String, Object> row = new HashMap<>();
                 for (org.apache.avro.Schema.Field field : record.getSchema().getFields()) {
                     Object value = record.get(field.name());
@@ -484,6 +488,7 @@ public class ArchiveResource extends BaseResource {
                     row.put(field.name(), value);
                 }
                 records.add(row);
+                collected++;
             }
 
         } catch (IOException e) {
@@ -504,28 +509,28 @@ public class ArchiveResource extends BaseResource {
             return trips;
         }
 
-        int    tripStart           = -1;
+        int tripStart = -1;
         double accumulatedDistance = 0.0;
-        double maxSpeed            = 0.0;
-        double totalSpeed          = 0.0;
-        int    speedCount          = 0;
+        double maxSpeed = 0.0;
+        double totalSpeed = 0.0;
+        int speedCount = 0;
 
         for (int i = 0; i < positions.size(); i++) {
-            PositionRow curr   = positions.get(i);
-            boolean     moving = curr.speed >= MIN_SPEED_KNOTS;
+            PositionRow curr = positions.get(i);
+            boolean moving = curr.speed >= MIN_SPEED_KNOTS;
 
             if (tripStart == -1 && moving) {
-                tripStart           = i;
+                tripStart = i;
                 accumulatedDistance = 0.0;
-                maxSpeed   = curr.speed;
+                maxSpeed = curr.speed;
                 totalSpeed = curr.speed;
                 speedCount = 1;
                 continue;
             }
 
             if (tripStart != -1) {
-                PositionRow prev       = positions.get(i - 1);
-                long        gapSeconds = java.time.Duration
+                PositionRow prev = positions.get(i - 1);
+                long gapSeconds = java.time.Duration
                         .between(prev.fixTime, curr.fixTime).getSeconds();
 
                 accumulatedDistance += haversineMetres(
@@ -539,32 +544,33 @@ public class ArchiveResource extends BaseResource {
                 speedCount++;
 
                 boolean gapTooLong = gapSeconds > MAX_GAP_SECONDS;
-                boolean lastPoint  = (i == positions.size() - 1);
-                boolean stopped    = !moving && gapTooLong;
+                boolean lastPoint = (i == positions.size() - 1);
+                boolean stopped = !moving && gapTooLong;
 
                 if (stopped || lastPoint) {
-                    int         tripEnd  = (lastPoint && moving) ? i : i - 1;
+                    int tripEnd = (lastPoint && moving) ? i : i - 1;
                     PositionRow startPos = positions.get(tripStart);
-                    PositionRow endPos   = positions.get(tripEnd);
+                    PositionRow endPos = positions.get(tripEnd);
 
-                    long durationMs  = java.time.Duration
+                    long durationMs = java.time.Duration
                             .between(startPos.fixTime, endPos.fixTime).toMillis();
                     long durationSec = durationMs / 1000;
 
                     if (durationSec >= MIN_TRIP_DURATION_SECONDS
                             && accumulatedDistance >= MIN_TRIP_DISTANCE_METRES) {
                         double avgSpeedKmh = speedCount > 0
-                                ? (totalSpeed / speedCount) * 1.852 : 0.0;
+                                ? (totalSpeed / speedCount) * 1.852
+                                : 0.0;
                         trips.add(buildTripItem(deviceId, startPos, endPos,
                                 accumulatedDistance, avgSpeedKmh, maxSpeed * 1.852, durationMs));
                     }
 
-                    tripStart           = -1;
+                    tripStart = -1;
                     accumulatedDistance = 0.0;
 
                     if (stopped && moving) {
-                        tripStart  = i;
-                        maxSpeed   = curr.speed;
+                        tripStart = i;
+                        maxSpeed = curr.speed;
                         totalSpeed = curr.speed;
                         speedCount = 1;
                     }
@@ -581,26 +587,27 @@ public class ArchiveResource extends BaseResource {
         }
 
         boolean hasIgnitionData = positions.stream().anyMatch(p -> p.ignition != null);
-        int     stopStart       = -1;
+        int stopStart = -1;
 
         for (int i = 0; i < positions.size(); i++) {
-            PositionRow curr    = positions.get(i);
-            boolean     stopped = curr.speed < MIN_SPEED_KNOTS;
+            PositionRow curr = positions.get(i);
+            boolean stopped = curr.speed < MIN_SPEED_KNOTS;
 
             if (stopStart == -1 && stopped) {
-                stopStart = i; continue;
+                stopStart = i;
+                continue;
             }
 
             if (stopStart != -1) {
-                boolean moving    = curr.speed >= MIN_SPEED_KNOTS;
+                boolean moving = curr.speed >= MIN_SPEED_KNOTS;
                 boolean lastPoint = (i == positions.size() - 1);
 
                 if (moving || lastPoint) {
-                    int         stopEnd      = moving ? i - 1 : i;
+                    int stopEnd = moving ? i - 1 : i;
                     PositionRow firstStopPos = positions.get(stopStart);
-                    PositionRow lastStopPos  = positions.get(stopEnd);
+                    PositionRow lastStopPos = positions.get(stopEnd);
 
-                    long durationMs  = java.time.Duration
+                    long durationMs = java.time.Duration
                             .between(firstStopPos.fixTime, lastStopPos.fixTime).toMillis();
                     long durationSec = durationMs / 1000;
 
@@ -632,81 +639,77 @@ public class ArchiveResource extends BaseResource {
         return stops;
     }
 
-
     private Map<String, Object> buildTripItem(int deviceId,
-                                              PositionRow startPos, PositionRow endPos,
-                                              double distanceMetres, double averageSpeedKmh,
-                                              double maxSpeedKmh, long durationMs) {
+            PositionRow startPos, PositionRow endPos,
+            double distanceMetres, double averageSpeedKmh,
+            double maxSpeedKmh, long durationMs) {
 
-        DateTimeFormatter isoOut =
-                DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'+00:00'");
+        DateTimeFormatter isoOut = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'+00:00'");
         Map<String, Object> item = new LinkedHashMap<>();
-        item.put("deviceId",        deviceId);
-        item.put("deviceName",      null);
-        item.put("distance",        Math.round(distanceMetres * 10.0) / 10.0);
-        item.put("averageSpeed",    averageSpeedKmh);
-        item.put("maxSpeed",        maxSpeedKmh);
-        item.put("spentFuel",       0.0);
-        item.put("startOdometer",   startPos.odometer > 0 ? startPos.odometer : null);
-        item.put("endOdometer",     endPos.odometer   > 0 ? endPos.odometer   : null);
-        item.put("startTime",       startPos.fixTime.format(isoOut));
-        item.put("endTime",         endPos.fixTime.format(isoOut));
+        item.put("deviceId", deviceId);
+        item.put("deviceName", null);
+        item.put("distance", Math.round(distanceMetres * 10.0) / 10.0);
+        item.put("averageSpeed", averageSpeedKmh);
+        item.put("maxSpeed", maxSpeedKmh);
+        item.put("spentFuel", 0.0);
+        item.put("startOdometer", startPos.odometer > 0 ? startPos.odometer : null);
+        item.put("endOdometer", endPos.odometer > 0 ? endPos.odometer : null);
+        item.put("startTime", startPos.fixTime.format(isoOut));
+        item.put("endTime", endPos.fixTime.format(isoOut));
         item.put("startPositionId", startPos.id);
-        item.put("endPositionId",   endPos.id);
-        item.put("startLat",        startPos.latitude);
-        item.put("startLon",        startPos.longitude);
-        item.put("endLat",          endPos.latitude);
-        item.put("endLon",          endPos.longitude);
-        item.put("startAddress",    null);
-        item.put("endAddress",      null);
-        item.put("duration",        durationMs);
-        item.put("driverUniqueId",  null);
-        item.put("driverName",      null);
+        item.put("endPositionId", endPos.id);
+        item.put("startLat", startPos.latitude);
+        item.put("startLon", startPos.longitude);
+        item.put("endLat", endPos.latitude);
+        item.put("endLon", endPos.longitude);
+        item.put("startAddress", null);
+        item.put("endAddress", null);
+        item.put("duration", durationMs);
+        item.put("driverUniqueId", null);
+        item.put("driverName", null);
         return item;
     }
 
     private Map<String, Object> buildStopItem(int deviceId,
-                                              PositionRow firstStopPos, PositionRow lastStopPos,
-                                              long durationMs, long engineHoursMs) {
+            PositionRow firstStopPos, PositionRow lastStopPos,
+            long durationMs, long engineHoursMs) {
 
-        DateTimeFormatter isoOut =
-                DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'+00:00'");
+        DateTimeFormatter isoOut = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'+00:00'");
         Map<String, Object> item = new LinkedHashMap<>();
-        item.put("deviceId",      deviceId);
-        item.put("deviceName",    null);
-        item.put("distance",      0.0);
-        item.put("averageSpeed",  0.0);
-        item.put("maxSpeed",      0.0);
-        item.put("spentFuel",     0.0);
+        item.put("deviceId", deviceId);
+        item.put("deviceName", null);
+        item.put("distance", 0.0);
+        item.put("averageSpeed", 0.0);
+        item.put("maxSpeed", 0.0);
+        item.put("spentFuel", 0.0);
         item.put("startOdometer", firstStopPos.odometer > 0 ? firstStopPos.odometer : null);
-        item.put("endOdometer",   lastStopPos.odometer  > 0 ? lastStopPos.odometer  : null);
-        item.put("startTime",     firstStopPos.fixTime.format(isoOut));
-        item.put("endTime",       lastStopPos.fixTime.format(isoOut));
-        item.put("positionId",    firstStopPos.id);
-        item.put("latitude",      firstStopPos.latitude);
-        item.put("longitude",     firstStopPos.longitude);
-        item.put("address",       null);
-        item.put("duration",      durationMs);
-        item.put("engineHours",   engineHoursMs);
+        item.put("endOdometer", lastStopPos.odometer > 0 ? lastStopPos.odometer : null);
+        item.put("startTime", firstStopPos.fixTime.format(isoOut));
+        item.put("endTime", lastStopPos.fixTime.format(isoOut));
+        item.put("positionId", firstStopPos.id);
+        item.put("latitude", firstStopPos.latitude);
+        item.put("longitude", firstStopPos.longitude);
+        item.put("address", null);
+        item.put("duration", durationMs);
+        item.put("engineHours", engineHoursMs);
         return item;
     }
 
-
     private static double haversineMetres(
             double lat1, double lon1, double lat2, double lon2) {
-        final double r    = 6_371_000.0;
-        double       dLat = Math.toRadians(lat2 - lat1);
-        double       dLon = Math.toRadians(lon2 - lon1);
-        double       a    = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+        final double r = 6_371_000.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                        * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private File downloadFromSpaces(String bucket, String key) throws Exception {
         String tmpFileName = "archive_" + UUID.randomUUID() + ".parquet";
-        File   tmpFile     = new File(System.getProperty("java.io.tmpdir"), tmpFileName);
-        List<String> cmd   = buildS3CmdBase();
+        File tmpFile = new File(System.getProperty("java.io.tmpdir"), tmpFileName);
+        List<String> cmd = buildS3CmdBase();
         cmd.add("get");
         cmd.add("--force");
         cmd.add("s3://" + bucket + "/" + key);
@@ -789,36 +792,47 @@ public class ArchiveResource extends BaseResource {
         }
     }
 
-
     private List<PositionRow> loadPositions(
             int deviceId, LocalDateTime fromDt, LocalDateTime toDt) {
 
-        String               bucket       = requireBucket();
+        String bucket = requireBucket();
         List<Map<String, Object>> allPositions = new ArrayList<>();
-        DateTimeFormatter    dbFormatter  =
-                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        DateTimeFormatter dbFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-        LocalDateTime cursor =
-                fromDt.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+        List<String> keys = new ArrayList<>();
+        LocalDateTime cursor = fromDt.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
         while (!cursor.isAfter(toDt)) {
-            String label = String.format("%04d-%02d",
-                    cursor.getYear(), cursor.getMonthValue());
-            String key = "archive/positions/" + deviceId + "/" + label + ".parquet";
-            LOGGER.debug("Fetching: {}", key);
-
-            File tmpFile = null;
-            try {
-                tmpFile = downloadFromSpaces(bucket, key);
-                List<Map<String, Object>> rows = readParquetFile(tmpFile);
-                LOGGER.debug("Loaded {} rows from {}", rows.size(), key);
-                allPositions.addAll(rows);
-            } catch (Exception e) {
-                LOGGER.warn("Could not load {}: {}", key, e.getMessage());
-            } finally {
-                deleteTempFile(tmpFile);
-            }
+            String label = String.format("%04d-%02d", cursor.getYear(), cursor.getMonthValue());
+            keys.add("archive/positions/" + deviceId + "/" + label + ".parquet");
             cursor = cursor.plusMonths(1);
         }
+
+        ExecutorService executor = Executors.newFixedThreadPool(Math.min(keys.size(), 4));
+        List<CompletableFuture<List<Map<String, Object>>>> futures = keys.stream()
+                .map(key -> CompletableFuture.supplyAsync(() -> {
+                    File tmpFile = null;
+                    try {
+                        tmpFile = downloadFromSpaces(bucket, key);
+                        List<Map<String, Object>> rows = readParquetFile(tmpFile, Integer.MAX_VALUE, 0);
+                        LOGGER.debug("Loaded {} rows from {}", rows.size(), key);
+                        return rows;
+                    } catch (Exception e) {
+                        LOGGER.warn("Could not load {}: {}", key, e.getMessage());
+                        return Collections.<Map<String, Object>>emptyList();
+                    } finally {
+                        deleteTempFile(tmpFile);
+                    }
+                }, executor))
+                .collect(Collectors.toList());
+
+        futures.forEach(f -> {
+            try {
+                allPositions.addAll(f.get());
+            } catch (Exception e) {
+                LOGGER.warn("Future failed: {}", e.getMessage());
+            }
+        });
+        executor.shutdown();
 
         LOGGER.info("Raw positions loaded: {}", allPositions.size());
 
@@ -826,17 +840,18 @@ public class ArchiveResource extends BaseResource {
         for (Map<String, Object> row : allPositions) {
             try {
                 PositionRow p = new PositionRow();
-                p.id        = toLong(row.get("id"));
-                p.deviceId  = toInt(row.get("deviceid"));
-                p.fixTime   = parseDateTime(row.get("fixtime"), dbFormatter);
-                p.latitude  = toDouble(row.get("latitude"));
+                p.id = toLong(row.get("id"));
+                p.deviceId = toInt(row.get("deviceid"));
+                p.fixTime = parseDateTime(row.get("fixtime"), dbFormatter);
+                p.latitude = toDouble(row.get("latitude"));
                 p.longitude = toDouble(row.get("longitude"));
-                p.speed     = toDouble(row.get("speed"));
-                p.course    = toDouble(row.get("course"));
-                p.altitude  = toDouble(row.get("altitude"));
+                p.speed = toDouble(row.get("speed"));
+                p.course = toDouble(row.get("course"));
+                p.altitude = toDouble(row.get("altitude"));
 
                 String attrs = row.get("attributes") != null
-                        ? row.get("attributes").toString() : null;
+                        ? row.get("attributes").toString()
+                        : null;
                 if (attrs != null && !attrs.isBlank() && attrs.startsWith("{")) {
                     p.odometer = extractDoubleFromJson(attrs, "odometer");
                     if (p.odometer == 0.0) {
@@ -866,17 +881,16 @@ public class ArchiveResource extends BaseResource {
         return positions;
     }
 
-
     private static final class PositionRow {
-        private long          id;
-        private int           deviceId;
+        private long id;
+        private int deviceId;
         private LocalDateTime fixTime;
-        private double        latitude;
-        private double        longitude;
-        private double        speed;
-        private double        course;
-        private double        altitude;
-        private double        odometer;
-        private Boolean       ignition;
+        private double latitude;
+        private double longitude;
+        private double speed;
+        private double course;
+        private double altitude;
+        private double odometer;
+        private Boolean ignition;
     }
 }

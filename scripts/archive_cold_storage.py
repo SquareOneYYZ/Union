@@ -295,8 +295,8 @@ def batch_delete(conn, table: str, time_col: str, device_id: int,
                 f"LIMIT %s",
                 (device_id, period_start, period_end, batch_size),
             )
+            deleted = cur.rowcount
         conn.commit()
-        deleted = cur.rowcount
         total_deleted += deleted
         logger.info("    Deleted batch of %d rows...", deleted)
         if deleted < batch_size:
@@ -342,8 +342,14 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
         label        = f"{yr}-{mo:02d}"
         local_path   = os.path.join(temp_dir, f"{table}_{device_id}_{label}.parquet")
         spaces_key   = f"archive/{spaces_prefix}/{device_id}/{label}.parquet"
+        marker_key   = f"archive/{spaces_prefix}/{device_id}/{label}.done"
 
         logger.info("  [%s] device=%d period=%s rows=%d", table, device_id, label, g["cnt"])
+
+        if verify_upload(cfg, marker_key):
+            logger.info("  [%s] Already archived (found .done marker) -- skipping.", table)
+            total += g["cnt"]
+            continue
 
         try:
             cols  = ", ".join(columns)
@@ -390,6 +396,17 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                 deleted = batch_delete(conn, table, time_col,
                                        device_id, period_start, period_end)
                 logger.info("  [%s] Deleted %d rows in batches.", table, deleted)
+
+                marker_path = os.path.join(temp_dir, f"{table}_{device_id}_{label}.done")
+                try:
+                    open(marker_path, 'w').close()
+                    do_upload(cfg, marker_path, marker_key)
+                    logger.info("  [%s] Done marker uploaded: %s", table, marker_key)
+                except Exception as e:
+                    logger.warning("  [%s] Could not upload done marker: %s", table, e)
+                finally:
+                    if os.path.exists(marker_path):
+                        os.remove(marker_path)
 
             total += len(df)
 
@@ -480,15 +497,14 @@ def snapshot_table(conn, cfg, table_name: str, columns: list,
     logger.info("  [%s] Reading all rows...", table_name)
 
     try:
-        with conn.cursor() as cur:
-            cur.execute(f"SELECT {', '.join(columns)} FROM {table_name} ORDER BY id")
-            rows = cur.fetchall()
+        query = f"SELECT {', '.join(columns)} FROM {table_name} ORDER BY id"
+        chunks = list(fetch_chunked(conn, query, ()))
 
-        if not rows:
+        if not chunks:
             logger.info("  [%s] Empty -- nothing to snapshot.", table_name)
             return 0
 
-        df = pd.DataFrame(rows)
+        df = pd.concat(chunks, ignore_index=True)
         if datetime_cols:
             for col in datetime_cols:
                 if col in df.columns:

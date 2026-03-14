@@ -2073,4 +2073,12 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             "archive.s3cmd.configFile",
             List.of(KeyType.CONFIG));
 
+    public static final ConfigKey<String> ARCHIVE_TEMP_DIR = new StringConfigKey(
+            "archive.temp.dir",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<Integer> ARCHIVE_RETENTION_MONTHS = new IntegerConfigKey(
+            "archive.retention.months",
+            List.of(KeyType.CONFIG));
+
 }
