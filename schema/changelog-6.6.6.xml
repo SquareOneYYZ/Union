@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+        logicalFilePath="changelog-6.6.6">
+
+    <changeSet author="author" id="changelog-6.6.6-create-report-history-table">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_report_history"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_report_history">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="userid" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="reporttype" type="VARCHAR(50)">
+                <constraints nullable="false" />
+            </column>
+            <column name="deviceids" type="TEXT">
+                <constraints nullable="true" />
+            </column>
+            <column name="groupids" type="TEXT">
+                <constraints nullable="true" />
+            </column>
+            <column name="fromdate" type="DATETIME">
+                <constraints nullable="true" />
+            </column>
+            <column name="todate" type="DATETIME">
+                <constraints nullable="true" />
+            </column>
+            <column name="additionalparams" type="TEXT">
+                <constraints nullable="true" />
+            </column>
+            <column name="generatedat" type="DATETIME">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="VARCHAR(500)">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.6-report-history-indexes">
+
+        <createIndex tableName="tc_report_history" indexName="idx_report_history_userid">
+            <column name="userid" />
+        </createIndex>
+
+        <createIndex tableName="tc_report_history" indexName="idx_report_history_userid_generatedat">
+            <column name="userid" />
+            <column name="generatedat" descending="true" />
+        </createIndex>
+
+        <createIndex tableName="tc_report_history" indexName="idx_report_history_reporttype">
+            <column name="reporttype" />
+        </createIndex>
+
+        <createIndex tableName="tc_report_history" indexName="idx_report_history_userid_reporttype">
+            <column name="userid" />
+            <column name="reporttype" />
+        </createIndex>
+
+    </changeSet>
+
+
+    <changeSet author="author" id="changelog-6.6.6-create-favorite-reports-table">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_favorite_reports"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_favorite_reports">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="name" type="VARCHAR(200)">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="VARCHAR(500)">
+                <constraints nullable="true" />
+            </column>
+            <column name="reporttype" type="VARCHAR(50)">
+                <constraints nullable="false" />
+            </column>
+            <column name="deviceids" type="TEXT">
+                <constraints nullable="true" />
+            </column>
+            <column name="groupids" type="TEXT">
+                <constraints nullable="true" />
+            </column>
+            <column name="additionalparams" type="TEXT">
+                <constraints nullable="true" />
+            </column>
+            <column name="createdby" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="createdat" type="DATETIME">
+                <constraints nullable="false" />
+            </column>
+            <column name="updatedat" type="DATETIME">
+                <constraints nullable="false" />
+            </column>
+            <column name="displayorder" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.6-favorite-reports-indexes">
+
+        <createIndex tableName="tc_favorite_reports" indexName="idx_favorite_reports_displayorder">
+            <column name="displayorder" />
+        </createIndex>
+
+        <createIndex tableName="tc_favorite_reports" indexName="idx_favorite_reports_reporttype">
+            <column name="reporttype" />
+        </createIndex>
+
+        <createIndex tableName="tc_favorite_reports" indexName="idx_favorite_reports_createdby">
+            <column name="createdby" />
+        </createIndex>
+
+    </changeSet>
+
+
+</databaseChangeLog>
