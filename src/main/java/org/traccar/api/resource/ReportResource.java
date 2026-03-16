@@ -283,8 +283,12 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("mail") boolean mail) throws StorageException {
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         Map<String, Object> additionalParams = new HashMap<>();
-        if (types != null && !types.isEmpty()) additionalParams.put("types", types);
-        if (alarms != null && !alarms.isEmpty()) additionalParams.put("alarms", alarms);
+        if (types != null && !types.isEmpty()) {
+            additionalParams.put("types", types);
+        }
+        if (alarms != null && !alarms.isEmpty()) {
+            additionalParams.put("alarms", alarms);
+        }
         CompletableFuture.runAsync(() ->
                 saveReportHistory(getUserId(), "events", deviceIds, groupIds, from, to, additionalParams));
         return executeReport(getUserId(), mail, stream -> {
@@ -477,9 +481,12 @@ public class ReportResource extends SimpleObjectResource<Report> {
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
         List<Long> deviceIds = deviceId > 0 ? List.of(deviceId) : List.of();
         Map<String, Object> additionalParams = new HashMap<>();
-        if (geofenceId > 0) additionalParams.put("geofenceId", geofenceId);
+        if (geofenceId > 0) {
+            additionalParams.put("geofenceId", geofenceId);
+        }
         CompletableFuture.runAsync(() ->
-                saveReportHistory(getUserId(), "devicegeofencedistances", deviceIds, List.of(), from, to, additionalParams));
+                saveReportHistory(getUserId(), "devicegeofencedistances", deviceIds, List.of(), from,
+                        to, additionalParams));
         return executeReport(getUserId(), mail, stream -> {
             LogAction.report(getUserId(), mail, "devicegeofencedistances", from, to, deviceIds, List.of());
             deviceGeofenceDistanceReportProvider.getExcel(stream, getUserId(), deviceId, geofenceId, from, to);
