@@ -36,6 +36,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Path("devicestatus")
 @Produces(MediaType.APPLICATION_JSON)
@@ -49,39 +50,37 @@ public class DeviceStatusResource extends BaseResource {
             @QueryParam("imeiSerialNumber") String imeiFilter) throws StorageException {
 
         List<Map<String, Object>> result = new ArrayList<>();
+        permissionsService.checkAdmin(getUserId());
         boolean getInactive = type == null || type.isEmpty() || "inactive".equals(type);
         boolean getUninstalled = type == null || type.isEmpty() || "uninstalled".equals(type);
         if (getInactive) {
             Date twentyFourHoursAgo = new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000);
+            Map<Long, Group> groupCache = storage.getObjects(Group.class, new Request(
+                            new Columns.All(),
+                            new Condition.Permission(User.class, getUserId(), Group.class)))
+                    .stream()
+                    .collect(Collectors.toMap(Group::getId, g -> g));
+            Condition inactiveCondition = new Condition.Permission(User.class, getUserId(), Device.class);
+            if (deviceNameFilter != null && !deviceNameFilter.isEmpty()) {
+                inactiveCondition = new Condition.And(inactiveCondition,
+                        new Condition.Like("name", deviceNameFilter));
+            }
+            if (imeiFilter != null && !imeiFilter.isEmpty()) {
+                inactiveCondition = new Condition.And(inactiveCondition,
+                        new Condition.Like("uniqueid", imeiFilter));
+            }
             Collection<Device> devices = storage.getObjects(Device.class, new Request(
                     new Columns.All(),
-                    new Condition.Permission(User.class, getUserId(), Device.class)));
+                    inactiveCondition));
             for (Device device : devices) {
-                if (device.getLastUpdate() != null && device.getLastUpdate().before(twentyFourHoursAgo)) {
-                    if (deviceNameFilter != null && !device.getName().toLowerCase().
-                            contains(deviceNameFilter.toLowerCase())) {
-                        continue;
-                    }
-                    if (imeiFilter != null && !device.getUniqueId().toLowerCase().contains(imeiFilter.toLowerCase())) {
-                        continue;
-                    }
+                if (device.getLastUpdate() == null || device.getLastUpdate().before(twentyFourHoursAgo)) {
                     Map<String, Object> deviceInfo = new HashMap<>();
                     deviceInfo.put("deviceName", device.getName());
                     deviceInfo.put("type", "inactive");
                     deviceInfo.put("imeiSerialNumber", device.getUniqueId());
                     deviceInfo.put("lastCommunication", device.getLastUpdate());
-                    if (device.getGroupId() > 0) {
-                        Group group = storage.getObject(Group.class, new Request(
-                                new Columns.All(),
-                                new Condition.Equals("id", device.getGroupId())));
-                        if (group != null) {
-                            deviceInfo.put("assignedGroup", group.getName());
-                        } else {
-                            deviceInfo.put("assignedGroup", null);
-                        }
-                    } else {
-                        deviceInfo.put("assignedGroup", null);
-                    }
+                    Group group = groupCache.get(device.getGroupId());
+                    deviceInfo.put("assignedGroup", group != null ? group.getName() : null);
                     result.add(deviceInfo);
                 }
             }
@@ -92,26 +91,26 @@ public class DeviceStatusResource extends BaseResource {
                     new Condition.Permission(User.class, getUserId(), Group.class)));
             for (Group group : groups) {
                 if (group.getUnassigned() != 0) {
+                    Condition uninstalledCondition = new Condition.And(
+                            new Condition.Permission(User.class, getUserId(), Device.class),
+                            new Condition.Equals("groupid", group.getUnassigned()));
+                    if (deviceNameFilter != null && !deviceNameFilter.isEmpty()) {
+                        uninstalledCondition = new Condition.And(uninstalledCondition,
+                                new Condition.Like("name", deviceNameFilter));
+                    }
+                    if (imeiFilter != null && !imeiFilter.isEmpty()) {
+                        uninstalledCondition = new Condition.And(uninstalledCondition,
+                                new Condition.Like("uniqueid", imeiFilter));
+                    }
                     Collection<Device> devices = storage.getObjects(Device.class, new Request(
                             new Columns.All(),
-                            new Condition.Equals("groupid", group.getUnassigned())));
+                            uninstalledCondition));
                     for (Device device : devices) {
-                        if (deviceNameFilter != null && !device.getName().toLowerCase().
-                                contains(deviceNameFilter.toLowerCase())) {
-                            continue;
-                        }
-                        if (imeiFilter != null && !device.getUniqueId().toLowerCase().
-                                contains(imeiFilter.toLowerCase())) {
-                            continue;
-                        }
-                        Group assignedGroup = storage.getObject(Group.class, new Request(
-                                new Columns.All(),
-                                new Condition.Equals("id", group.getUnassigned())));
                         Map<String, Object> deviceInfo = new HashMap<>();
                         deviceInfo.put("deviceName", device.getName());
                         deviceInfo.put("type", "uninstalled");
                         deviceInfo.put("imeiSerialNumber", device.getUniqueId());
-                        deviceInfo.put("assignedGroup", assignedGroup != null ? assignedGroup.getName() : null);
+                        deviceInfo.put("assignedGroup", group.getName());
                         deviceInfo.put("lastCommunication", device.getLastUpdate());
                         result.add(deviceInfo);
                     }
