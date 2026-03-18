@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+        logicalFilePath="changelog-6.6.9">
+
+    <changeSet author="author" id="changelog-6.6.9-create-feathers">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_feathers"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_feathers">
+            <column autoIncrement="true" name="id" type="INT">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="feather" type="VARCHAR(128)">
+                <constraints nullable="false" />
+            </column>
+            <column name="details" type="VARCHAR(1024)">
+                <constraints nullable="true" />
+            </column>
+            <column name="versionNo" type="DOUBLE" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.9-create-user-feather">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_user_feather"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_user_feather">
+            <column name="userid" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="featherid" type="INT">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="tc_user_feather" baseColumnNames="userid" constraintName="fk_user_feather_userid" referencedTableName="tc_users" referencedColumnNames="id" onDelete="CASCADE" />
+        <addForeignKeyConstraint baseTableName="tc_user_feather" baseColumnNames="featherid" constraintName="fk_user_feather_featherid" referencedTableName="tc_feathers" referencedColumnNames="id" onDelete="CASCADE" />
+
+        <createIndex tableName="tc_user_feather" indexName="idx_user_feather_userid">
+            <column name="userid" />
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>
