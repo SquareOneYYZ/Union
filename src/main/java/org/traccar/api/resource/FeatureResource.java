@@ -16,7 +16,7 @@
 package org.traccar.api.resource;
 
 import org.traccar.api.BaseObjectResource;
-import org.traccar.model.Feather;
+import org.traccar.model.Feature;
 import org.traccar.model.User;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
@@ -38,31 +38,31 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import java.util.Collection;
 
-@Path("feathers")
+@Path("feature")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-public class FeatherResource extends BaseObjectResource<Feather> {
+public class FeatureResource extends BaseObjectResource<Feature> {
 
     @Context
     private UriInfo uriInfo;
 
-    public FeatherResource() {
-        super(Feather.class);
+    public FeatureResource() {
+        super(Feature.class);
     }
 
     @GET
-    public Collection<Feather> get() throws StorageException {
-        return storage.getObjects(Feather.class, new Request(
+    public Collection<Feature> get() throws StorageException {
+        return storage.getObjects(Feature.class, new Request(
                 new Columns.All(),
-                new Condition.Permission(User.class, getUserId(), Feather.class)));
+                new Condition.Permission(User.class, getUserId(), Feature.class)));
     }
 
     @POST
     @Override
-    public Response add(Feather entity) throws Exception {
+    public Response add(Feature entity) throws Exception {
         permissionsService.checkAdmin(getUserId());
-        if (entity.getFeather() == null || entity.getFeather().isEmpty()) {
-            throw new WebApplicationException("Feather name is required", Response.Status.BAD_REQUEST);
+        if (entity.getFeature() == null || entity.getFeature().isEmpty()) {
+            throw new WebApplicationException("Feature name is required", Response.Status.BAD_REQUEST);
         }
         return super.add(entity);
     }
@@ -70,14 +70,14 @@ public class FeatherResource extends BaseObjectResource<Feather> {
     @Path("{id}")
     @PUT
     @Override
-    public Response update(Feather entity) throws Exception {
+    public Response update(Feature entity) throws Exception {
         String idString = uriInfo.getPathParameters().getFirst("id");
         if (idString != null) {
             entity.setId(Long.parseLong(idString));
         }
         permissionsService.checkAdmin(getUserId());
-        if (entity.getFeather() == null || entity.getFeather().isEmpty()) {
-            throw new WebApplicationException("Feather name is required", Response.Status.BAD_REQUEST);
+        if (entity.getFeature() == null || entity.getFeature().isEmpty()) {
+            throw new WebApplicationException("Feature name is required", Response.Status.BAD_REQUEST);
         }
         return super.update(entity);
     }

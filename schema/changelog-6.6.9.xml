@@ -6,19 +6,19 @@
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
         logicalFilePath="changelog-6.6.9">
 
-    <changeSet author="author" id="changelog-6.6.9-create-feathers">
+    <changeSet author="author" id="changelog-6.6.9-create-features">
 
         <preConditions onFail="MARK_RAN">
             <not>
-                <tableExists tableName="tc_feathers"/>
+                <tableExists tableName="features"/>
             </not>
         </preConditions>
 
-        <createTable tableName="tc_feathers">
+        <createTable tableName="tc_feature">
             <column autoIncrement="true" name="id" type="INT">
                 <constraints primaryKey="true" />
             </column>
-            <column name="feather" type="VARCHAR(128)">
+            <column name="feature" type="VARCHAR(128)">
                 <constraints nullable="false" />
             </column>
             <column name="details" type="VARCHAR(1024)">
@@ -31,27 +31,24 @@
 
     </changeSet>
 
-    <changeSet author="author" id="changelog-6.6.9-create-user-feather">
+    <changeSet author="author" id="changelog-6.6.9-create-user-features">
 
         <preConditions onFail="MARK_RAN">
             <not>
-                <tableExists tableName="tc_user_feather"/>
+                <tableExists tableName="tc_user_features"/>
             </not>
         </preConditions>
 
-        <createTable tableName="tc_user_feather">
+        <createTable tableName="tc_user_feature">
             <column name="userid" type="INT">
                 <constraints nullable="false" />
             </column>
-            <column name="featherid" type="INT">
+            <column name="featureid" type="INT">
                 <constraints nullable="false" />
             </column>
         </createTable>
 
-        <addForeignKeyConstraint baseTableName="tc_user_feather" baseColumnNames="userid" constraintName="fk_user_feather_userid" referencedTableName="tc_users" referencedColumnNames="id" onDelete="CASCADE" />
-        <addForeignKeyConstraint baseTableName="tc_user_feather" baseColumnNames="featherid" constraintName="fk_user_feather_featherid" referencedTableName="tc_feathers" referencedColumnNames="id" onDelete="CASCADE" />
-
-        <createIndex tableName="tc_user_feather" indexName="idx_user_feather_userid">
+        <createIndex tableName="tc_user_feature" indexName="idx_user_feature_userid">
             <column name="userid" />
         </createIndex>
 

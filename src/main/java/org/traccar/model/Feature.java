@@ -17,17 +17,17 @@ package org.traccar.model;
 
 import org.traccar.storage.StorageName;
 
-@StorageName("tc_feathers")
-public class Feather extends BaseModel {
+@StorageName("tc_feature")
+public class Feature extends BaseModel {
 
-    private String feather;
+    private String feature;
 
-    public String getFeather() {
-        return feather;
+    public String getFeature() {
+        return feature;
     }
 
-    public void setFeather(String feather) {
-        this.feather = feather;
+    public void setFeature(String feature) {
+        this.feature = feature;
     }
 
     private String details;
