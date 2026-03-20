@@ -16,7 +16,9 @@
 package org.traccar.api.resource;
 
 import org.traccar.api.BaseObjectResource;
+import org.traccar.helper.LogAction;
 import org.traccar.model.Feature;
+import org.traccar.model.Permission;
 import org.traccar.model.User;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
@@ -37,6 +39,9 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Path("feature")
 @Produces(MediaType.APPLICATION_JSON)
@@ -52,19 +57,47 @@ public class FeatureResource extends BaseObjectResource<Feature> {
 
     @GET
     public Collection<Feature> get() throws StorageException {
-        return storage.getObjects(Feature.class, new Request(
-                new Columns.All(),
-                new Condition.Permission(User.class, getUserId(), Feature.class)));
+        try {
+            long userId = getUserId();
+            Collection<Feature> userMappedFeatures = storage.getObjects(Feature.class, new Request(
+                    new Columns.All(),
+                    new Condition.Permission(User.class, userId, Feature.class)));
+
+            if (userMappedFeatures == null || userMappedFeatures.isEmpty()) {
+                return storage.getObjects(Feature.class, new Request(new Columns.All()));
+            }
+            long mappedFeatureId = userMappedFeatures.iterator().next().getId();
+            Collection<Feature> allFeatures = storage.getObjects(Feature.class, new Request(new Columns.All()));
+            return allFeatures.stream()
+                    .filter(feature -> feature.getId() > mappedFeatureId)
+                    .collect(Collectors.toList());
+
+        } catch (StorageException e) {
+            throw new WebApplicationException("Database error while fetching features: "
+                    + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
+        } catch (Exception e) {
+            throw new WebApplicationException("Unexpected error: "
+                    + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
+        }
     }
+
 
     @POST
     @Override
     public Response add(Feature entity) throws Exception {
+        try {
         permissionsService.checkAdmin(getUserId());
         if (entity.getFeature() == null || entity.getFeature().isEmpty()) {
             throw new WebApplicationException("Feature name is required", Response.Status.BAD_REQUEST);
         }
-        return super.add(entity);
+            entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
+
+            return Response.ok(entity).build();
+
+        } catch (StorageException e) {
+            throw new WebApplicationException("Database error: "
+                    + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
+        }
     }
 
     @Path("{id}")
@@ -88,6 +121,45 @@ public class FeatureResource extends BaseObjectResource<Feature> {
     public Response remove(@PathParam("id") long id) throws Exception {
         permissionsService.checkAdmin(getUserId());
         return super.remove(id);
+    }
+
+
+    @Path("permission")
+    @POST
+    public Response assignPermission(LinkedHashMap<String, Long> entity) throws Exception {
+        try {
+            long userId = entity.get("userId");
+            long featureId = entity.get("featureId");
+            Collection<Feature> existingMapped = storage.getObjects(Feature.class, new Request(
+                    new Columns.All(),
+                    new Condition.Permission(User.class, userId, Feature.class)));
+
+            if (!existingMapped.isEmpty()) {
+                Feature oldFeature = existingMapped.iterator().next();
+
+                Permission oldPermission = new Permission(User.class, userId, Feature.class, oldFeature.getId());
+                storage.removePermission(oldPermission);
+
+                LogAction.unlink(getUserId(),
+                        User.class, userId,
+                        Feature.class, oldFeature.getId());
+            }
+            Permission newPermission = new Permission(User.class, userId, Feature.class, featureId);
+            storage.addPermission(newPermission);
+
+            LogAction.link(getUserId(),
+                    User.class, userId,
+                    Feature.class, featureId);
+
+            return Response.ok().build();
+
+        } catch (StorageException e) {
+            throw new WebApplicationException("Database error: "
+                    + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
+        } catch (Exception e) {
+            throw new WebApplicationException("Unexpected error: "
+                    + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
+        }
     }
 
 }
