@@ -63,12 +63,16 @@ public class FeatureResource extends BaseObjectResource<Feature> {
                     new Condition.Permission(User.class, userId, Feature.class)));
 
             if (userMappedFeatures == null || userMappedFeatures.isEmpty()) {
-                return storage.getObjects(Feature.class, new Request(new Columns.All()));
+                return storage.getObjects(Feature.class, new Request(new Columns.All()))
+                        .stream()
+                        .filter(Feature::getEnabled)
+                        .collect(Collectors.toList());
             }
             long mappedFeatureId = userMappedFeatures.iterator().next().getId();
             Collection<Feature> allFeatures = storage.getObjects(Feature.class, new Request(new Columns.All()));
             return allFeatures.stream()
                     .filter(feature -> feature.getId() > mappedFeatureId)
+                    .filter(Feature::getEnabled)
                     .collect(Collectors.toList());
 
         } catch (StorageException e) {
