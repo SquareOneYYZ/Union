@@ -16,6 +16,7 @@
 package org.traccar.api.resource;
 
 import org.traccar.api.BaseObjectResource;
+import org.traccar.dtos.FeaturePermissionRequest;
 import org.traccar.helper.LogAction;
 import org.traccar.model.Feature;
 import org.traccar.model.Permission;
@@ -91,6 +92,7 @@ public class FeatureResource extends BaseObjectResource<Feature> {
         }
             entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
 
+            LogAction.create(getUserId(), entity);
             return Response.ok(entity).build();
 
         } catch (StorageException e) {
@@ -125,10 +127,17 @@ public class FeatureResource extends BaseObjectResource<Feature> {
 
     @Path("permission")
     @POST
-    public Response assignPermission(LinkedHashMap<String, Long> entity) throws Exception {
+    public Response assignPermission(FeaturePermissionRequest request) throws Exception {
         try {
-            long userId = entity.get("userId");
-            long featureId = entity.get("featureId");
+            if (request == null
+                    || request.getUserId() == null
+                    || request.getFeatureId() == null) {
+                throw new WebApplicationException("userId and featureId are required",
+                        Response.Status.BAD_REQUEST);
+            }
+
+            long userId = request.getUserId();
+            long featureId = request.getFeatureId();
             Collection<Feature> existingMapped = storage.getObjects(Feature.class, new Request(
                     new Columns.All(),
                     new Condition.Permission(User.class, userId, Feature.class)));
@@ -152,6 +161,8 @@ public class FeatureResource extends BaseObjectResource<Feature> {
 
             return Response.ok().build();
 
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (StorageException e) {
             throw new WebApplicationException("Database error: "
                     + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);

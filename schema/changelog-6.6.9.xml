@@ -6,11 +6,11 @@
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
         logicalFilePath="changelog-6.6.9">
 
-    <changeSet author="author" id="changelog-6.6.9-create-features">
+    <changeSet author="author" id="changelog-6.6.9-create-feature">
 
         <preConditions onFail="MARK_RAN">
             <not>
-                <tableExists tableName="features"/>
+                <tableExists tableName="tc_feature"/>
             </not>
         </preConditions>
 
@@ -27,15 +27,18 @@
             <column name="versionNo" type="DOUBLE" defaultValueNumeric="0">
                 <constraints nullable="false" />
             </column>
+            <column name="enabled" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false" />
+            </column>
         </createTable>
 
     </changeSet>
 
-    <changeSet author="author" id="changelog-6.6.9-create-user-features">
+    <changeSet author="author" id="changelog-6.6.9-create-user-feature">
 
         <preConditions onFail="MARK_RAN">
             <not>
-                <tableExists tableName="tc_user_features"/>
+                <tableExists tableName="tc_user_feature"/>
             </not>
         </preConditions>
 

@@ -50,4 +50,14 @@ public class Feature extends BaseModel {
         this.versionNo = versionNo;
     }
 
+    private boolean enabled = true;
+
+    public boolean getEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
 }
