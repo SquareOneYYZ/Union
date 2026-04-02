@@ -24,7 +24,7 @@
             <column name="details" type="VARCHAR(1024)">
                 <constraints nullable="true" />
             </column>
-            <column name="versionNo" type="DOUBLE" defaultValueNumeric="0">
+            <column name="versionNo" type="VARCHAR(20)" defaultValueNumeric="0">
                 <constraints nullable="false" />
             </column>
             <column name="enabled" type="BOOLEAN" defaultValueBoolean="true">
@@ -54,6 +54,11 @@
         <createIndex tableName="tc_user_feature" indexName="idx_user_feature_userid">
             <column name="userid" />
         </createIndex>
+
+        <addUniqueConstraint
+                tableName="tc_user_feature"
+                columnNames="userid, featureid"
+                constraintName="uq_user_feature"/>
 
     </changeSet>
 

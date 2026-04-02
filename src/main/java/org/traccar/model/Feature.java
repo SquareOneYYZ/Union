@@ -40,13 +40,13 @@ public class Feature extends BaseModel {
         this.details = details;
     }
 
-    private double  versionNo;
+    private String versionNo;
 
-    public double  getVersionNo() {
+    public String  getVersionNo() {
         return versionNo;
     }
 
-    public void setVersionNo(double  versionNo) {
+    public void setVersionNo(String  versionNo) {
         this.versionNo = versionNo;
     }
 
