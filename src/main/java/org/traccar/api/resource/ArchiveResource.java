@@ -344,6 +344,10 @@ public class ArchiveResource extends BaseResource {
             }
 
             int total = records.size();
+            List<Map<String, Object>> paged = records.stream()
+                    .skip(offset)
+                    .limit(limit)
+                    .collect(Collectors.toList());
 
             LOGGER.info("Archive records: total={} returned={}", total, records.size());
 
@@ -351,7 +355,7 @@ public class ArchiveResource extends BaseResource {
             response.put("total", total);
             response.put("offset", offset);
             response.put("limit", limit);
-            response.put("records", records);
+            response.put("records", paged);
             return Response.ok(response).build();
 
         } catch (WebApplicationException wae) {
@@ -824,7 +828,7 @@ public class ArchiveResource extends BaseResource {
                     }
                 }, executor))
                 .collect(Collectors.toList());
-
+        try {
         futures.forEach(f -> {
             try {
                 allPositions.addAll(f.get());
@@ -832,7 +836,9 @@ public class ArchiveResource extends BaseResource {
                 LOGGER.warn("Future failed: {}", e.getMessage());
             }
         });
-        executor.shutdown();
+        } finally {
+            executor.shutdown();
+        }
 
         LOGGER.info("Raw positions loaded: {}", allPositions.size());
 
