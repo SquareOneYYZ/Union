@@ -102,6 +102,8 @@ import org.traccar.vindecoder.NHTSAVinDecoderProvider;
 import org.traccar.vindecoder.OverpassApiProvider;
 import org.traccar.vindecoder.OverpassProvider;
 import org.traccar.vindecoder.VinDecoderProvider;
+import org.traccar.tollroute.RegionProvider;
+import org.traccar.tollroute.LocationIQRegionProvider;
 import org.traccar.web.WebServer;
 import org.traccar.api.security.LoginService;
 
@@ -316,6 +318,13 @@ public class MainModule extends AbstractModule {
     @Provides
     public static OverpassProvider provideOverpassProvider(Client client) {
         return new OverpassApiProvider(client);
+    public static RegionProvider provideRegionProvider(Config config, Client client, RedisCache redisCache) {
+        String type = config.getString(Keys.REGION_PROVIDER_TYPE, "locationiq");
+        String url = config.getString(Keys.REGION_PROVIDER_URL);
+        return switch (type) {
+            case "locationiq" -> new LocationIQRegionProvider(config, client, url, redisCache);
+            default -> throw new IllegalArgumentException("Unknown Region provider: " + type);
+        };
     }
 
 

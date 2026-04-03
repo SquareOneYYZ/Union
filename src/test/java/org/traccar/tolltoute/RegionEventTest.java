@@ -1,13 +1,17 @@
 package org.traccar.tolltoute;
 
 import org.traccar.handler.events.RegionEventHandler;
+import org.traccar.model.BaseModel;
 import org.traccar.model.Event;
 import org.traccar.model.Position;
+import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.localCache.RedisCache;
 import redis.clients.jedis.JedisPooled;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class RegionEventTest {
     public static void main(String[] args) {
@@ -35,10 +39,20 @@ public class RegionEventTest {
                 fakeCache.put(key, value);
             }
         };
+        CacheManager cacheManager = null;
+        try {
+            cacheManager = new CacheManager(null, null, null) {
+                @Override
+                public <T extends BaseModel> Set<T> getDeviceObjects(long deviceId, Class<T> clazz) {
+                    return Collections.emptySet();
+                }
+            };
+        } catch (Exception ignored) {
+        }
 
 
 
-        RegionEventHandler handler = new RegionEventHandler(redisCache);
+        RegionEventHandler handler = new RegionEventHandler(cacheManager, redisCache);
 
         // ---- Positions ----
         Position pos1 = new Position();
