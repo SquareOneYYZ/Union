@@ -92,6 +92,13 @@
         maxspeed,speed
     </entry>
 
+    <entry key='geocoder.enable'>true</entry>
+    <entry key='geocoder.type'>locationiq</entry>
+    <entry key='geocoder.url'>https://us1.locationiq.com/v1/reverse</entry>
+    <entry key='geocoder.key'>pk.8d53fbdaad1b9785ba8e39a1ac5e3533</entry>
+    <entry key='geocoder.reuseDistance'>200</entry>
+    <entry key='geocoder.cacheSize'>200</entry>
+
 
 
 

@@ -98,6 +98,8 @@ import org.traccar.storage.Storage;
 import org.traccar.storage.localCache.RedisCache;
 import org.traccar.tollroute.OverPassTollRouteProvider;
 import org.traccar.tollroute.TollRouteProvider;
+import org.traccar.tollroute.RegionProvider;
+import org.traccar.tollroute.LocationIQRegionProvider;
 import org.traccar.web.WebServer;
 import org.traccar.api.security.LoginService;
 
@@ -301,6 +303,18 @@ public class MainModule extends AbstractModule {
         }
         return null;
     }
+
+    @Singleton
+    @Provides
+    public static RegionProvider provideRegionProvider(Config config, Client client, RedisCache redisCache) {
+        String type = config.getString(Keys.REGION_PROVIDER_TYPE, "locationiq");
+        String url = config.getString(Keys.REGION_PROVIDER_URL);
+        return switch (type) {
+            case "locationiq" -> new LocationIQRegionProvider(config, client, url, redisCache);
+            default -> throw new IllegalArgumentException("Unknown Region provider: " + type);
+        };
+    }
+
 
     @Singleton
     @Provides
