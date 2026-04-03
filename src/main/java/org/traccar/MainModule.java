@@ -318,6 +318,10 @@ public class MainModule extends AbstractModule {
     @Provides
     public static OverpassProvider provideOverpassProvider(Client client) {
         return new OverpassApiProvider(client);
+    }
+
+    @Singleton
+    @Provides
     public static RegionProvider provideRegionProvider(Config config, Client client, RedisCache redisCache) {
         String type = config.getString(Keys.REGION_PROVIDER_TYPE, "locationiq");
         String url = config.getString(Keys.REGION_PROVIDER_URL);
