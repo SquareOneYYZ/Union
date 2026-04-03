@@ -316,8 +316,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static OverpassProvider provideOverpassProvider(Client client) {
-        return new OverpassApiProvider(client);
+    public static OverpassProvider provideOverpassProvider(Config config, Client client) {
+        return new OverpassApiProvider(config, client);
     }
 
     @Singleton

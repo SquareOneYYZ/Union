@@ -55,6 +55,14 @@ public class NHTSAVinDecoderProvider implements VinDecoderProvider {
                     }
 
                     JsonObject result = results.getJsonObject(0);
+
+                    String errorCode = result.getString("ErrorCode", "");
+                    if (!errorCode.isEmpty() && !errorCode.startsWith("0")) {
+                        String errorText = result.getString("ErrorText", "Invalid VIN");
+                        callback.onFailure(new VinDecoderException("NHTSA error " + errorCode + ": " + errorText));
+                        return;
+                    }
+
                     VinDecoder vinDecoder = new VinDecoder();
                     vinDecoder.setVin(result.getString("VIN", ""));
                     vinDecoder.setMake(result.getString("Make", ""));

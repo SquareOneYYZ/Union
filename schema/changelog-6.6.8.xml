@@ -34,6 +34,14 @@
     <changeSet author="author" id="changelog-6.6.8-add-unique-vin">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="tc_devices"/>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM (
+                    SELECT vin FROM tc_devices
+                    WHERE vin IS NOT NULL
+                    GROUP BY vin
+                    HAVING COUNT(*) > 1
+                ) AS duplicates
+            </sqlCheck>
         </preConditions>
         <addUniqueConstraint
                 tableName="tc_devices"

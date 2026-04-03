@@ -58,6 +58,7 @@ import jakarta.ws.rs.core.Response;
 
 import java.io.*;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedList;
@@ -77,6 +78,20 @@ public class DeviceResource extends BaseObjectResource<Device> {
         return config.getInteger("cache.ttl.seconds", 86400);
     }
     private static final int VIN_DECODE_TIMEOUT_SECONDS = 30;
+
+    private static String sha256Hex(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Inject
     private Config config;
@@ -355,7 +370,7 @@ public class DeviceResource extends BaseObjectResource<Device> {
                         .entity("Query cannot be empty")
                         .build();
             }
-            String cacheKey = "overpass:v2:" + query.hashCode();
+            String cacheKey = "overpass:v2:" + sha256Hex(query);
             String cached = redisCache.get(cacheKey);
             if (cached != null) {
                 return Response.ok(cached).build();

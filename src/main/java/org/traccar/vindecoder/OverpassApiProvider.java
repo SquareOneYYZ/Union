@@ -15,19 +15,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class OverpassApiProvider implements OverpassProvider {
-    private static final String OVERPASS_URL = "http://147.182.153.145/api/interpreter";
-    private final Client client;
+import org.traccar.config.Config;
+import org.traccar.config.Keys;
 
-    public OverpassApiProvider(Client client) {
+public class OverpassApiProvider implements OverpassProvider {
+    private final Client client;
+    private final String overpassUrl;
+
+    public OverpassApiProvider(Config config, Client client) {
         this.client = client;
+        this.overpassUrl = config.getString(Keys.OVERPASS_URL);
     }
 
     @Override
     public void fetchTollWays(String query, Callback callback) {
 
         AsyncInvoker invoker = client
-                .target(OVERPASS_URL)
+                .target(overpassUrl)
                 .request(MediaType.APPLICATION_JSON)
                 .async();
 
