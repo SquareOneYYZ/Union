@@ -15,6 +15,7 @@
  */
 package org.traccar.api.resource;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.FormParam;
 import org.traccar.api.BaseObjectResource;
 import org.traccar.api.signature.TokenManager;
@@ -31,10 +32,15 @@ import org.traccar.model.User;
 import org.traccar.session.ConnectionManager;
 import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.StorageException;
+import org.traccar.storage.localCache.RedisCache;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
+import org.traccar.vindecoder.OverpassProvider;
+import org.traccar.vindecoder.TollWay;
+import org.traccar.vindecoder.VinDecoder;
+import org.traccar.vindecoder.VinDecoderProvider;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -49,14 +55,17 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+
+import java.io.*;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Path("devices")
 @Produces(MediaType.APPLICATION_JSON)
@@ -65,6 +74,24 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
     private static final int DEFAULT_BUFFER_SIZE = 8192;
     private static final int IMAGE_SIZE_LIMIT = 500000;
+    private int getCacheTtl() {
+        return config.getInteger("cache.ttl.seconds", 86400);
+    }
+    private static final int VIN_DECODE_TIMEOUT_SECONDS = 30;
+
+    private static String sha256Hex(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Inject
     private Config config;
@@ -83,6 +110,19 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
     @Inject
     private TokenManager tokenManager;
+
+    @Inject
+    private RedisCache redisCache;
+
+    @Inject
+    private VinDecoderProvider vinDecoderProvider;
+
+    @Inject
+    private OverpassProvider overpassProvider;
+
+
+    private final ObjectMapper mapper = new ObjectMapper();
+
 
     public DeviceResource() {
         super(Device.class);
@@ -266,5 +306,100 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
         return tokenManager.generateToken(share.getId(), expiration);
     }
+
+
+    @GET
+    @Path("Vindecoder/{vin}")
+    public Response decodeVin(
+            @PathParam("vin") String vin) {
+        try {
+            if (vin == null || vin.trim().isEmpty() || vin.trim().length() > 17) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Invalid VIN. VIN must not exceed 17 characters.")
+                        .build();
+            }
+            String normalizedVin = vin.trim().toUpperCase();
+            String cacheKey = "vin:v3:" + normalizedVin;
+            String cached = redisCache.get(cacheKey);
+            if (cached != null) {
+                return Response.ok(cached).build();
+            }
+            CompletableFuture<VinDecoder> future = new CompletableFuture<>();
+
+            vinDecoderProvider.decodeVin(normalizedVin, new VinDecoderProvider.VinDecoderCallback() {
+                @Override
+                public void onSuccess(VinDecoder vinDecoder) {
+                    future.complete(vinDecoder);
+                }
+
+                @Override
+                public void onFailure(Throwable e) {
+                    future.completeExceptionally(e);
+                }
+            });
+            VinDecoder vinDecoder = future.get(VIN_DECODE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            String responseJson = mapper.writeValueAsString(vinDecoder);
+            redisCache.setWithTTL(cacheKey, responseJson, getCacheTtl());
+            return Response.ok(responseJson).build();
+
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(e.getMessage())
+                    .build();
+        } catch (java.util.concurrent.TimeoutException e) {
+            return Response.status(Response.Status.GATEWAY_TIMEOUT)
+                    .entity("VIN decode request timed out")
+                    .build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error processing VIN decode request: " + e.getMessage())
+                    .build();
+        }
+    }
+
+
+    @POST
+    @Path("overpass/toll")
+    @Consumes(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response fetchTollWays(String query) {
+
+        try {
+            if (query == null || query.trim().isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Query cannot be empty")
+                        .build();
+            }
+            String cacheKey = "overpass:v2:" + sha256Hex(query);
+            String cached = redisCache.get(cacheKey);
+            if (cached != null) {
+                return Response.ok(cached).build();
+            }
+            CompletableFuture<List<TollWay>> future = new CompletableFuture<>();
+            overpassProvider.fetchTollWays(query, new OverpassProvider.Callback() {
+                @Override
+                public void onSuccess(List<TollWay> tollWays) {
+                    future.complete(tollWays);
+                }
+                @Override
+                public void onFailure(Throwable e) {
+                    future.completeExceptionally(e);
+                }
+            });
+            List<TollWay> result = future.get(30, TimeUnit.SECONDS);
+            String responseJson = mapper.writeValueAsString(result);
+            redisCache.setWithTTL(cacheKey, responseJson, getCacheTtl());
+            return Response.ok(responseJson).build();
+        } catch (TimeoutException e) {
+            return Response.status(Response.Status.GATEWAY_TIMEOUT)
+                    .entity("Overpass API request timed out")
+                    .build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Error fetching toll data: " + e.getMessage())
+                    .build();
+        }
+    }
+
 
 }

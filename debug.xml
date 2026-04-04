@@ -56,6 +56,8 @@
     <entry key='tollRoute.accuracy'>10</entry>
     <entry key='event.tollRoute.minimalDuration'>4</entry>
 
+    <entry key='overpass.url'>http://147.182.153.145/api/interpreter</entry>
+
 
 <!--    <entry key='mail.debug'>true</entry>-->
 
@@ -92,6 +94,7 @@
         maxspeed,speed
     </entry>
 
+    <entry key='cache.ttl.seconds'>86400</entry>
     <entry key='geocoder.enable'>true</entry>
     <entry key='geocoder.type'>locationiq</entry>
     <entry key='geocoder.url'>https://us1.locationiq.com/v1/reverse</entry>

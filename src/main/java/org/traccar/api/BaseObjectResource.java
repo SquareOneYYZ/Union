@@ -17,12 +17,8 @@
 package org.traccar.api;
 
 import org.traccar.api.security.ServiceAccountUser;
-import org.traccar.model.ObjectOperation;
+import org.traccar.model.*;
 import org.traccar.helper.LogAction;
-import org.traccar.model.BaseModel;
-import org.traccar.model.Group;
-import org.traccar.model.Permission;
-import org.traccar.model.User;
 import org.traccar.session.ConnectionManager;
 import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.StorageException;
@@ -69,7 +65,20 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
     @POST
     public Response add(T entity) throws Exception {
         permissionsService.checkEdit(getUserId(), entity, true, false);
-
+        if (entity instanceof Device device) {
+            if (device.getVin() != null && !device.getVin().isBlank()) {
+                Request request = new Request(
+                        new Columns.All(),
+                        new Condition.Equals("vin", device.getVin().trim())
+                );
+                Device existing = storage.getObject(Device.class, request);
+                if (existing != null) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity("VIN already exists")
+                            .build();
+                }
+            }
+        }
         entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
         LogAction.create(getUserId(), entity);
 
