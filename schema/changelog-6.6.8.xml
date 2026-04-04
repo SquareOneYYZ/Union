@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+        logicalFilePath="changelog-6.6.8">
+
+    <changeSet author="author" id="changelog-6.6.8-add-vin-fields">
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_devices"/>
+        </preConditions>
+
+        <addColumn tableName="tc_devices">
+
+            <column name="make" type="VARCHAR(128)"/>
+            <column name="manufacturer" type="VARCHAR(128)"/>
+            <column name="modelyear" type="VARCHAR(16)"/>
+            <column name="vehicletype" type="VARCHAR(64)"/>
+            <column name="trim" type="VARCHAR(64)"/>
+            <column name="displacementl" type="VARCHAR(16)"/>
+            <column name="enginehp" type="VARCHAR(16)"/>
+            <column name="enginecylinders" type="VARCHAR(16)"/>
+            <column name="drivetype" type="VARCHAR(64)"/>
+            <column name="bodyclass" type="VARCHAR(128)"/>
+            <column name="batterytype" type="VARCHAR(64)"/>
+            <column name="fueltypeprimary" type="VARCHAR(64)"/>
+
+        </addColumn>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.6.8-add-unique-vin">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_devices"/>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM (
+                    SELECT vin FROM tc_devices
+                    WHERE vin IS NOT NULL
+                    GROUP BY vin
+                    HAVING COUNT(*) > 1
+                ) AS duplicates
+            </sqlCheck>
+        </preConditions>
+        <addUniqueConstraint
+                tableName="tc_devices"
+                columnNames="vin"
+                constraintName="uk_devices_vin"/>
+    </changeSet>
+
+
+</databaseChangeLog>

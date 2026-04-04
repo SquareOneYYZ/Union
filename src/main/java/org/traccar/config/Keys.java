@@ -2051,10 +2051,31 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             "event.customToll.names",
             List.of(KeyType.CONFIG));
 
+    public static final ConfigKey<String> REGION_PROVIDER_TYPE = new StringConfigKey(
+            "region.provider.type",
+            List.of(KeyType.CONFIG),
+            "locationiq");
+
+
+    public static final ConfigKey<String> REGION_PROVIDER_URL = new StringConfigKey(
+            "region.provider.url",
+            List.of(KeyType.CONFIG),
+            "https://us1.locationiq.com/v1/reverse");
 
     public static final ConfigKey<Boolean> USER_ONBOARDING_ENABLED = new BooleanConfigKey(
             "userOnboarding.enabled",
             List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<Integer> REGION_CACHE_ROUNDING_DECIMALS = new IntegerConfigKey(
+            "region.cache.roundingDecimals",
+            List.of(KeyType.CONFIG),
+            2);
+
+
+    public static final ConfigKey<String> OVERPASS_URL = new StringConfigKey(
+            "overpass.url",
+            List.of(KeyType.CONFIG),
+            "http://147.182.153.145/api/interpreter");
 
 }
 
