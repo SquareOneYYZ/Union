@@ -2069,5 +2069,9 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             2);
 
 
+    public static final ConfigKey<String> OVERPASS_URL = new StringConfigKey(
+            "overpass.url",
+            List.of(KeyType.CONFIG),
+            "http://147.182.153.145/api/interpreter");
 
 }
