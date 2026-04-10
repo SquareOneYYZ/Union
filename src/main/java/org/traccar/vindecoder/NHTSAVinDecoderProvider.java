@@ -58,9 +58,16 @@ public class NHTSAVinDecoderProvider implements VinDecoderProvider {
 
                     String errorCode = result.getString("ErrorCode", "");
                     if (!errorCode.isEmpty() && !errorCode.startsWith("0")) {
-                        String errorText = result.getString("ErrorText", "Invalid VIN");
-                        callback.onFailure(new VinDecoderException("NHTSA error " + errorCode + ": " + errorText));
-                        return;
+                        boolean isWildcardVin = normalizedVin.contains("*");
+                        boolean isOnlyCheckDigitError = errorCode.equals("1")
+                                || errorCode.startsWith("1,")
+                                || errorCode.contains(",1,")
+                                || errorCode.endsWith(",1");
+                        if (!isWildcardVin || !isOnlyCheckDigitError) {
+                            String errorText = result.getString("ErrorText", "Invalid VIN");
+                            callback.onFailure(new VinDecoderException("NHTSA error " + errorCode + ": " + errorText));
+                            return;
+                        }
                     }
 
                     VinDecoder vinDecoder = new VinDecoder();
