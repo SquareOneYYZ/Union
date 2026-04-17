@@ -17,7 +17,6 @@ package org.traccar.storage.query;
 
 import org.traccar.model.GroupedModel;
 
-import java.util.Map;
 import java.util.List;
 
 public interface Condition {
@@ -206,24 +205,6 @@ public interface Condition {
 
         public long getDeviceId() {
             return deviceId;
-        }
-    }
-
-    class Expression implements Condition {
-        private final String expression;
-        private final Map<String, Object> variables;
-
-        public Expression(String expression, Map<String, Object> variables) {
-            this.expression = expression;
-            this.variables = variables;
-        }
-
-        public String getExpression() {
-            return expression;
-        }
-
-        public Map<String, Object> getVariables() {
-            return variables;
         }
     }
 

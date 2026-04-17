@@ -30,8 +30,10 @@ import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
 
 import java.util.Date;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Singleton
@@ -89,6 +91,10 @@ public class ReplaySessionService {
     public List<Position> getOverview(ReplaySession session, int limit) throws StorageException {
         refreshTtl(session.getId());
 
+        if (limit <= 0) {
+            return List.of();
+        }
+
         Date from = new Date(session.getFrom());
         Date to = new Date(session.getTo());
 
@@ -101,30 +107,175 @@ public class ReplaySessionService {
             return List.of();
         }
 
-        long step = Math.max(1, (totalCount + limit - 1) / limit);
+        int sampleLimit = Math.min(Math.max(limit * 2, 500), 2000);
+        int chunkSize = 100;
+        int chunkCount = Math.max(1, (int) Math.ceil((double) sampleLimit / chunkSize));
+        chunkCount = Math.min(chunkCount, 20);
 
-        // We can't use `id % step` because ids are global across devices.
-        // Use per-device row-number sampling instead.
-        Condition condition = new Condition.Expression(
-                "id IN ("
-                        + "SELECT id FROM ("
-                        + "SELECT id, ROW_NUMBER() OVER (ORDER BY fixTime) AS rn "
-                        + "FROM tc_positions "
-                        + "WHERE deviceId = :deviceId AND fixTime BETWEEN :from AND :to"
-                        + ") t "
-                        + "WHERE t.rn = 1 OR t.rn = :totalCount OR ((t.rn - 1) % :step) = 0"
-                        + ")",
-                Map.of(
-                        "deviceId", session.getDeviceId(),
-                        "from", from,
-                        "to", to,
-                        "totalCount", totalCount,
-                        "step", step));
+        List<Position> points = new ArrayList<>();
+        if (chunkCount == 1) {
+            points.addAll(storage.getObjects(Position.class, new Request(
+                    new Columns.Include("latitude", "longitude", "fixTime"),
+                    baseCondition,
+                    new Order("fixTime", false, sampleLimit, 0))));
+        } else {
+            for (int i = 0; i < chunkCount; i++) {
+                long offsetLong = Math.round((double) i * (double) (totalCount - 1) / (double) (chunkCount - 1));
+                int offset = (int) Math.min(Integer.MAX_VALUE, Math.max(0, offsetLong));
+                points.addAll(storage.getObjects(Position.class, new Request(
+                        new Columns.Include("latitude", "longitude", "fixTime"),
+                        baseCondition,
+                        new Order("fixTime", false, chunkSize, offset))));
+            }
+        }
 
-        return storage.getObjects(Position.class, new Request(
-                new Columns.Include("latitude", "longitude", "fixTime"),
-                condition,
-                new Order("fixTime", false, limit + 2, 0)));
+        return simplifyRdpToLimit(points, limit);
+    }
+
+    private static List<Position> simplifyRdpToLimit(List<Position> points, int limit) {
+        if (points.size() <= limit || limit < 2) {
+            return points;
+        }
+
+        double diag = boundingDiagonalMeters(points);
+        double low = 0.0;
+        double high = Math.max(1.0, diag);
+
+        List<Position> best = points;
+        for (int i = 0; i < 20; i++) {
+            double mid = (low + high) / 2.0;
+            List<Position> simplified = simplifyRdp(points, mid);
+            if (simplified.size() > limit) {
+                low = mid;
+            } else {
+                best = simplified;
+                high = mid;
+            }
+        }
+
+        if (best.size() <= limit) {
+            return best;
+        }
+        return decimateEvenly(points, limit);
+    }
+
+    private static List<Position> simplifyRdp(List<Position> points, double epsilonMeters) {
+        int n = points.size();
+        boolean[] keep = new boolean[n];
+        keep[0] = true;
+        keep[n - 1] = true;
+
+        Deque<int[]> stack = new ArrayDeque<>();
+        stack.push(new int[] {0, n - 1});
+
+        while (!stack.isEmpty()) {
+            int[] range = stack.pop();
+            int start = range[0];
+            int end = range[1];
+            if (end <= start + 1) {
+                continue;
+            }
+
+            int index = -1;
+            double maxDistance = -1.0;
+            Position a = points.get(start);
+            Position b = points.get(end);
+
+            for (int i = start + 1; i < end; i++) {
+                double d = perpendicularDistanceMeters(points.get(i), a, b);
+                if (d > maxDistance) {
+                    maxDistance = d;
+                    index = i;
+                }
+            }
+
+            if (maxDistance > epsilonMeters && index != -1) {
+                keep[index] = true;
+                stack.push(new int[] {start, index});
+                stack.push(new int[] {index, end});
+            }
+        }
+
+        List<Position> result = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            if (keep[i]) {
+                result.add(points.get(i));
+            }
+        }
+        return result;
+    }
+
+    private static List<Position> decimateEvenly(List<Position> points, int limit) {
+        int n = points.size();
+        if (limit >= n) {
+            return points;
+        }
+        List<Position> result = new ArrayList<>(limit);
+        double step = (double) (n - 1) / (double) (limit - 1);
+        for (int i = 0; i < limit; i++) {
+            int index = (int) Math.round(i * step);
+            if (index >= n) {
+                index = n - 1;
+            }
+            result.add(points.get(index));
+        }
+        return result;
+    }
+
+    private static double boundingDiagonalMeters(List<Position> points) {
+        double minLat = Double.POSITIVE_INFINITY;
+        double maxLat = Double.NEGATIVE_INFINITY;
+        double minLon = Double.POSITIVE_INFINITY;
+        double maxLon = Double.NEGATIVE_INFINITY;
+        for (Position p : points) {
+            double lat = p.getLatitude();
+            double lon = p.getLongitude();
+            minLat = Math.min(minLat, lat);
+            maxLat = Math.max(maxLat, lat);
+            minLon = Math.min(minLon, lon);
+            maxLon = Math.max(maxLon, lon);
+        }
+        return haversineMeters(minLat, minLon, maxLat, maxLon);
+    }
+
+    private static double perpendicularDistanceMeters(Position p, Position a, Position b) {
+        double lat0 = Math.toRadians((a.getLatitude() + b.getLatitude()) / 2.0);
+        double x1 = lonToMeters(a.getLongitude(), lat0);
+        double y1 = latToMeters(a.getLatitude());
+        double x2 = lonToMeters(b.getLongitude(), lat0);
+        double y2 = latToMeters(b.getLatitude());
+        double x0 = lonToMeters(p.getLongitude(), lat0);
+        double y0 = latToMeters(p.getLatitude());
+
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        if (dx == 0.0 && dy == 0.0) {
+            return Math.hypot(x0 - x1, y0 - y1);
+        }
+        double t = ((x0 - x1) * dx + (y0 - y1) * dy) / (dx * dx + dy * dy);
+        double xProj = x1 + t * dx;
+        double yProj = y1 + t * dy;
+        return Math.hypot(x0 - xProj, y0 - yProj);
+    }
+
+    private static double latToMeters(double latDeg) {
+        return latDeg * 111_320.0;
+    }
+
+    private static double lonToMeters(double lonDeg, double latRad) {
+        return lonDeg * 111_320.0 * Math.cos(latRad);
+    }
+
+    private static double haversineMeters(double lat1Deg, double lon1Deg, double lat2Deg, double lon2Deg) {
+        double r = 6371000.0;
+        double lat1 = Math.toRadians(lat1Deg);
+        double lat2 = Math.toRadians(lat2Deg);
+        double dLat = lat2 - lat1;
+        double dLon = Math.toRadians(lon2Deg - lon1Deg);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return r * c;
     }
 
     public ReplaySession getSession(String sessionId) {

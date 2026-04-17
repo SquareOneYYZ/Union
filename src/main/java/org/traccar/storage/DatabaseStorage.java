@@ -232,8 +232,6 @@ public class DatabaseStorage extends Storage {
         } else if (genericCondition instanceof Condition.Binary condition) {
             results.putAll(getConditionVariables(condition.getFirst()));
             results.putAll(getConditionVariables(condition.getSecond()));
-        } else if (genericCondition instanceof Condition.Expression condition) {
-            results.putAll(condition.getVariables());
         } else if (genericCondition instanceof Condition.Permission condition) {
             if (condition.getOwnerId() > 0) {
                 results.put(Permission.getKey(condition.getOwnerClass()), condition.getOwnerId());
@@ -285,12 +283,6 @@ public class DatabaseStorage extends Storage {
                 result.append(condition.getOperator());
                 result.append(" ");
                 result.append(formatCondition(condition.getSecond(), false));
-
-            } else if (genericCondition instanceof Condition.Expression condition) {
-
-                result.append("(");
-                result.append(condition.getExpression());
-                result.append(")");
 
             } else if (genericCondition instanceof Condition.Permission condition) {
 

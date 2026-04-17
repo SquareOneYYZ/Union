@@ -112,10 +112,6 @@ public class MemoryStorage extends Storage {
 
             return false;
 
-        } else if (genericCondition instanceof Condition.Expression) {
-
-            return true;
-
         }
 
         return false;
