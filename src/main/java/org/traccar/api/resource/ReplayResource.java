@@ -62,7 +62,8 @@ public class ReplayResource extends BaseResource {
         permissionsService.checkPermission(Device.class, getUserId(), request.getDeviceId());
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
 
-        return replaySessionService.createSession(getUserId(), request.getDeviceId(), request.getFrom(), request.getTo());
+        return replaySessionService.createSession(getUserId(), request.getDeviceId(),
+                request.getFrom(), request.getTo());
     }
 
 
