@@ -102,34 +102,59 @@ public class ReplaySessionService {
                 new Condition.Equals("deviceId", session.getDeviceId()),
                 new Condition.Between("fixTime", "from", from, "to", to));
 
-        long totalCount = storage.getCount(Position.class, baseCondition);
-        if (totalCount == 0) {
+        List<Position> first = storage.getObjects(Position.class, new Request(
+                new Columns.Include("latitude", "longitude", "fixTime"),
+                baseCondition,
+                new Order("fixTime", false, 1, 0)));
+        if (first.isEmpty()) {
             return List.of();
         }
 
-        int sampleLimit = Math.min(Math.max(limit * 2, 500), 2000);
-        int chunkSize = 100;
-        int chunkCount = Math.max(1, (int) Math.ceil((double) sampleLimit / chunkSize));
-        chunkCount = Math.min(chunkCount, 20);
+        int sampleLimit = Math.min(Math.max(limit * 50, 200), 2000);
+        int bucketCount = Math.min(20, Math.max(1, (int) Math.ceil(sampleLimit / 100.0)));
+        int bucketSize = (int) Math.ceil((double) sampleLimit / bucketCount);
+
+        long fromMs = from.getTime();
+        long toMs = to.getTime();
+        long spanMs = Math.max(1, toMs - fromMs);
 
         List<Position> points = new ArrayList<>();
-        if (chunkCount == 1) {
+        for (int i = 0; i < bucketCount; i++) {
+            long startMs = fromMs + (spanMs * i) / bucketCount;
+            long endMs = fromMs + (spanMs * (i + 1)) / bucketCount;
+            Date bucketFrom = new Date(startMs);
+            Date bucketTo = new Date(endMs);
+
+            Condition bucketCondition = new Condition.And(
+                    new Condition.Equals("deviceId", session.getDeviceId()),
+                    new Condition.Between("fixTime", "from", bucketFrom, "to", bucketTo));
+
             points.addAll(storage.getObjects(Position.class, new Request(
                     new Columns.Include("latitude", "longitude", "fixTime"),
-                    baseCondition,
-                    new Order("fixTime", false, sampleLimit, 0))));
-        } else {
-            for (int i = 0; i < chunkCount; i++) {
-                long offsetLong = Math.round((double) i * (double) (totalCount - 1) / (double) (chunkCount - 1));
-                int offset = (int) Math.min(Integer.MAX_VALUE, Math.max(0, offsetLong));
-                points.addAll(storage.getObjects(Position.class, new Request(
-                        new Columns.Include("latitude", "longitude", "fixTime"),
-                        baseCondition,
-                        new Order("fixTime", false, chunkSize, offset))));
+                    bucketCondition,
+                    new Order("fixTime", false, bucketSize, 0))));
+        }
+
+        List<Position> last = storage.getObjects(Position.class, new Request(
+                new Columns.Include("latitude", "longitude", "fixTime"),
+                baseCondition,
+                new Order("fixTime", true, 1, 0)));
+        if (!last.isEmpty()) {
+            points.add(last.get(0));
+        }
+
+        points.sort((a, b) -> a.getFixTime().compareTo(b.getFixTime()));
+
+        List<Position> unique = new ArrayList<>(points.size());
+        Position prev = null;
+        for (Position p : points) {
+            if (prev == null || !p.getFixTime().equals(prev.getFixTime())) {
+                unique.add(p);
+                prev = p;
             }
         }
 
-        return simplifyRdpToLimit(points, limit);
+        return simplifyRdpToLimit(unique, limit);
     }
 
     private static List<Position> simplifyRdpToLimit(List<Position> points, int limit) {
