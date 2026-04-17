@@ -31,6 +31,7 @@ import org.traccar.storage.query.Request;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Singleton
@@ -51,19 +52,19 @@ public class ReplaySessionService {
     }
 
 
-    public ReplaySession createSession(long deviceId, Date from, Date to) throws StorageException {
-        List<Position> countResult = storage.getObjects(Position.class, new Request(
-                new Columns.Include("id"),
-                new Condition.And(
-                        new Condition.Equals("deviceId", deviceId),
-                        new Condition.Between("fixTime", "from", from, "to", to))));
+    public ReplaySession createSession(long userId, long deviceId, Date from, Date to) throws StorageException {
+        Condition condition = new Condition.And(
+                new Condition.Equals("deviceId", deviceId),
+                new Condition.Between("fixTime", "from", from, "to", to));
+        long totalCount = storage.getCount(Position.class, condition);
 
         ReplaySession session = new ReplaySession();
         session.setId(UUID.randomUUID().toString());
+        session.setUserId(userId);
         session.setDeviceId(deviceId);
         session.setFrom(from.getTime());
         session.setTo(to.getTime());
-        session.setTotalCount(countResult.size());
+        session.setTotalCount(totalCount);
         session.setCreatedAt(System.currentTimeMillis());
 
         persistSession(session);
@@ -71,13 +72,8 @@ public class ReplaySessionService {
     }
 
 
-    public List<Position> getChunk(String sessionId, int offset, int limit) throws StorageException {
-        ReplaySession session = getSession(sessionId);
-        if (session == null) {
-            return null;
-        }
-
-        refreshTtl(sessionId);
+    public List<Position> getChunk(ReplaySession session, int offset, int limit) throws StorageException {
+        refreshTtl(session.getId());
 
         Date from = new Date(session.getFrom());
         Date to = new Date(session.getTo());
@@ -88,6 +84,47 @@ public class ReplaySessionService {
                         new Condition.Equals("deviceId", session.getDeviceId()),
                         new Condition.Between("fixTime", "from", from, "to", to)),
                 new Order("fixTime", false, limit, offset)));
+    }
+
+    public List<Position> getOverview(ReplaySession session, int limit) throws StorageException {
+        refreshTtl(session.getId());
+
+        Date from = new Date(session.getFrom());
+        Date to = new Date(session.getTo());
+
+        Condition baseCondition = new Condition.And(
+                new Condition.Equals("deviceId", session.getDeviceId()),
+                new Condition.Between("fixTime", "from", from, "to", to));
+
+        long totalCount = storage.getCount(Position.class, baseCondition);
+        if (totalCount == 0) {
+            return List.of();
+        }
+
+        long step = Math.max(1, (totalCount + limit - 1) / limit);
+
+        // We can't use `id % step` because ids are global across devices.
+        // Use per-device row-number sampling instead.
+        Condition condition = new Condition.Expression(
+                "id IN ("
+                        + "SELECT id FROM ("
+                        + "SELECT id, ROW_NUMBER() OVER (ORDER BY fixTime) AS rn "
+                        + "FROM tc_positions "
+                        + "WHERE deviceId = :deviceId AND fixTime BETWEEN :from AND :to"
+                        + ") t "
+                        + "WHERE t.rn = 1 OR t.rn = :totalCount OR ((t.rn - 1) % :step) = 0"
+                        + ")",
+                Map.of(
+                        "deviceId", session.getDeviceId(),
+                        "from", from,
+                        "to", to,
+                        "totalCount", totalCount,
+                        "step", step));
+
+        return storage.getObjects(Position.class, new Request(
+                new Columns.Include("latitude", "longitude", "fixTime"),
+                condition,
+                new Order("fixTime", false, limit + 2, 0)));
     }
 
     public ReplaySession getSession(String sessionId) {
@@ -112,11 +149,7 @@ public class ReplaySessionService {
     }
 
     private void refreshTtl(String sessionId) {
-        String key = KEY_PREFIX + sessionId;
-        String value = redisCache.get(key);
-        if (value != null) {
-            redisCache.setWithTTL(key, value, SESSION_TTL_SECONDS);
-        }
+        redisCache.expire(KEY_PREFIX + sessionId, SESSION_TTL_SECONDS);
     }
 
 }

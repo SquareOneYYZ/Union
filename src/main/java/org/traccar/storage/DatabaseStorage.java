@@ -80,6 +80,22 @@ public class DatabaseStorage extends Storage {
     }
 
     @Override
+    public long getCount(Class<?> clazz, Condition condition) throws StorageException {
+        StringBuilder query = new StringBuilder("SELECT COUNT(*) FROM ");
+        query.append(getStorageName(clazz));
+        query.append(formatCondition(condition));
+        try {
+            QueryBuilder builder = QueryBuilder.create(config, dataSource, objectMapper, query.toString());
+            for (Map.Entry<String, Object> variable : getConditionVariables(condition).entrySet()) {
+                builder.setValue(variable.getKey(), variable.getValue());
+            }
+            return builder.executeScalarLong();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
     public <T> long addObject(T entity, Request request) throws StorageException {
         List<String> columns = request.getColumns().getColumns(entity.getClass(), "get");
         StringBuilder query = new StringBuilder("INSERT INTO ");
@@ -216,6 +232,8 @@ public class DatabaseStorage extends Storage {
         } else if (genericCondition instanceof Condition.Binary condition) {
             results.putAll(getConditionVariables(condition.getFirst()));
             results.putAll(getConditionVariables(condition.getSecond()));
+        } else if (genericCondition instanceof Condition.Expression condition) {
+            results.putAll(condition.getVariables());
         } else if (genericCondition instanceof Condition.Permission condition) {
             if (condition.getOwnerId() > 0) {
                 results.put(Permission.getKey(condition.getOwnerClass()), condition.getOwnerId());
@@ -267,6 +285,12 @@ public class DatabaseStorage extends Storage {
                 result.append(condition.getOperator());
                 result.append(" ");
                 result.append(formatCondition(condition.getSecond(), false));
+
+            } else if (genericCondition instanceof Condition.Expression condition) {
+
+                result.append("(");
+                result.append(condition.getExpression());
+                result.append(")");
 
             } else if (genericCondition instanceof Condition.Permission condition) {
 

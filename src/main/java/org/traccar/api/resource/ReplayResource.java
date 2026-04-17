@@ -44,6 +44,8 @@ public class ReplayResource extends BaseResource {
 
     private static final int DEFAULT_CHUNK_LIMIT = 100;
     private static final int MAX_CHUNK_LIMIT = 1000;
+    private static final int DEFAULT_OVERVIEW_LIMIT = 1000;
+    private static final int MAX_OVERVIEW_LIMIT = 5000;
 
     @Inject
     private ReplaySessionService replaySessionService;
@@ -60,7 +62,7 @@ public class ReplayResource extends BaseResource {
         permissionsService.checkPermission(Device.class, getUserId(), request.getDeviceId());
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
 
-        return replaySessionService.createSession(request.getDeviceId(), request.getFrom(), request.getTo());
+        return replaySessionService.createSession(getUserId(), request.getDeviceId(), request.getFrom(), request.getTo());
     }
 
 
@@ -77,12 +79,40 @@ public class ReplayResource extends BaseResource {
             limit = MAX_CHUNK_LIMIT;
         }
 
-        List<Position> positions = replaySessionService.getChunk(sessionId, offset, limit);
-        if (positions == null) {
+        ReplaySession session = replaySessionService.getSession(sessionId);
+        if (session == null) {
             throw new WebApplicationException(
                     Response.status(Response.Status.NOT_FOUND).entity("Session not found or expired").build());
         }
-        return positions;
+        if (session.getUserId() != getUserId()) {
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
+
+        return replaySessionService.getChunk(session, offset, limit);
+    }
+
+    @GET
+    @Path("session/{id}/overview")
+    public List<Position> getOverview(
+            @PathParam("id") String sessionId,
+            @QueryParam("limit") int limit) throws StorageException {
+
+        if (limit <= 0) {
+            limit = DEFAULT_OVERVIEW_LIMIT;
+        } else if (limit > MAX_OVERVIEW_LIMIT) {
+            limit = MAX_OVERVIEW_LIMIT;
+        }
+
+        ReplaySession session = replaySessionService.getSession(sessionId);
+        if (session == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.NOT_FOUND).entity("Session not found or expired").build());
+        }
+        if (session.getUserId() != getUserId()) {
+            throw new WebApplicationException(Response.Status.FORBIDDEN);
+        }
+
+        return replaySessionService.getOverview(session, limit);
     }
 
 
