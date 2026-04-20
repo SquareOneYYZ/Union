@@ -62,6 +62,11 @@ public class ReplayResource extends BaseResource {
         permissionsService.checkPermission(Device.class, getUserId(), request.getDeviceId());
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
 
+        if (!replaySessionService.isCacheAvailable()) {
+            throw new WebApplicationException(Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                    .entity("Replay session cache unavailable").build());
+        }
+
         return replaySessionService.createSession(getUserId(), request.getDeviceId(),
                 request.getFrom(), request.getTo());
     }

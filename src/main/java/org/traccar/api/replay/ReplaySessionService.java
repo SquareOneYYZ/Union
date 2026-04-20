@@ -53,6 +53,10 @@ public class ReplaySessionService {
         this.objectMapper = objectMapper;
     }
 
+    public boolean isCacheAvailable() {
+        return redisCache.isAvailable();
+    }
+
 
     public ReplaySession createSession(long userId, long deviceId, Date from, Date to) throws StorageException {
         Condition condition = new Condition.And(
@@ -316,9 +320,15 @@ public class ReplaySessionService {
     }
 
     private void persistSession(ReplaySession session) throws StorageException {
+        if (!redisCache.isAvailable()) {
+            throw new StorageException("Replay session cache unavailable");
+        }
         try {
             String json = objectMapper.writeValueAsString(session);
             redisCache.setWithTTL(KEY_PREFIX + session.getId(), json, SESSION_TTL_SECONDS);
+            if (!redisCache.isAvailable()) {
+                throw new StorageException("Replay session cache unavailable");
+            }
         } catch (JsonProcessingException e) {
             throw new StorageException(e);
         }
