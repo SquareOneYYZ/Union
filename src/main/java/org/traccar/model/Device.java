@@ -428,6 +428,14 @@ public class Device extends GroupedModel implements Disableable, Schedulable {
         this.fuelTypePrimary = fuelTypePrimary;
     }
 
+    private boolean debugLogging;
 
+    public boolean getDebugLogging() {
+        return debugLogging;
+    }
+
+    public void setDebugLogging(boolean debugLogging) {
+        this.debugLogging = debugLogging;
+    }
 
 }

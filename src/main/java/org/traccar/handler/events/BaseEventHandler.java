@@ -17,6 +17,7 @@ package org.traccar.handler.events;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traccar.helper.DeviceLogContext;
 import org.traccar.model.Event;
 import org.traccar.model.Position;
 
@@ -30,9 +31,12 @@ public abstract class BaseEventHandler {
 
     public void analyzePosition(Position position, Callback callback) {
         try {
+            DeviceLogContext.setDeviceId(position.getDeviceId());
             onPosition(position, callback);
         } catch (RuntimeException e) {
             LOGGER.warn("Event handler failed", e);
+        } finally {
+            DeviceLogContext.clear();
         }
     }
 
