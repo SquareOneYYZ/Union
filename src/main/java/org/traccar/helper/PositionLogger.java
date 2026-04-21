@@ -44,6 +44,9 @@ public class PositionLogger {
 
     public void log(ChannelHandlerContext context, Position position) {
         Device device = cacheManager.getObject(Device.class, position.getDeviceId());
+        if (device == null) {
+            return;
+        }
 
         StringBuilder builder = new StringBuilder();
         builder.append("[").append(NetworkUtil.session(context.channel())).append("] ");

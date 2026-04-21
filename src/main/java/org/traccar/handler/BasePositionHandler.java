@@ -17,6 +17,7 @@ package org.traccar.handler;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traccar.helper.DeviceLogContext;
 import org.traccar.model.Position;
 
 public abstract class BasePositionHandler {
@@ -31,10 +32,13 @@ public abstract class BasePositionHandler {
 
     public void handlePosition(Position position, Callback callback) {
         try {
+            DeviceLogContext.setDeviceId(position.getDeviceId());
             onPosition(position, callback);
         } catch (RuntimeException e) {
             LOGGER.warn("Position handler failed", e);
             callback.processed(false);
+        } finally {
+            DeviceLogContext.clear();
         }
     }
 }

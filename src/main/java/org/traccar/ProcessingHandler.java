@@ -27,6 +27,7 @@ import org.traccar.database.NotificationManager;
 import org.traccar.handler.*;
 import org.traccar.handler.events.*;
 import org.traccar.handler.network.AcknowledgementHandler;
+import org.traccar.helper.DeviceLogContext;
 import org.traccar.helper.PositionLogger;
 import org.traccar.model.Position;
 import org.traccar.session.cache.CacheManager;
@@ -124,6 +125,7 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
 
     @Override
     public void onReleased(ChannelHandlerContext context, Position position) {
+        DeviceLogContext.setDeviceId(position.getDeviceId());
         Queue<Position> queue = getQueue(position.getDeviceId());
         boolean queued;
         synchronized (queue) {
@@ -137,6 +139,8 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
                 throw new RuntimeException(e);
             }
             processPositionHandlers(context, position);
+        } else {
+            DeviceLogContext.clear();
         }
     }
 
@@ -178,16 +182,18 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
     }
 
     private void processNextPosition(ChannelHandlerContext ctx, long deviceId) {
+        DeviceLogContext.setDeviceId(deviceId);
         Queue<Position> queue = getQueue(deviceId);
         Position nextPosition;
         synchronized (queue) {
-            queue.poll(); // remove current position
+            queue.poll();
             nextPosition = queue.peek();
         }
         if (nextPosition != null) {
             processPositionHandlers(ctx, nextPosition);
         } else {
             cacheManager.removeDevice(deviceId, deviceId);
+            DeviceLogContext.clear();
         }
     }
 

@@ -49,5 +49,22 @@
                 constraintName="uk_devices_vin"/>
     </changeSet>
 
+    <changeSet author="author" id="changelog-6.6.8-add-device-debug-logging">
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_devices"/>
+            <not>
+                <columnExists tableName="tc_devices" columnName="debuglogging"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="tc_devices">
+            <column name="debuglogging" type="TINYINT(1)" defaultValueBoolean="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+    </changeSet>
+
 
 </databaseChangeLog>

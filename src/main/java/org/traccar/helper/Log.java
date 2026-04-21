@@ -208,7 +208,7 @@ public final class Log {
         Level level = Level.parse(levelString.toUpperCase());
         rootLogger.setLevel(level);
         handler.setLevel(level);
-        handler.setFilter(record -> record != null && !record.getLoggerName().startsWith("sun"));
+        handler.setFilter(DeviceLogContext::isLoggable);
 
         rootLogger.addHandler(handler);
     }

@@ -2074,4 +2074,11 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             List.of(KeyType.CONFIG),
             "http://147.182.153.145/api/interpreter");
 
+
+    public static final ConfigKey<Boolean> DEVICE_DEBUG_LOGGING = new BooleanConfigKey(
+            "device.debugLogging",
+            List.of(KeyType.CONFIG, KeyType.SERVER, KeyType.DEVICE),
+            false);
+
+
 }
