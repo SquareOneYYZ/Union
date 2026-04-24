@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.traccar.Protocol;
 import org.traccar.broadcast.BroadcastInterface;
 import org.traccar.broadcast.BroadcastService;
+import org.traccar.api.StreamHealthEvent;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.database.DeviceLookupService;
@@ -78,6 +79,7 @@ public class ConnectionManager implements BroadcastInterface {
     private final DeviceLookupService deviceLookupService;
 
     private final Map<Long, Set<UpdateListener>> listeners = new HashMap<>();
+    private final Set<UpdateListener> allListeners = new HashSet<>();
     private final Map<Long, Set<Long>> userDevices = new HashMap<>();
     private final Map<Long, Set<Long>> deviceUsers = new HashMap<>();
 
@@ -280,9 +282,19 @@ public class ConnectionManager implements BroadcastInterface {
     }
 
     public synchronized void sendKeepalive() {
-        for (Set<UpdateListener> userListeners : listeners.values()) {
-            for (UpdateListener listener : userListeners) {
-                listener.onKeepalive();
+        for (UpdateListener listener : allListeners) {
+            listener.onKeepalive();
+        }
+    }
+
+    public synchronized void monitorWebSocketHealth(long now, long timeout) {
+        for (UpdateListener listener : allListeners) {
+            if (now - listener.getLastMessageAt() > timeout && listener.setStreamDegraded(true)) {
+                StreamHealthEvent streamHealthEvent = new StreamHealthEvent();
+                streamHealthEvent.setStatus(StreamHealthEvent.STATUS_DEGRADED);
+                streamHealthEvent.setTimestamp(now);
+                LOGGER.debug("WebSocket stream health changed to DEGRADED");
+                listener.onUpdateStreamHealth(streamHealthEvent);
             }
         }
     }
@@ -369,6 +381,17 @@ public class ConnectionManager implements BroadcastInterface {
         void onUpdatePosition(Position position);
         void onUpdateEvent(Event event);
         void onUpdateLog(LogRecord record);
+        default long getLastMessageAt() {
+            return Long.MAX_VALUE;
+        }
+        default boolean isStreamDegraded() {
+            return false;
+        }
+        default boolean setStreamDegraded(boolean degraded) {
+            return false;
+        }
+        default void onUpdateStreamHealth(StreamHealthEvent streamHealthEvent) {
+        }
     }
 
     public synchronized void addListener(long userId, UpdateListener listener) throws StorageException {
@@ -383,11 +406,13 @@ public class ConnectionManager implements BroadcastInterface {
             devices.forEach(device -> deviceUsers.computeIfAbsent(device.getId(), id -> new HashSet<>()).add(userId));
         }
         set.add(listener);
+        allListeners.add(listener);
     }
 
     public synchronized void removeListener(long userId, UpdateListener listener) {
         var set = listeners.get(userId);
         set.remove(listener);
+        allListeners.remove(listener);
         if (set.isEmpty()) {
             listeners.remove(userId);
 
