@@ -10,7 +10,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BulkUploadDevice {
+public final class BulkUploadDevice {
 
     private BulkUploadDevice() {
         throw new UnsupportedOperationException("Utility class");
