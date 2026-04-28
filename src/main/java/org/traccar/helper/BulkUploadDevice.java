@@ -12,12 +12,18 @@ import java.util.List;
 
 public class BulkUploadDevice {
 
+    private BulkUploadDevice() {
+        throw new UnsupportedOperationException("Utility class");
+    }
+
     public static final int MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
-    public static class FileTooLargeException extends RuntimeException {}
+    public static class FileTooLargeException extends RuntimeException { }
 
     public static class InvalidFileFormatException extends RuntimeException {
-        public InvalidFileFormatException(String msg) { super(msg); }
+        public InvalidFileFormatException(String msg) {
+            super(msg);
+        }
     }
 
     public static List<String[]> readAndParse(InputStream is, String contentType) throws Exception {
@@ -39,7 +45,9 @@ public class BulkUploadDevice {
                     validateCsvHeader(line);
                     continue;
                 }
-                if (line.isBlank()) continue;
+                if (line.isBlank()) {
+                    continue;
+                }
                 rows.add(splitCsvLine(line));
             }
         }
@@ -86,7 +94,9 @@ public class BulkUploadDevice {
             Sheet sheet = wb.getSheetAt(0);
             boolean headerChecked = false;
             for (Row row : sheet) {
-                if (row == null) continue;
+                if (row == null) {
+                    continue;
+                }
                 String col0 = cellToString(row.getCell(0));
                 String col1 = cellToString(row.getCell(1));
                 if (!headerChecked) {
@@ -98,7 +108,9 @@ public class BulkUploadDevice {
                     headerChecked = true;
                     continue;
                 }
-                if (col0.isBlank() && col1.isBlank()) continue;
+                if (col0.isBlank() && col1.isBlank()) {
+                    continue;
+                }
                 rows.add(new String[]{col0, col1});
             }
         }
@@ -106,7 +118,9 @@ public class BulkUploadDevice {
     }
 
     private static String cellToString(Cell cell) {
-        if (cell == null) return "";
+        if (cell == null) {
+            return "";
+        }
         return switch (cell.getCellType()) {
             case STRING  -> cell.getStringCellValue().trim();
             case NUMERIC -> {
@@ -120,7 +134,9 @@ public class BulkUploadDevice {
     }
 
     public static String sanitize(String value) {
-        if (value == null) return null;
+        if (value == null) {
+            return null;
+        }
         String v = value.trim();
         if (!v.isEmpty() && "=+-@".indexOf(v.charAt(0)) >= 0) {
             v = "'" + v;
@@ -134,7 +150,9 @@ public class BulkUploadDevice {
         int total = 0, read;
         while ((read = is.read(chunk)) != -1) {
             total += read;
-            if (total > maxBytes) throw new FileTooLargeException();
+            if (total > maxBytes) {
+                throw new FileTooLargeException();
+            }
             buffer.write(chunk, 0, read);
         }
         return buffer.toByteArray();

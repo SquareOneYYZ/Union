@@ -17,11 +17,6 @@ package org.traccar.api.resource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.FormParam;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.traccar.api.BaseObjectResource;
 import org.traccar.api.signature.TokenManager;
 import org.traccar.broadcast.BroadcastService;
@@ -483,13 +478,13 @@ public class DeviceResource extends BaseObjectResource<Device> {
             results.add(new RowResult(rowNum, name, uniqueId, true, "PENDING", null));
         }
 
-        boolean anyInvalid = results.stream().anyMatch(r -> !r.success);
+        boolean anyInvalid = results.stream().anyMatch(r -> !r.isSuccess());
         if (anyInvalid) {
             results.forEach(r -> {
-                if ("PENDING".equals(r.status)) {
-                    r.success = false;
-                    r.status  = "SKIPPED";
-                    r.message = "Skipped because other rows in this file have errors.";
+                if ("PENDING".equals(r.getStatus())) {
+                    r.setSuccess(false);
+                    r.setStatus("SKIPPED");
+                    r.setMessage("Skipped because other rows in this file have errors.");
                 }
             });
             return Response.status(422)
@@ -499,12 +494,12 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
         for (RowResult r : results) {
             try {
-                r.status  = upsertDevice(r.name, r.uniqueId);
-                r.success = true;
+                r.setStatus(upsertDevice(r.getName(), r.getUniqueId()));
+                r.setSuccess(true);
             } catch (Exception e) {
-                r.success = false;
-                r.status  = "INTERNAL_ERROR";
-                r.message = "Unexpected error. Please contact support.";
+                r.setSuccess(false);
+                r.setStatus("INTERNAL_ERROR");
+                r.setMessage("Unexpected error. Please contact support.");
             }
         }
 
