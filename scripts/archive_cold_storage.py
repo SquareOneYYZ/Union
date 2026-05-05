@@ -175,6 +175,39 @@ def verify_upload(cfg, spaces_key: str) -> bool:
         logger.warning("Verification failed -- file not found at %s", dest)
     return exists
 
+def check_temp_key_exists(cfg, temp_spaces_key: str) -> bool:
+    """Check if a previous run left a temp upload behind."""
+    bucket = cfg.get("spaces", "bucket")
+    dest   = f"s3://{bucket}/{temp_spaces_key}"
+    cmd    = build_s3cmd_base(cfg) + ["ls", dest]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return result.returncode == 0 and temp_spaces_key in result.stdout
+
+
+def delete_spaces_key(cfg, spaces_key: str):
+    """Delete a key from Spaces (used for temp key cleanup)."""
+    bucket = cfg.get("spaces", "bucket")
+    dest   = f"s3://{bucket}/{spaces_key}"
+    cmd    = build_s3cmd_base(cfg) + ["del", dest]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.warning("  [S3] Could not delete temp key %s: %s", spaces_key, result.stderr.strip())
+
+
+def copy_spaces_key(cfg, src_key: str, dst_key: str) -> bool:
+    """Copy a key within Spaces (temp -> final)."""
+    bucket = cfg.get("spaces", "bucket")
+    cmd    = build_s3cmd_base(cfg) + [
+        "cp",
+        f"s3://{bucket}/{src_key}",
+        f"s3://{bucket}/{dst_key}",
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.error("  [S3] Copy failed %s -> %s: %s", src_key, dst_key, result.stderr.strip())
+        return False
+    return True
+
 
 def verify_row_count(cfg, spaces_key: str, expected_rows: int) -> bool:
     """Download uploaded Parquet and verify row count matches DB."""
@@ -342,6 +375,7 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
         label        = f"{yr}-{mo:02d}"
         local_path   = os.path.join(temp_dir, f"{table}_{device_id}_{label}.parquet")
         spaces_key   = f"archive/{spaces_prefix}/{device_id}/{label}.parquet"
+        temp_key     = f"archive/{spaces_prefix}/{device_id}/{label}.parquet.tmp"
         marker_key   = f"archive/{spaces_prefix}/{device_id}/{label}.done"
 
         logger.info("  [%s] device=%d period=%s rows=%d", table, device_id, label, g["cnt"])
@@ -350,6 +384,13 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
             logger.info("  [%s] Already archived (found .done marker) -- skipping.", table)
             total += g["cnt"]
             continue
+
+        if check_temp_key_exists(cfg, temp_key):
+            logger.warning(
+                "  [%s] Found leftover temp key %s — previous run was killed mid-delete. "
+                "Cleaning up and restarting this group.", table, temp_key
+            )
+            delete_spaces_key(cfg, temp_key)
 
         try:
             cols  = ", ".join(columns)
@@ -373,29 +414,38 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
             write_parquet(df, local_path)
             logger.info("  [%s] Parquet written: %s (%d rows)", table, local_path, len(df))
 
-            if not do_upload(cfg, local_path, spaces_key):
-                logger.error("  [%s] Upload failed -- skipping deletion.", table)
+            if not do_upload(cfg, local_path, temp_key):
+                logger.error("  [%s] Upload to temp key failed -- skipping.", table)
                 failures += 1
                 continue
 
-            # #4 fix: verify file exists in Spaces
-            if not verify_upload(cfg, spaces_key):
-                logger.error("  [%s] Verification failed -- skipping deletion.", table)
+            if not verify_upload(cfg, temp_key):
+                logger.error("  [%s] Temp key verification failed -- skipping.", table)
                 failures += 1
                 continue
 
-            if not verify_row_count(cfg, spaces_key, len(df)):
-                logger.error("  [%s] Row count mismatch -- skipping deletion.", table)
+            if not verify_row_count(cfg, temp_key, len(df)):
+                logger.error("  [%s] Row count mismatch on temp key -- skipping.", table)
                 failures += 1
                 continue
 
             if dry_run:
-                logger.info("  [%s] --dry-run: skipping DB deletion.", table)
+                logger.info("  [%s] --dry-run: skipping DB deletion and finalization.", table)
+                delete_spaces_key(cfg, temp_key)
             else:
-                # #5 fix: batched delete
                 deleted = batch_delete(conn, table, time_col,
                                        device_id, period_start, period_end)
                 logger.info("  [%s] Deleted %d rows in batches.", table, deleted)
+
+                if not copy_spaces_key(cfg, temp_key, spaces_key):
+                    logger.error(
+                        "  [%s] CRITICAL: DB deleted but could not finalize parquet key. "
+                        "Temp key still exists at %s — recover manually.", table, temp_key
+                    )
+                    failures += 1
+                    continue
+
+                delete_spaces_key(cfg, temp_key)
 
                 marker_path = os.path.join(temp_dir, f"{table}_{device_id}_{label}.done")
                 try:
