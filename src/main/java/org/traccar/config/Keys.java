@@ -2068,10 +2068,37 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             List.of(KeyType.CONFIG),
             2);
 
+    public static final ConfigKey<String> ARCHIVE_SPACES_BUCKET = new StringConfigKey(
+            "archive.spaces.bucket",
+            List.of(KeyType.CONFIG));
 
     public static final ConfigKey<String> OVERPASS_URL = new StringConfigKey(
             "overpass.url",
             List.of(KeyType.CONFIG),
             "http://147.182.153.145/api/interpreter");
+
+    public static final ConfigKey<String> ARCHIVE_PYTHON_EXE = new StringConfigKey(
+            "archive.python.exe",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_S3CMD_SCRIPT = new StringConfigKey(
+            "archive.s3cmd.script",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_HADOOP_HOME = new StringConfigKey(
+            "archive.hadoop.home",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_S3CMD_CONFIG_FILE = new StringConfigKey(
+            "archive.s3cmd.configFile",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_TEMP_DIR = new StringConfigKey(
+            "archive.temp.dir",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<Integer> ARCHIVE_RETENTION_MONTHS = new IntegerConfigKey(
+            "archive.retention.months",
+            List.of(KeyType.CONFIG));
 
 }
