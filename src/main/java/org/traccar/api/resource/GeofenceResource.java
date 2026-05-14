@@ -34,7 +34,7 @@ import org.traccar.model.Geofence;
 import org.traccar.model.Group;
 import org.traccar.model.User;
 import org.traccar.storage.StorageException;
-import org.traccar.storage.localCache.RedisCache;
+import org.traccar.storage.spaces.DigitalOceanSpacesService;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
@@ -52,10 +52,10 @@ import java.util.stream.Collectors;
 public class GeofenceResource extends ExtendedObjectResource<Geofence> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GeofenceResource.class);
-    private static final String REDIS_KEY_PREFIX = "geofence:";
+    private static final String SPACES_FOLDER = "geofence";
 
     @Inject
-    private RedisCache redisCache;
+    private DigitalOceanSpacesService spacesService;
 
     @Inject
     private ObjectMapper objectMapper;
@@ -113,7 +113,7 @@ public class GeofenceResource extends ExtendedObjectResource<Geofence> {
     public Response add(Geofence entity) throws Exception {
         Response response = super.add(entity);
         if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-            cacheGeofenceInRedis(entity);
+            uploadToSpaces(entity);
         }
         return response;
     }
@@ -125,24 +125,21 @@ public class GeofenceResource extends ExtendedObjectResource<Geofence> {
     public Response update(Geofence entity) throws Exception {
         Response response = super.update(entity);
         if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-            cacheGeofenceInRedis(entity);
+            uploadToSpaces(entity);
         }
         return response;
     }
 
 
-
-    private void cacheGeofenceInRedis(Geofence geofence) {
-        if (!redisCache.isAvailable()) {
+    private void uploadToSpaces(Geofence geofence) {
+        if (!spacesService.isAvailable()) {
             return;
         }
         try {
-            String key = REDIS_KEY_PREFIX + geofence.getId();
-            String value = objectMapper.writeValueAsString(geofence);
-            redisCache.set(key, value);
-            LOGGER.debug("Cached geofence {} in Redis with key {}", geofence.getId(), key);
+            String json = objectMapper.writeValueAsString(geofence);
+            spacesService.put(SPACES_FOLDER, geofence.getId(), json);
         } catch (Exception e) {
-            LOGGER.warn("Failed to cache geofence {} in Redis", geofence.getId(), e);
+            LOGGER.warn("Failed to upload geofence {} to DigitalOcean Spaces", geofence.getId(), e);
         }
     }
 
