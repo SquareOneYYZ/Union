@@ -133,4 +133,11 @@ public final class LogAction {
         LOGGER.info(String.format(PATTERN_LOGIN, userId, action, remoteAddress));
     }
 
+    private static final String ACTION_EMAIL = "email";
+    private static final String PATTERN_EMAIL = "user: %d, action: %s, type: %s, recipient: %s";
+
+    public static void emailDispatched(long userId, String emailType, String recipientEmail) {
+        LOGGER.info(String.format(PATTERN_EMAIL, userId, ACTION_EMAIL, emailType, recipientEmail));
+    }
+
 }

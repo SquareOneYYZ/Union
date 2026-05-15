@@ -68,6 +68,7 @@ public class PasswordResource extends BaseResource {
         return Response.ok().build();
     }
 
+
     @Path("update")
     @PermitAll
     @POST
@@ -80,8 +81,10 @@ public class PasswordResource extends BaseResource {
                 new Columns.All(), new Condition.Equals("id", userId)));
         if (user != null) {
             user.setPassword(password);
+            // Clear onboarding reset flag when user sets their password
+            user.getAttributes().remove("mustResetPassword");
             storage.updateObject(user, new Request(
-                    new Columns.Include("hashedPassword", "salt"),
+                    new Columns.Include("hashedPassword", "salt", "attributes"),
                     new Condition.Equals("id", userId)));
             return Response.ok().build();
         }

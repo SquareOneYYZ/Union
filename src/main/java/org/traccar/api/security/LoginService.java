@@ -16,13 +16,18 @@
 package org.traccar.api.security;
 
 import com.warrenstrange.googleauth.GoogleAuthenticator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.api.signature.TokenManager;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.database.LdapProvider;
 import org.traccar.helper.DataConverter;
 import org.traccar.helper.model.UserUtil;
+import org.traccar.mail.MailManager;
+import org.traccar.model.Server;
 import org.traccar.model.User;
+import org.traccar.notification.TextTemplateFormatter;
 import org.traccar.storage.Storage;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
@@ -38,6 +43,7 @@ import java.security.GeneralSecurityException;
 
 @Singleton
 public class LoginService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LoginService.class);
 
     private final Config config;
     private final Storage storage;
@@ -47,14 +53,20 @@ public class LoginService {
     private final String serviceAccountToken;
     private final boolean forceLdap;
     private final boolean forceOpenId;
+    private final MailManager mailManager;
+    private final TextTemplateFormatter textTemplateFormatter;
 
     @Inject
     public LoginService(
-            Config config, Storage storage, TokenManager tokenManager, @Nullable LdapProvider ldapProvider) {
+            Config config, Storage storage, TokenManager tokenManager, @Nullable LdapProvider ldapProvider,
+            MailManager mailManager,
+            TextTemplateFormatter textTemplateFormatter) {
         this.storage = storage;
         this.config = config;
         this.tokenManager = tokenManager;
         this.ldapProvider = ldapProvider;
+        this.mailManager = mailManager;
+        this.textTemplateFormatter = textTemplateFormatter;
         serviceAccountToken = config.getString(Keys.WEB_SERVICE_ACCOUNT_TOKEN);
         forceLdap = config.getBoolean(Keys.LDAP_FORCE);
         forceOpenId = config.getBoolean(Keys.OPENID_FORCE);
@@ -103,6 +115,7 @@ public class LoginService {
                     || !forceLdap && user.isPasswordValid(password)) {
                 checkUserCode(user, code);
                 checkUserEnabled(user);
+                checkUserPasswordResetRequired(user);
                 return new LoginResult(user);
             }
         } else {
@@ -151,6 +164,23 @@ public class LoginService {
             if (!authenticator.authorize(key, code)) {
                 throw new SecurityException("User authorization failed");
             }
+        }
+    }
+
+    private void checkUserPasswordResetRequired(User user) throws SecurityException {
+        Object flag = user.getAttributes().get("mustResetPassword");
+        if (flag != null && Boolean.parseBoolean(flag.toString())) {
+            try {
+                Server server = storage.getObject(Server.class, new Request(new Columns.All()));
+                var velocityContext = textTemplateFormatter.prepareContext(server, user);
+                var fullMessage = textTemplateFormatter.formatMessage(
+                        velocityContext, "passwordReset", "full");
+                mailManager.sendMessage(user, true, fullMessage.getSubject(), fullMessage.getBody());
+                LOGGER.info("Password reset email sent to: {}", user.getEmail());
+            } catch (Exception e) {
+                LOGGER.error("Failed to send password reset email to: {}", user.getEmail(), e);
+            }
+            throw new PasswordResetRequiredException();
         }
     }
 

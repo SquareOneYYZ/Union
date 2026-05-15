@@ -2062,6 +2062,9 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             List.of(KeyType.CONFIG),
             "https://us1.locationiq.com/v1/reverse");
 
+    public static final ConfigKey<Boolean> USER_ONBOARDING_ENABLED = new BooleanConfigKey(
+            "userOnboarding.enabled",
+            List.of(KeyType.CONFIG));
 
     public static final ConfigKey<Integer> REGION_CACHE_ROUNDING_DECIMALS = new IntegerConfigKey(
             "region.cache.roundingDecimals",
@@ -2102,3 +2105,4 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             List.of(KeyType.CONFIG));
 
 }
+
