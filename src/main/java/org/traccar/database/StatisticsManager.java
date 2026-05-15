@@ -204,4 +204,16 @@ public class StatisticsManager {
         geolocationRequests += 1;
     }
 
+    public synchronized Map<String, Integer> getProtocolBreakdown() {
+        Map<String, Integer> protocols = new HashMap<>();
+        for (String protocol : deviceProtocols.values()) {
+            protocols.compute(protocol, (key, count) -> count != null ? count + 1 : 1);
+        }
+        return protocols;
+    }
+
+    public synchronized int getMessagesStoredToday() {
+        return messagesStored;
+    }
+
 }
