@@ -120,6 +120,18 @@ public class RedisCache {
         }
     }
 
+    public void expire(String key, int seconds) {
+        if (!redisAvailable) {
+            return;
+        }
+        try {
+            jedis.expire(key, seconds);
+        } catch (Exception e) {
+            LOGGER.warn("Redis expire failed", e);
+            redisAvailable = false;
+        }
+    }
+
 
     @PreDestroy
     public void shutdown() {

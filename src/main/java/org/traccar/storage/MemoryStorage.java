@@ -55,6 +55,13 @@ public class MemoryStorage extends Storage {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public long getCount(Class<?> clazz, Condition condition) {
+        return objects.computeIfAbsent(clazz, key -> new HashMap<>()).values().stream()
+                .filter(object -> checkCondition(condition, object))
+                .count();
+    }
+
     private boolean checkCondition(Condition genericCondition, Object object) {
         if (genericCondition == null) {
             return true;

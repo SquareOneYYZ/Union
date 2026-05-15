@@ -461,6 +461,23 @@ public final class QueryBuilder {
         return result;
     }
 
+    public long executeScalarLong() throws SQLException {
+        if (query != null) {
+            try {
+                logQuery();
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        return resultSet.getLong(1);
+                    }
+                }
+            } finally {
+                statement.close();
+                connection.close();
+            }
+        }
+        return 0;
+    }
+
     public long executeUpdate() throws SQLException {
 
         if (query != null) {

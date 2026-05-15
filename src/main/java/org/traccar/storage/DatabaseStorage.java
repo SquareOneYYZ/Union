@@ -80,6 +80,22 @@ public class DatabaseStorage extends Storage {
     }
 
     @Override
+    public long getCount(Class<?> clazz, Condition condition) throws StorageException {
+        StringBuilder query = new StringBuilder("SELECT COUNT(*) FROM ");
+        query.append(getStorageName(clazz));
+        query.append(formatCondition(condition));
+        try {
+            QueryBuilder builder = QueryBuilder.create(config, dataSource, objectMapper, query.toString());
+            for (Map.Entry<String, Object> variable : getConditionVariables(condition).entrySet()) {
+                builder.setValue(variable.getKey(), variable.getValue());
+            }
+            return builder.executeScalarLong();
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
     public <T> long addObject(T entity, Request request) throws StorageException {
         List<String> columns = request.getColumns().getColumns(entity.getClass(), "get");
         StringBuilder query = new StringBuilder("INSERT INTO ");
@@ -299,12 +315,18 @@ public class DatabaseStorage extends Storage {
             }
             if (order.getLimit() > 0) {
                 if (databaseType.equals("Microsoft SQL Server")) {
-                    result.append(" OFFSET 0 ROWS FETCH FIRST ");
+                    result.append(" OFFSET ");
+                    result.append(order.getOffset());
+                    result.append(" ROWS FETCH NEXT ");
                     result.append(order.getLimit());
                     result.append(" ROWS ONLY");
                 } else {
                     result.append(" LIMIT ");
                     result.append(order.getLimit());
+                    if (order.getOffset() > 0) {
+                        result.append(" OFFSET ");
+                        result.append(order.getOffset());
+                    }
                 }
             }
         }
