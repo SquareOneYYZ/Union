@@ -23,6 +23,9 @@ import org.traccar.broadcast.BroadcastService;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.database.MediaManager;
+import org.traccar.dtos.BulkUploadResponse;
+import org.traccar.dtos.RowResult;
+import org.traccar.helper.BulkUploadDevice;
 import org.traccar.helper.LogAction;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceAccumulators;
@@ -59,10 +62,7 @@ import jakarta.ws.rs.core.Response;
 import java.io.*;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
-import java.util.Collection;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -401,5 +401,134 @@ public class DeviceResource extends BaseObjectResource<Device> {
         }
     }
 
+
+
+
+    @POST
+    @Path("bulk-upload")
+    @Consumes({
+            MediaType.APPLICATION_OCTET_STREAM,
+            "text/csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    })
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response bulkUpload(
+            InputStream fileInputStream,
+            @HeaderParam("Content-Type") String contentType) {
+
+        try {
+            permissionsService.checkAdmin(getUserId());
+        } catch (SecurityException e) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Administrator access required.")
+                    .build();
+        } catch (StorageException e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Failed to verify permissions.")
+                    .build();
+        }
+
+        List<String[]> rawRows;
+        try {
+            rawRows = BulkUploadDevice.readAndParse(fileInputStream, contentType);
+        } catch (BulkUploadDevice.FileTooLargeException e) {
+            return Response.status(413)
+                    .entity("File too large. Maximum allowed size is 5 MB.")
+                    .build();
+        } catch (BulkUploadDevice.InvalidFileFormatException e) {
+            return Response.status(400).entity(e.getMessage()).build();
+        } catch (Exception e) {
+            return Response.status(400)
+                    .entity("Could not parse file: " + e.getMessage())
+                    .build();
+        }
+
+        if (rawRows.isEmpty()) {
+            return Response.status(400)
+                    .entity("File contains no data rows.")
+                    .build();
+        }
+
+        List<RowResult> results = new ArrayList<>();
+        Set<String> seenInFile  = new HashSet<>();
+
+        for (int i = 0; i < rawRows.size(); i++) {
+            int      rowNum   = i + 2;
+            String[] cols     = rawRows.get(i);
+            String   name     = cols.length > 0 ? BulkUploadDevice.sanitize(cols[0]) : null;
+            String   uniqueId = cols.length > 1 ? BulkUploadDevice.sanitize(cols[1]) : null;
+
+            if (name == null || name.isEmpty()) {
+                results.add(new RowResult(rowNum, name, uniqueId,
+                        false, "MISSING_NAME", "Column 'name' is required."));
+                continue;
+            }
+            if (uniqueId == null || uniqueId.isEmpty()) {
+                results.add(new RowResult(rowNum, name, uniqueId,
+                        false, "MISSING_UNIQUE_ID", "Column 'uniqueId' is required."));
+                continue;
+            }
+            if (!seenInFile.add(uniqueId.toLowerCase())) {
+                results.add(new RowResult(rowNum, name, uniqueId,
+                        false, "DUPLICATE_IN_FILE",
+                        "uniqueId '" + uniqueId + "' appears more than once in this file."));
+                continue;
+            }
+
+            results.add(new RowResult(rowNum, name, uniqueId, true, "PENDING", null));
+        }
+
+        boolean anyInvalid = results.stream().anyMatch(r -> !r.isSuccess());
+        if (anyInvalid) {
+            results.forEach(r -> {
+                if ("PENDING".equals(r.getStatus())) {
+                    r.setSuccess(false);
+                    r.setStatus("SKIPPED");
+                    r.setMessage("Skipped because other rows in this file have errors.");
+                }
+            });
+            return Response.status(422)
+                    .entity(new BulkUploadResponse(results))
+                    .build();
+        }
+
+        for (RowResult r : results) {
+            try {
+                r.setStatus(upsertDevice(r.getName(), r.getUniqueId()));
+                r.setSuccess(true);
+            } catch (Exception e) {
+                r.setSuccess(false);
+                r.setStatus("INTERNAL_ERROR");
+                r.setMessage("Unexpected error. Please contact support.");
+            }
+        }
+
+        return Response.ok(new BulkUploadResponse(results)).build();
+    }
+
+    private String upsertDevice(String name, String uniqueId) throws Exception {
+        Request lookupRequest = new Request(
+                new Columns.All(),
+                new Condition.Equals("uniqueId", uniqueId)
+        );
+        Device existing = storage.getObject(Device.class, lookupRequest);
+
+        if (existing != null) {
+            existing.setName(name);
+            storage.updateObject(existing, new Request(
+                    new Columns.Exclude("id"),
+                    new Condition.Equals("id", existing.getId())
+            ));
+            return "UPDATED";
+        }
+
+        Device device = new Device();
+        device.setName(name);
+        device.setUniqueId(uniqueId);
+        device.setId(storage.addObject(device, new Request(new Columns.Exclude("id"))));
+        storage.addPermission(
+                new Permission(User.class, getUserId(), Device.class, device.getId()));
+        return "CREATED";
+    }
 
 }
