@@ -26,6 +26,7 @@ import org.traccar.broadcast.BroadcastService;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.database.DeviceLookupService;
+import org.traccar.database.DeviceReassignmentService;
 import org.traccar.database.NotificationManager;
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
@@ -76,6 +77,7 @@ public class ConnectionManager implements BroadcastInterface {
     private final Timer timer;
     private final BroadcastService broadcastService;
     private final DeviceLookupService deviceLookupService;
+    private final DeviceReassignmentService deviceReassignmentService;
 
     private final Map<Long, Set<UpdateListener>> listeners = new HashMap<>();
     private final Map<Long, Set<Long>> userDevices = new HashMap<>();
@@ -87,7 +89,7 @@ public class ConnectionManager implements BroadcastInterface {
     public ConnectionManager(
             Config config, CacheManager cacheManager, Storage storage,
             NotificationManager notificationManager, Timer timer, BroadcastService broadcastService,
-            DeviceLookupService deviceLookupService) {
+            DeviceLookupService deviceLookupService, DeviceReassignmentService deviceReassignmentService) {
         this.config = config;
         this.cacheManager = cacheManager;
         this.storage = storage;
@@ -95,6 +97,7 @@ public class ConnectionManager implements BroadcastInterface {
         this.timer = timer;
         this.broadcastService = broadcastService;
         this.deviceLookupService = deviceLookupService;
+        this.deviceReassignmentService = deviceReassignmentService;
         deviceTimeout = config.getLong(Keys.STATUS_TIMEOUT);
         showUnknownDevices = config.getBoolean(Keys.WEB_SHOW_UNKNOWN_DEVICES);
         broadcastService.registerListener(this);
@@ -249,6 +252,10 @@ public class ConnectionManager implements BroadcastInterface {
             };
             events.put(new Event(eventType, deviceId), null);
             notificationManager.updateEvents(events);
+
+            if (Device.STATUS_ONLINE.equals(status)) {
+                deviceReassignmentService.onDeviceOnline(deviceId);
+            }
         }
 
         if (time != null) {
