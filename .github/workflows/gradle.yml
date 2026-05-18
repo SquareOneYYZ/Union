@@ -2,9 +2,9 @@ name: Java CI with Gradle
 
 on:
   push:
-    branches: [ master, riq-255-return-geofence-ids-only]
+    branches: [ riq-255-return-geofence-ids-only ]
   pull_request:
-    branches: [ master, riq-255-return-geofence-ids-only]
+    branches: [ riq-255-return-geofence-ids-only ]
 
 jobs:
   build:
