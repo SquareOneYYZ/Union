@@ -50,8 +50,8 @@ public class EventStateManager {
                             cacheKey, type.getSimpleName());
                     return state;
                 }
-                LOGGER.debug("[EventStateManager] LOCAL MISS | feature='{}' | type='{}' (Redis unavailable) — new state will be created",
-                        cacheKey, type.getSimpleName());
+                LOGGER.debug("[EventStateManager] LOCAL MISS | feature='{}' | type='{}' (Redis unavailable)" +
+                                " — new state will be created", cacheKey, type.getSimpleName());
             }
         } catch (Exception e) {
             LOGGER.warn("[EventStateManager] LOAD ERROR | feature='{}' | type='{}' | reason={}",
