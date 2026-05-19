@@ -2,11 +2,10 @@ package org.traccar.tolltoute;
 
 import org.traccar.handler.events.RegionEventHandler;
 import org.traccar.model.BaseModel;
-import org.traccar.model.Event;
 import org.traccar.model.Position;
 import org.traccar.session.cache.CacheManager;
+import org.traccar.storage.localCache.EventStateManager;
 import org.traccar.storage.localCache.RedisCache;
-import redis.clients.jedis.JedisPooled;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,31 +13,35 @@ import java.util.Map;
 import java.util.Set;
 
 public class RegionEventTest {
+
     public static void main(String[] args) {
 
-        RedisCache redisCache = new RedisCache((JedisPooled) null) {
-            private final Map<String, String> fakeCache = new HashMap<>();
+        RedisCache redisCache = new RedisCache((redis.clients.jedis.JedisPooled) null) {
+            private final Map<String, String> fakeStore = new HashMap<>();
 
             @Override
             public boolean isAvailable() {
-                return false;  // force handler to use localCache
+                return false;
             }
 
             @Override
             public boolean exists(String key) {
-                return fakeCache.containsKey(key);
+                return fakeStore.containsKey(key);
             }
 
             @Override
             public String get(String key) {
-                return fakeCache.get(key);
+                return fakeStore.get(key);
             }
 
             @Override
             public void set(String key, String value) {
-                fakeCache.put(key, value);
+                fakeStore.put(key, value);
             }
         };
+
+        EventStateManager stateManager = new EventStateManager(redisCache);
+
         CacheManager cacheManager = null;
         try {
             cacheManager = new CacheManager(null, null, null) {
@@ -50,9 +53,7 @@ public class RegionEventTest {
         } catch (Exception ignored) {
         }
 
-
-
-        RegionEventHandler handler = new RegionEventHandler(cacheManager, redisCache);
+        RegionEventHandler handler = new RegionEventHandler(cacheManager, stateManager);
 
         // ---- Positions ----
         Position pos1 = new Position();
@@ -79,7 +80,6 @@ public class RegionEventTest {
         pos4.set(Position.KEY_STATE, "Delhi");
         pos4.set(Position.KEY_CITY, "New Delhi");
 
-        // Run test
         run(handler, pos1, "First Position");
         run(handler, pos2, "Second Position");
         run(handler, pos3, "Third Position");
@@ -89,27 +89,14 @@ public class RegionEventTest {
     private static void run(RegionEventHandler handler, Position pos, String label) {
         System.out.println("---- " + label + " ----");
         handler.onPosition(pos, event -> {
-            String type = event.getType();
+            String type    = event.getType();
             String country = event.getString(Position.KEY_COUNTRY);
-            String state = event.getString(Position.KEY_STATE);
-            String city = event.getString(Position.KEY_CITY);
+            String state   = event.getString(Position.KEY_STATE);
+            String city    = event.getString(Position.KEY_CITY);
 
-            if (type.contains("EXIT")) {
-                System.out.println("EXIT EVENT: " + type
-                        + " | Country=" + country
-                        + " | State=" + state
-                        + " | City=" + city);
-            } else if (type.contains("ENTER")) {
-                System.out.println("ENTER EVENT: " + type
-                        + " | Country=" + country
-                        + " | State=" + state
-                        + " | City=" + city);
-            } else {
-                System.out.println("EVENT: " + type
-                        + " | Country=" + country
-                        + " | State=" + state
-                        + " | City=" + city);
-            }
+            String direction = type.contains("EXIT") ? "EXIT" : type.contains("ENTER") ? "ENTER" : "EVENT";
+            System.out.printf("%s: %s | country=%s | state=%s | city=%s%n",
+                    direction, type, country, state, city);
         });
     }
 }
