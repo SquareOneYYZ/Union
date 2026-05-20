@@ -1,11 +1,13 @@
 package org.traccar.session.state;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.model.Event;
 import org.traccar.model.Position;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class RegionState {
     private static final Logger LOGGER = LoggerFactory.getLogger(RegionState.class);
     @JsonProperty("lastCountry")
