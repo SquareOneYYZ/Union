@@ -86,8 +86,4 @@ public class SurfaceState {
     }
 
 
-    @Deprecated
-    public void addSurface(String surface, int duration, Position position) {
-        addSurface(surface, position);
-    }
 }

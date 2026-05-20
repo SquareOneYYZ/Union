@@ -27,7 +27,7 @@ public class TollEventHandler extends BaseEventHandler {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(TollEventHandler.class);
 
-    private static final String CACHE_KEY_PREFIX = "toll:";
+    private static final String CACHE_KEY_PREFIX = "";
 
     private final CacheManager cacheManager;
     private final Storage storage;

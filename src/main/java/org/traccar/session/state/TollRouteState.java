@@ -18,7 +18,6 @@ public class TollRouteState {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TollRouteState.class);
 
-    public static final int WINDOW_SIZE = 6;
     public static final double THRESHOLD_PERCENT = 80.0;
 
 
@@ -29,12 +28,10 @@ public class TollRouteState {
     private boolean changed;
 
     @JsonProperty
-    private ConfidenceWindow<Boolean> tollWindow =
-            new ConfidenceWindow<>(WINDOW_SIZE, THRESHOLD_PERCENT);
+    private ConfidenceWindow<Boolean> tollWindow = null;
 
     @JsonProperty
-    private ConfidenceWindow<Boolean> customTollWindow =
-            new ConfidenceWindow<>(WINDOW_SIZE, THRESHOLD_PERCENT);
+    private ConfidenceWindow<Boolean> customTollWindow = null;
 
     @JsonProperty
     private String lastCustomTollName;
@@ -94,8 +91,8 @@ public class TollRouteState {
 
 
     public void addOnToll(Boolean isToll, int duration) {
-        if (tollWindow == null) {
-            tollWindow = new ConfidenceWindow<>(WINDOW_SIZE, THRESHOLD_PERCENT);
+        if (tollWindow == null || tollWindow.getWindowSize() != duration) {
+            tollWindow = new ConfidenceWindow<>(duration, THRESHOLD_PERCENT);
         }
         tollWindow.add(isToll);
         LOGGER.debug("TollWindow updated: added={}, window={}", isToll, tollWindow.getWindow());
@@ -122,8 +119,8 @@ public class TollRouteState {
 
 
     public void addOnCustomToll(boolean match, int duration) {
-        if (customTollWindow == null) {
-            customTollWindow = new ConfidenceWindow<>(WINDOW_SIZE, THRESHOLD_PERCENT);
+        if (customTollWindow == null || customTollWindow.getWindowSize() != duration) {
+            customTollWindow = new ConfidenceWindow<>(duration, THRESHOLD_PERCENT);
         }
         customTollWindow.add(match);
         LOGGER.debug("CustomTollWindow updated: added={}, window={}", match,
