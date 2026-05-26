@@ -478,11 +478,12 @@ public final class Keys {
             "./schema/changelog-master.xml");
 
     /**
-     * Database connection pool size. Default value is defined by the HikariCP library.
+     * Database connection pool size. Default value is 20.
      */
     public static final ConfigKey<Integer> DATABASE_MAX_POOL_SIZE = new IntegerConfigKey(
             "database.maxPoolSize",
-            List.of(KeyType.CONFIG));
+            List.of(KeyType.CONFIG),
+            20);
 
     /**
      * SQL query to check connection status. Default value is 'SELECT 1'. For Oracle database you can use

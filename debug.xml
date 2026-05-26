@@ -111,6 +111,8 @@
     <entry key='geocoder.reuseDistance'>200</entry>
     <entry key='geocoder.cacheSize'>200</entry>
 
+<!--    <entry key='database.maxPoolSize'>35</entry>-->
+
 
 
 
