@@ -35,6 +35,12 @@
     <entry key='database.user'>root</entry>
     <entry key='database.password'>root</entry>
 
+    <entry key='database.maxPoolSize'>20</entry>
+    <entry key='database.maxLifetime'>1700000</entry>
+    <entry key='database.positionPeriod'>7776000</entry>
+    <entry key='database.positionBatchInterval'>100</entry>
+    <entry key='database.positionBatchSize'>100</entry>
+
     <entry key='notificator.types'>web,mail</entry>
 
 
@@ -111,7 +117,6 @@
     <entry key='geocoder.reuseDistance'>200</entry>
     <entry key='geocoder.cacheSize'>200</entry>
 
-<!--    <entry key='database.maxPoolSize'>35</entry>-->
 
 
 

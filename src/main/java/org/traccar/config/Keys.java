@@ -477,6 +477,11 @@ public final class Keys {
             List.of(KeyType.CONFIG),
             "./schema/changelog-master.xml");
 
+
+    public static final ConfigKey<Integer> DATABASE_MAX_LIFETIME = new IntegerConfigKey(
+            "database.maxLifetime",
+            List.of(KeyType.CONFIG));
+
     /**
      * Database connection pool size. Default value is 20.
      */
@@ -484,6 +489,18 @@ public final class Keys {
             "database.maxPoolSize",
             List.of(KeyType.CONFIG),
             20);
+
+
+    public static final ConfigKey<Long> DATABASE_POSITION_BATCH_INTERVAL = new LongConfigKey(
+            "database.positionBatchInterval",
+            List.of(KeyType.CONFIG),
+            0L);
+
+
+    public static final ConfigKey<Integer> DATABASE_POSITION_BATCH_SIZE = new IntegerConfigKey(
+            "database.positionBatchSize",
+            List.of(KeyType.CONFIG),
+            100);
 
     /**
      * SQL query to check connection status. Default value is 'SELECT 1'. For Oracle database you can use
@@ -542,6 +559,12 @@ public final class Keys {
     public static final ConfigKey<Boolean> DATABASE_SAVE_EMPTY = new BooleanConfigKey(
             "database.saveEmpty",
             List.of(KeyType.CONFIG));
+
+
+    public static final ConfigKey<Long> DATABASE_POSITION_PERIOD = new LongConfigKey(
+            "database.positionPeriod",
+            List.of(KeyType.CONFIG),
+            7776000L);
 
     /**
      * Device limit for self registered users. Default value is -1, which indicates no limit.

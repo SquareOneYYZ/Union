@@ -19,6 +19,7 @@ import org.traccar.model.BaseModel;
 import org.traccar.model.Permission;
 import org.traccar.storage.query.Request;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public abstract class Storage {
@@ -48,6 +49,14 @@ public abstract class Storage {
     public <T> T getObject(Class<T> clazz, Request request) throws StorageException {
         var objects = getObjects(clazz, request);
         return objects.isEmpty() ? null : objects.get(0);
+    }
+
+    public <T> List<Long> addObjects(List<T> entities, Request request) throws StorageException {
+        List<Long> ids = new ArrayList<>(entities.size());
+        for (T entity : entities) {
+            ids.add(addObject(entity, request));
+        }
+        return ids;
     }
 
 }
