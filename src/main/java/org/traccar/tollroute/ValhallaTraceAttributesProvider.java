@@ -12,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
-import org.traccar.storage.localCache.RedisCache;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,9 +26,9 @@ public class ValhallaTraceAttributesProvider implements TollRouteProvider {
 
 
     public static final class ShapePoint {
-        @JsonProperty("lat")  public final double lat;
-        @JsonProperty("lon")  public final double lon;
-        @JsonProperty("time") public final long time;
+        @JsonProperty("lat")  private final double lat;
+        @JsonProperty("lon")  private final double lon;
+        @JsonProperty("time") private final long time;
 
         public ShapePoint(double lat, double lon, long time) {
             this.lat  = lat;
@@ -39,8 +38,8 @@ public class ValhallaTraceAttributesProvider implements TollRouteProvider {
     }
 
     private static final class TraceOptions {
-        @JsonProperty("search_radius") public final int searchRadius;
-        @JsonProperty("gps_accuracy")  public final int gpsAccuracy;
+        @JsonProperty("search_radius") private final int searchRadius;
+        @JsonProperty("gps_accuracy")  private final int gpsAccuracy;
 
         TraceOptions(int searchRadius, int gpsAccuracy) {
             this.searchRadius = searchRadius;
@@ -49,8 +48,8 @@ public class ValhallaTraceAttributesProvider implements TollRouteProvider {
     }
 
     private static final class Filters {
-        @JsonProperty("attributes") public final List<String> attributes;
-        @JsonProperty("action")     public final String action = "include";
+        @JsonProperty("attributes") private final List<String> attributes;
+        @JsonProperty("action")     private final String action = "include";
 
         Filters() {
             this.attributes = List.of(
@@ -70,11 +69,11 @@ public class ValhallaTraceAttributesProvider implements TollRouteProvider {
     }
 
     private static final class TraceRequest {
-        @JsonProperty("shape")        public final List<ShapePoint> shape;
-        @JsonProperty("costing")      public final String costing    = "auto";
-        @JsonProperty("shape_match")  public final String shapeMatch = "map_snap";
-        @JsonProperty("trace_options") public final TraceOptions traceOptions;
-        @JsonProperty("filters")      public final Filters filters  = new Filters();
+        @JsonProperty("shape")        private final List<ShapePoint> shape;
+        @JsonProperty("costing")      private final String costing    = "auto";
+        @JsonProperty("shape_match")  private final String shapeMatch = "map_snap";
+        @JsonProperty("trace_options") private final TraceOptions traceOptions;
+        @JsonProperty("filters")      private final Filters filters  = new Filters();
 
         TraceRequest(List<ShapePoint> shape, TraceOptions traceOptions) {
             this.shape        = shape;
@@ -84,37 +83,37 @@ public class ValhallaTraceAttributesProvider implements TollRouteProvider {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static final class ValhallaEdge {
-        @JsonProperty("way_id")         public Long    wayId;
-        @JsonProperty("toll")           public Boolean toll;
-        @JsonProperty("surface")        public String  surface;
-        @JsonProperty("road_class")     public String  roadClass;
-        @JsonProperty("speed_limit")    public Integer speedLimit;
-        @JsonProperty("begin_heading")  public Double  beginHeading;
-        @JsonProperty("end_heading")    public Double  endHeading;
-        @JsonProperty("begin_shape_index") public Integer beginShapeIndex;
-        @JsonProperty("end_shape_index")   public Integer endShapeIndex;
+        @JsonProperty("way_id")         private Long    wayId;
+        @JsonProperty("toll")           private Boolean toll;
+        @JsonProperty("surface")        private String  surface;
+        @JsonProperty("road_class")     private String  roadClass;
+        @JsonProperty("speed_limit")    private Integer speedLimit;
+        @JsonProperty("begin_heading")  private Double  beginHeading;
+        @JsonProperty("end_heading")    private Double  endHeading;
+        @JsonProperty("begin_shape_index") private Integer beginShapeIndex;
+        @JsonProperty("end_shape_index")   private Integer endShapeIndex;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static final class MatchedPoint {
-        @JsonProperty("lat")                         public double  lat;
-        @JsonProperty("lon")                         public double  lon;
-        @JsonProperty("type")                        public String  type;
-        @JsonProperty("edge_index")                  public Integer edgeIndex;
-        @JsonProperty("distance_from_trace_point")   public Double  distanceFromTracePoint;
+        @JsonProperty("lat")                         private double  lat;
+        @JsonProperty("lon")                         private double  lon;
+        @JsonProperty("type")                        private String  type;
+        @JsonProperty("edge_index")                  private Integer edgeIndex;
+        @JsonProperty("distance_from_trace_point")   private Double  distanceFromTracePoint;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static final class TraceResponse {
-        @JsonProperty("edges")          public List<ValhallaEdge>   edges;
-        @JsonProperty("matched_points") public List<MatchedPoint>   matchedPoints;
+        @JsonProperty("edges")          private List<ValhallaEdge>   edges;
+        @JsonProperty("matched_points") private List<MatchedPoint>   matchedPoints;
     }
 
 
     private static final class BufferedPoint {
-        final double lat;
-        final double lon;
-        final long   unixTimeSec;
+        private final double lat;
+        private final double lon;
+        private final long   unixTimeSec;
 
         BufferedPoint(double lat, double lon, long unixTimeSec) {
             this.lat         = lat;
@@ -246,7 +245,8 @@ public class ValhallaTraceAttributesProvider implements TollRouteProvider {
                         try {
                             TraceResponse response = objectMapper.readValue(responseBody, TraceResponse.class);
                             TollData tollData = processResponse(response, shape);
-                            LOGGER.debug("Valhalla result: toll={}, surface={}", tollData.getToll(), tollData.getSurface());
+                            LOGGER.debug("Valhalla result: toll={}, surface={}", tollData.getToll(),
+                                    tollData.getSurface());
                             callback.onSuccess(tollData);
                         } catch (Exception e) {
                             LOGGER.warn("Failed to parse Valhalla response: {}", e.getMessage());
