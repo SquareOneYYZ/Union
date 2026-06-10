@@ -98,6 +98,7 @@ import org.traccar.storage.Storage;
 import org.traccar.storage.localCache.RedisCache;
 import org.traccar.tollroute.OverPassTollRouteProvider;
 import org.traccar.tollroute.TollRouteProvider;
+import org.traccar.tollroute.ValhallaTraceAttributesProvider;
 import org.traccar.vindecoder.NHTSAVinDecoderProvider;
 import org.traccar.vindecoder.OverpassApiProvider;
 import org.traccar.vindecoder.OverpassProvider;
@@ -287,14 +288,18 @@ public class MainModule extends AbstractModule {
     @Provides
     public static TollRouteProvider provideTollRouteProvider(Config config, Client client, RedisCache redisCache) {
         if (config.getBoolean(Keys.TOLL_ROUTE_ENABLE)) {
-            String type = config.getString(Keys.TOLL_ROUTE_TYPE);
-            String url = config.getString(Keys.TOLL_ROUTE_URL);
-            if (url != null) {
-                return switch (type) {
-                    case "overpass" -> new OverPassTollRouteProvider(config, client, url, redisCache);
-                    default -> throw new IllegalArgumentException("Unknown Toll Route provider");
-                };
-            }
+            String type = config.getString(Keys.TOLL_ROUTE_TYPE, "overpass");
+            return switch (type) {
+                case "overpass" -> {
+                    String url = config.getString(Keys.TOLL_ROUTE_URL);
+                    if (url == null) {
+                        throw new IllegalArgumentException("tollRoute.url is required for overpass provider");
+                    }
+                    yield new OverPassTollRouteProvider(config, client, url, redisCache);
+                }
+                case "valhalla" -> new ValhallaTraceAttributesProvider(config, client);
+                default -> throw new IllegalArgumentException("Unknown Toll Route provider: " + type);
+            };
         }
         return null;
     }

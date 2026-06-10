@@ -113,5 +113,11 @@
 
 
 
+<!--    <entry key='tollRoute.type'>valhalla</entry>-->
+<!--    <entry key='tollRoute.valhalla.url'>https://valhalla1.openstreetmap.de/trace_attributes</entry>-->
+<!--    <entry key='tollRoute.valhalla.bufferSize'>5</entry>-->
+<!--    <entry key='tollRoute.valhalla.searchRadius'>50</entry>-->
+<!--    <entry key='tollRoute.valhalla.gpsAccuracy'>10</entry>-->
+<!--    <entry key='tollRoute.valhalla.maxSnapDistance'>30</entry>-->
 
 </properties>

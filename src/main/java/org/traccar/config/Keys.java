@@ -2101,4 +2101,33 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             "archive.retention.months",
             List.of(KeyType.CONFIG));
 
+    public static final ConfigKey<String> VALHALLA_URL = new StringConfigKey(
+            "tollRoute.valhalla.url",
+            List.of(KeyType.CONFIG),
+            "https://valhalla1.openstreetmap.de/trace_attributes");
+
+
+    public static final ConfigKey<Integer> VALHALLA_SEARCH_RADIUS = new IntegerConfigKey(
+            "tollRoute.valhalla.searchRadius",
+            List.of(KeyType.CONFIG),
+            50);
+
+
+    public static final ConfigKey<Integer> VALHALLA_GPS_ACCURACY = new IntegerConfigKey(
+            "tollRoute.valhalla.gpsAccuracy",
+            List.of(KeyType.CONFIG),
+            10);
+
+
+    public static final ConfigKey<Integer> VALHALLA_BUFFER_SIZE = new IntegerConfigKey(
+            "tollRoute.valhalla.bufferSize",
+            List.of(KeyType.CONFIG),
+            5);
+
+
+    public static final ConfigKey<Integer> VALHALLA_MAX_SNAP_DISTANCE = new IntegerConfigKey(
+            "tollRoute.valhalla.maxSnapDistance",
+            List.of(KeyType.CONFIG),
+            30);
+
 }
