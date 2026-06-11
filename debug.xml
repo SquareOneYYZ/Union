@@ -51,12 +51,21 @@
     <entry key='speedLimit.accuracy'>100</entry>
 
     <entry key='tollRoute.enable'>true</entry>
+
+
     <entry key='tollRoute.type'>overpass</entry>
     <entry key='tollRoute.url'>http://roadinfo.iotrides.com/api/interpreter</entry>
     <entry key='tollRoute.accuracy'>10</entry>
     <entry key='event.tollRoute.minimalDuration'>4</entry>
-
     <entry key='overpass.url'>http://147.182.153.145/api/interpreter</entry>
+
+
+<!--    <entry key='tollRoute.type'>valhalla</entry>-->
+<!--    <entry key='tollRoute.valhalla.url'>https://valhalla1.openstreetmap.de/trace_attributes</entry>-->
+<!--    <entry key='tollRoute.valhalla.bufferSize'>5</entry>-->
+<!--    <entry key='tollRoute.valhalla.searchRadius'>50</entry>-->
+<!--    <entry key='tollRoute.valhalla.gpsAccuracy'>10</entry>-->
+<!--    <entry key='tollRoute.valhalla.maxSnapDistance'>30</entry>-->
 
 
 <!--    <entry key='mail.debug'>true</entry>-->
@@ -112,13 +121,5 @@
     <entry key='geocoder.cacheSize'>200</entry>
 
 
-
-<!--    <entry key='tollRoute.enable'>true</entry>-->
-<!--    <entry key='tollRoute.type'>valhalla</entry>-->
-<!--    <entry key='tollRoute.valhalla.url'>https://valhalla1.openstreetmap.de/trace_attributes</entry>-->
-<!--    <entry key='tollRoute.valhalla.bufferSize'>5</entry>-->
-<!--    <entry key='tollRoute.valhalla.searchRadius'>50</entry>-->
-<!--    <entry key='tollRoute.valhalla.gpsAccuracy'>10</entry>-->
-<!--    <entry key='tollRoute.valhalla.maxSnapDistance'>30</entry>-->
 
 </properties>

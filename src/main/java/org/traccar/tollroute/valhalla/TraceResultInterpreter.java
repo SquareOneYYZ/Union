@@ -26,8 +26,8 @@ public final class TraceResultInterpreter {
             return empty();
         }
 
-        List<ValhallaResponse.Edge>         edges   = response.edges;
-        List<ValhallaResponse.MatchedPoint> matched = response.matchedPoints;
+        List<ValhallaResponse.Edge>         edges   = response.getEdges();
+        List<ValhallaResponse.MatchedPoint> matched = response.getMatchedPoints();
 
         if (edges == null || edges.isEmpty()) {
             LOGGER.debug("TraceResultInterpreter: no edges in response → toll=false");
@@ -43,42 +43,42 @@ public final class TraceResultInterpreter {
         int lastIdx = matched.size() - 1;
         ValhallaResponse.MatchedPoint mp = matched.get(lastIdx);
 
-        if ("unmatched".equalsIgnoreCase(mp.type)) {
+        if ("unmatched".equalsIgnoreCase(mp.getType())) {
             LOGGER.debug("TraceResultInterpreter: last point type=unmatched → toll=false");
             return empty();
         }
 
-        double snapDist = mp.distanceFromTracePoint != null ? mp.distanceFromTracePoint : 0.0;
+        double snapDist = mp.getDistanceFromTracePoint() != null ? mp.getDistanceFromTracePoint() : 0.0;
         if (snapDist > maxSnapDistanceM) {
             LOGGER.debug("TraceResultInterpreter: snap distance {:.1f}m > threshold {:.0f}m → toll=false",
                     snapDist, maxSnapDistanceM);
             return empty();
         }
 
-        if (mp.edgeIndex == null || mp.edgeIndex >= edges.size()) {
+        if (mp.getEdgeIndex() == null || mp.getEdgeIndex() >= edges.size()) {
             LOGGER.debug("TraceResultInterpreter: edgeIndex={} out of range (edges={}) → toll=false",
-                    mp.edgeIndex, edges.size());
+                    mp.getEdgeIndex(), edges.size());
             return empty();
         }
 
-        ValhallaResponse.Edge edge = edges.get(mp.edgeIndex);
+        ValhallaResponse.Edge edge = edges.get(mp.getEdgeIndex());
 
-        if (!Boolean.TRUE.equals(edge.toll)) {
-            LOGGER.debug("TraceResultInterpreter: edge {} toll=false → toll=false", edge.wayId);
-            return new TollData(false, null, null, edge.surface, edge.roadClass, null);
+        if (!Boolean.TRUE.equals(edge.getToll())) {
+            LOGGER.debug("TraceResultInterpreter: edge {} toll=false → toll=false", edge.getWayId());
+            return new TollData(false, null, null, edge.getSurface(), edge.getRoadClass(), null);
         }
 
-        if (!registry.isBillable(edge.names)) {
+        if (!registry.isBillable(edge.getNames())) {
             LOGGER.debug("TraceResultInterpreter: edge {} toll=true but names {} not in whitelist → toll=false",
-                    edge.wayId, edge.names);
-            return new TollData(false, null, null, edge.surface, edge.roadClass, null);
+                    edge.getWayId(), edge.getNames());
+            return new TollData(false, null, null, edge.getSurface(), edge.getRoadClass(), null);
         }
 
-        String ref  = firstName(edge.names);
-        String name = edge.names != null && edge.names.size() > 1 ? edge.names.get(1) : ref;
+        String ref  = firstName(edge.getNames());
+        String name = edge.getNames() != null && edge.getNames().size() > 1 ? edge.getNames().get(1) : ref;
         LOGGER.debug("TraceResultInterpreter: toll=true way_id={} snap={:.1f}m ref={} surface={}",
-                edge.wayId, snapDist, ref, edge.surface);
-        return new TollData(true, ref, name, edge.surface, edge.roadClass, null);
+                edge.getWayId(), snapDist, ref, edge.getSurface());
+        return new TollData(true, ref, name, edge.getSurface(), edge.getRoadClass(), null);
     }
 
     private static String firstName(List<String> names) {

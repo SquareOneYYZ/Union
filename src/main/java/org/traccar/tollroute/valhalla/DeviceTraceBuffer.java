@@ -23,8 +23,8 @@ public final class DeviceTraceBuffer {
     private final ConcurrentHashMap<String, DeviceEntry> buffers = new ConcurrentHashMap<>();
 
     private static final class DeviceEntry {
-        final List<TracePoint> points;
-        final long             lastUpdatedMs;
+        private final List<TracePoint> points;
+        private final long             lastUpdatedMs;
 
         DeviceEntry(List<TracePoint> points, long lastUpdatedMs) {
             this.points        = points;

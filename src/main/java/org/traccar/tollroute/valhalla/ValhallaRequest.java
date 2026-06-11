@@ -12,19 +12,19 @@ public final class ValhallaRequest {
 
     public static final class Body {
         @JsonProperty("shape")
-        public final List<ShapePoint> shape;
+        private final List<ShapePoint> shape;
 
         @JsonProperty("costing")
-        public final String costing = "auto";
+        private final String costing = "auto";
 
         @JsonProperty("shape_match")
-        public final String shapeMatch = "map_snap";
+        private final String shapeMatch = "map_snap";
 
         @JsonProperty("trace_options")
-        public final TraceOptions traceOptions;
+        private final TraceOptions traceOptions;
 
         @JsonProperty("filters")
-        public final Filters filters = new Filters();
+        private final Filters filters = new Filters();
 
         public Body(List<ShapePoint> shape, TraceOptions traceOptions) {
             this.shape        = shape;
@@ -34,9 +34,9 @@ public final class ValhallaRequest {
 
 
     public static final class ShapePoint {
-        @JsonProperty("lat")  public final double lat;
-        @JsonProperty("lon")  public final double lon;
-        @JsonProperty("time") public final long   time;
+        @JsonProperty("lat")  private final double lat;
+        @JsonProperty("lon")  private final double lon;
+        @JsonProperty("time") private final long   time;
 
         public ShapePoint(double lat, double lon, long time) {
             this.lat  = lat;
@@ -47,8 +47,8 @@ public final class ValhallaRequest {
 
 
     public static final class TraceOptions {
-        @JsonProperty("search_radius") public final int searchRadius;
-        @JsonProperty("gps_accuracy")  public final int gpsAccuracy;
+        @JsonProperty("search_radius") private final int searchRadius;
+        @JsonProperty("gps_accuracy")  private final int gpsAccuracy;
 
         public TraceOptions(int searchRadius, int gpsAccuracy) {
             this.searchRadius = searchRadius;
@@ -59,7 +59,7 @@ public final class ValhallaRequest {
 
     public static final class Filters {
         @JsonProperty("attributes")
-        public final List<String> attributes = List.of(
+        private final List<String> attributes = List.of(
                 "edge.way_id",
                 "edge.toll",
                 "edge.surface",
@@ -75,6 +75,6 @@ public final class ValhallaRequest {
         );
 
         @JsonProperty("action")
-        public final String action = "include";
+        private final String action = "include";
     }
 }
