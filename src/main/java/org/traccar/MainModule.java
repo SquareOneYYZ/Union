@@ -98,7 +98,7 @@ import org.traccar.storage.Storage;
 import org.traccar.storage.localCache.RedisCache;
 import org.traccar.tollroute.OverPassTollRouteProvider;
 import org.traccar.tollroute.TollRouteProvider;
-import org.traccar.tollroute.ValhallaTraceAttributesProvider;
+import org.traccar.tollroute.valhalla.ValhallaTollRouteProvider;
 import org.traccar.vindecoder.NHTSAVinDecoderProvider;
 import org.traccar.vindecoder.OverpassApiProvider;
 import org.traccar.vindecoder.OverpassProvider;
@@ -297,7 +297,7 @@ public class MainModule extends AbstractModule {
                     }
                     yield new OverPassTollRouteProvider(config, client, url, redisCache);
                 }
-                case "valhalla" -> new ValhallaTraceAttributesProvider(config, client);
+                case "valhalla" -> new ValhallaTollRouteProvider(config, client);
                 default -> throw new IllegalArgumentException("Unknown Toll Route provider: " + type);
             };
         }

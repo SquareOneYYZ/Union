@@ -113,6 +113,7 @@
 
 
 
+<!--    <entry key='tollRoute.enable'>true</entry>-->
 <!--    <entry key='tollRoute.type'>valhalla</entry>-->
 <!--    <entry key='tollRoute.valhalla.url'>https://valhalla1.openstreetmap.de/trace_attributes</entry>-->
 <!--    <entry key='tollRoute.valhalla.bufferSize'>5</entry>-->
