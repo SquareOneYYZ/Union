@@ -1,5 +1,6 @@
 package org.traccar.handler;
 
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
@@ -14,54 +15,61 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Singleton
 public class PositionInfoHandler extends BasePositionHandler {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(PositionInfoHandler.class);
-    private final TollRouteProvider tollRouteProvider;
-    private final RegionProvider regionProvider;
+
+    private final TollRouteProvider tollRouteProvider;  // nullable — disabled in config
+    private final RegionProvider    regionProvider;
 
     @Inject
-    public PositionInfoHandler(TollRouteProvider tollRouteProvider, RegionProvider regionProvider) {
+    public PositionInfoHandler(@Nullable TollRouteProvider tollRouteProvider, RegionProvider regionProvider) {
         this.tollRouteProvider = tollRouteProvider;
-        this.regionProvider = regionProvider;
+        this.regionProvider    = regionProvider;
     }
 
     @Override
     public void onPosition(Position position, Callback callback) {
-        if (position.getValid()) {
-            // Use atomic counter to track both async callbacks
-            AtomicInteger pendingCallbacks = new AtomicInteger(2);
+        if (!position.getValid()) {
+            callback.processed(false);
+            return;
+        }
 
-            regionProvider.getRegion(position.getLatitude(), position.getLongitude(),
-                    new RegionProvider.RegionProviderCallback() {
-                        @Override
-                        public void onSuccess(RegionData data) {
-                            if (data.getCountry() != null) {
-                                position.set(Position.KEY_COUNTRY, data.getCountry());
-                                LOGGER.info("Setting country: {}", data.getCountry());
-                            }
-                            if (data.getState() != null) {
-                                position.set(Position.KEY_STATE, data.getState());
-                                LOGGER.info("Setting state: {}", data.getState());
-                            }
-                            if (data.getCity() != null) {
-                                position.set(Position.KEY_CITY, data.getCity());
-                                LOGGER.info("Setting city: {}", data.getCity());
-                            }
-                            if (pendingCallbacks.decrementAndGet() == 0) {
-                                callback.processed(false);
-                            }
+        int callbackCount = (tollRouteProvider != null) ? 2 : 1;
+        AtomicInteger pending = new AtomicInteger(callbackCount);
+
+        regionProvider.getRegion(position.getLatitude(), position.getLongitude(),
+                new RegionProvider.RegionProviderCallback() {
+                    @Override
+                    public void onSuccess(RegionData data) {
+                        if (data.getCountry() != null) {
+                            position.set(Position.KEY_COUNTRY, data.getCountry());
+                            LOGGER.info("Setting country: {}", data.getCountry());
                         }
-
-                        @Override
-                        public void onFailure(Throwable e) {
-                            LOGGER.warn("LocationIQ region query failed", e);
-                            position.set("regionLookupFailed", true);
-                            if (pendingCallbacks.decrementAndGet() == 0) {
-                                callback.processed(false);
-                            }
+                        if (data.getState() != null) {
+                            position.set(Position.KEY_STATE, data.getState());
+                            LOGGER.info("Setting state: {}", data.getState());
                         }
-                    });
+                        if (data.getCity() != null) {
+                            position.set(Position.KEY_CITY, data.getCity());
+                            LOGGER.info("Setting city: {}", data.getCity());
+                        }
+                        if (pending.decrementAndGet() == 0) {
+                            callback.processed(false);
+                        }
+                    }
 
-            tollRouteProvider.getTollRoute(position.getLatitude(), position.getLongitude(),
+                    @Override
+                    public void onFailure(Throwable e) {
+                        LOGGER.warn("LocationIQ region query failed", e);
+                        position.set("regionLookupFailed", true);
+                        if (pending.decrementAndGet() == 0) {
+                            callback.processed(false);
+                        }
+                    }
+                });
+
+        if (tollRouteProvider != null) {
+            tollRouteProvider.getTollRoute(position,
                     new TollRouteProvider.TollRouteProviderCallback() {
                         @Override
                         public void onSuccess(TollData data) {
@@ -85,22 +93,19 @@ public class PositionInfoHandler extends BasePositionHandler {
                                 position.set(Position.KEY_ENFORCEMENT, data.getEnforcement());
                                 LOGGER.info("Setting enforcement: {}", data.getEnforcement());
                             }
-
-                            if (pendingCallbacks.decrementAndGet() == 0) {
+                            if (pending.decrementAndGet() == 0) {
                                 callback.processed(false);
                             }
                         }
 
                         @Override
                         public void onFailure(Throwable e) {
-                            LOGGER.warn("Overpass query failed", e);
-                            if (pendingCallbacks.decrementAndGet() == 0) {
+                            LOGGER.warn("Toll route query failed", e);
+                            if (pending.decrementAndGet() == 0) {
                                 callback.processed(false);
                             }
                         }
                     });
-        } else {
-            callback.processed(false);
         }
     }
 }
