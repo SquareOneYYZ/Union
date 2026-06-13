@@ -25,6 +25,7 @@ import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Request;
+import org.traccar.vinmapping.VinMappingService;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.DELETE;
@@ -42,6 +43,9 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
 
     @Inject
     private ConnectionManager connectionManager;
+
+    @Inject
+    private VinMappingService vinMappingService;
 
     protected final Class<T> baseClass;
 
@@ -89,6 +93,11 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
             LogAction.link(getUserId(), User.class, getUserId(), baseClass, entity.getId());
         }
 
+        // VIN auto-mapping hook: fire when a device is created inside a group.
+        if (entity instanceof Device device && device.getGroupId() > 0) {
+            vinMappingService.onDeviceAssigned(device, device.getGroupId());
+        }
+
         return Response.ok(entity).build();
     }
 
@@ -98,6 +107,15 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
         permissionsService.checkPermission(baseClass, getUserId(), entity.getId());
 
         boolean skipReadonly = false;
+        long deviceGroupIdBefore = 0;
+        if (entity instanceof Device) {
+            Device before = storage.getObject(Device.class, new Request(
+                    new Columns.Include("groupId"), new Condition.Equals("id", entity.getId())));
+            if (before != null) {
+                deviceGroupIdBefore = before.getGroupId();
+            }
+        }
+
         if (entity instanceof User after) {
             User before = storage.getObject(User.class, new Request(
                     new Columns.All(), new Condition.Equals("id", entity.getId())));
@@ -124,6 +142,13 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
         }
         cacheManager.invalidateObject(true, entity.getClass(), entity.getId(), ObjectOperation.UPDATE);
         LogAction.edit(getUserId(), entity);
+
+        if (entity instanceof Device device) {
+            long newGroupId = device.getGroupId();
+            if (newGroupId != deviceGroupIdBefore) {
+                vinMappingService.onDeviceAssigned(device, newGroupId);
+            }
+        }
 
         return Response.ok(entity).build();
     }

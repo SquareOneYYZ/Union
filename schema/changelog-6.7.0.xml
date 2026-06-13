@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+        logicalFilePath="changelog-6.7.0">
+
+    <changeSet author="author" id="changelog-6.7.0-add-organizationid-to-groups">
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_groups"/>
+            <not>
+                <columnExists tableName="tc_groups" columnName="organizationid"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="tc_groups">
+            <column name="organizationid" type="INT">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <addForeignKeyConstraint
+                baseTableName="tc_groups"
+                baseColumnNames="organizationid"
+                referencedTableName="tc_organization"
+                referencedColumnNames="id"
+                onDelete="SET NULL"
+                constraintName="fk_tc_groups_organization"/>
+
+        <createIndex tableName="tc_groups" indexName="idx_groups_organizationid">
+            <column name="organizationid"/>
+        </createIndex>
+
+    </changeSet>
+
+    <changeSet author="author" id="changelog-6.7.0-create-vin-mappings">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_vin_mappings"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_vin_mappings">
+            <column autoIncrement="true" name="id" type="INT">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="organizationid" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="imei" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="vin" type="VARCHAR(17)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="deviceid" type="INT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="appliedat" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="attributes" type="VARCHAR(4000)" defaultValue="{}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+                tableName="tc_vin_mappings"
+                columnNames="organizationid, imei"
+                constraintName="uq_vin_mappings_org_imei"/>
+
+        <addForeignKeyConstraint
+                baseTableName="tc_vin_mappings"
+                baseColumnNames="organizationid"
+                referencedTableName="tc_organization"
+                referencedColumnNames="id"
+                onDelete="CASCADE"
+                constraintName="fk_vin_mappings_organization"/>
+
+        <addForeignKeyConstraint
+                baseTableName="tc_vin_mappings"
+                baseColumnNames="deviceid"
+                referencedTableName="tc_devices"
+                referencedColumnNames="id"
+                onDelete="SET NULL"
+                constraintName="fk_vin_mappings_device"/>
+
+        <createIndex tableName="tc_vin_mappings" indexName="idx_vin_mappings_imei">
+            <column name="imei"/>
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>
