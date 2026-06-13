@@ -19,7 +19,6 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.traccar.broadcast.BroadcastService;
 import org.traccar.model.Device;
 import org.traccar.model.Group;
 import org.traccar.model.Organization;
