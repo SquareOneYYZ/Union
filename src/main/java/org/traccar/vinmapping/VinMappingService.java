@@ -220,7 +220,7 @@ public class VinMappingService {
 
     private void persistMappingStatus(VinMapping mapping) throws StorageException {
         storage.updateObject(mapping, new Request(
-                new Columns.Include("deviceid", "appliedat", "attributes"),
+                new Columns.Include("deviceId", "appliedAt", "attributes"),
                 new Condition.Equals("id", mapping.getId())));
     }
 
