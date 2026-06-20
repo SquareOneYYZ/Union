@@ -82,7 +82,26 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
                             .build();
                 }
             }
+            vinMappingService.prepareDeviceCreate(device);
+
+            entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
+            LogAction.create(getUserId(), entity);
+
+            if (getUserId() != ServiceAccountUser.ID) {
+                storage.addPermission(new Permission(User.class, getUserId(), baseClass, entity.getId()));
+                cacheManager.invalidatePermission(true, User.class, getUserId(), baseClass, entity.getId(), true);
+                connectionManager.invalidatePermission(true, User.class, getUserId(), baseClass, entity.getId(), true);
+                LogAction.link(getUserId(), User.class, getUserId(), baseClass, entity.getId());
+            }
+
+            // VIN apply hook: fire after device is persisted with its final groupId.
+            if (device.getGroupId() > 0) {
+                vinMappingService.onDeviceAssigned(device, device.getGroupId());
+            }
+
+            return Response.ok(entity).build();
         }
+
         entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
         LogAction.create(getUserId(), entity);
 
@@ -91,11 +110,6 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
             cacheManager.invalidatePermission(true, User.class, getUserId(), baseClass, entity.getId(), true);
             connectionManager.invalidatePermission(true, User.class, getUserId(), baseClass, entity.getId(), true);
             LogAction.link(getUserId(), User.class, getUserId(), baseClass, entity.getId());
-        }
-
-        // VIN auto-mapping hook: fire when a device is created inside a group.
-        if (entity instanceof Device device && device.getGroupId() > 0) {
-            vinMappingService.onDeviceAssigned(device, device.getGroupId());
         }
 
         return Response.ok(entity).build();

@@ -45,9 +45,7 @@ public class VinMappingService {
     private static final int MAX_GROUP_DEPTH = 10;
 
     public static final String ATTR_ERROR = "error";
-
     public static final String ERR_VIN_CONFLICT = "vin-conflict";
-
     public static final String ERR_VIN_CONFLICT_OTHER = "vin-conflict-other-device";
 
     private final Storage storage;
@@ -57,6 +55,34 @@ public class VinMappingService {
     public VinMappingService(Storage storage, CacheManager cacheManager) {
         this.storage = storage;
         this.cacheManager = cacheManager;
+    }
+
+
+    public VinMapping prepareDeviceCreate(Device device) throws StorageException {
+        if (device.getUniqueId() == null || device.getUniqueId().isBlank()) {
+            return null;
+        }
+
+        VinMapping mapping = findMappingByImei(device.getUniqueId());
+        if (mapping == null) {
+            return null;
+        }
+
+
+        if (device.getOrganizationId() > 0 && device.getOrganizationId() != mapping.getOrganizationId()) {
+            LOGGER.debug("VinMapping: device IMEI {} has org {} but mapping belongs to org {} "
+                    + "– skipping VIN/group auto-assign",
+                    device.getUniqueId(), device.getOrganizationId(), mapping.getOrganizationId());
+            return null;
+        }
+
+        if (mapping.getGroupId() > 0) {
+            LOGGER.info("VinMapping: overriding device groupId {} → {} for IMEI {} (mapping {})",
+                    device.getGroupId(), mapping.getGroupId(), device.getUniqueId(), mapping.getId());
+            device.setGroupId(mapping.getGroupId());
+        }
+
+        return mapping;
     }
 
 
@@ -177,6 +203,18 @@ public class VinMappingService {
                         new Condition.Equals("imei", imei))));
     }
 
+    /**
+     * Finds a mapping by IMEI alone (across all orgs). Used in the pre-create
+     * hook where we don't yet know which org the mapping belongs to.
+     * If multiple orgs share the same IMEI this returns the first row found;
+     * the org-security check then validates the match.
+     */
+    private VinMapping findMappingByImei(String imei) throws StorageException {
+        return storage.getObject(VinMapping.class, new Request(
+                new Columns.All(),
+                new Condition.Equals("imei", imei)));
+    }
+
 
     private void applyVin(Device device, VinMapping mapping, String vin) throws Exception {
         device.setVin(vin);
@@ -220,7 +258,7 @@ public class VinMappingService {
 
     private void persistMappingStatus(VinMapping mapping) throws StorageException {
         storage.updateObject(mapping, new Request(
-                new Columns.Include("deviceId", "appliedAt", "attributes"),
+                new Columns.Include("deviceId", "appliedAt", "attributes", "groupId"),
                 new Condition.Equals("id", mapping.getId())));
     }
 

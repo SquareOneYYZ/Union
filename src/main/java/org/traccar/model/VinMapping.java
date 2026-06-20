@@ -49,6 +49,16 @@ public class VinMapping extends ExtendedModel {
         this.deviceid = deviceid;
     }
 
+    private long groupid;
+
+    public long getGroupId() {
+        return groupid;
+    }
+
+    public void setGroupId(long groupid) {
+        this.groupid = groupid;
+    }
+
     private Date appliedat;
 
     public Date getAppliedAt() {

@@ -6,6 +6,7 @@
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
         logicalFilePath="changelog-6.7.0">
 
+    <!-- CS-1: add organizationid to tc_groups for group→client resolution -->
     <changeSet author="author" id="changelog-6.7.0-add-organizationid-to-groups">
 
         <preConditions onFail="MARK_RAN">
@@ -35,6 +36,7 @@
 
     </changeSet>
 
+    <!-- CS-2: create tc_vin_mappings table -->
     <changeSet author="author" id="changelog-6.7.0-create-vin-mappings">
 
         <preConditions onFail="MARK_RAN">
@@ -62,16 +64,19 @@
             <column name="appliedat" type="TIMESTAMP">
                 <constraints nullable="true"/>
             </column>
+            <!-- attributes holds error/status JSON, e.g. {"error":"vin-conflict"} -->
             <column name="attributes" type="VARCHAR(4000)" defaultValue="{}">
                 <constraints nullable="false"/>
             </column>
         </createTable>
 
+        <!-- one VIN per IMEI per client -->
         <addUniqueConstraint
                 tableName="tc_vin_mappings"
                 columnNames="organizationid, imei"
                 constraintName="uq_vin_mappings_org_imei"/>
 
+        <!-- FK: cascade delete when org is removed -->
         <addForeignKeyConstraint
                 baseTableName="tc_vin_mappings"
                 baseColumnNames="organizationid"
@@ -80,6 +85,7 @@
                 onDelete="CASCADE"
                 constraintName="fk_vin_mappings_organization"/>
 
+        <!-- FK: set null when device is deleted -->
         <addForeignKeyConstraint
                 baseTableName="tc_vin_mappings"
                 baseColumnNames="deviceid"
@@ -88,8 +94,39 @@
                 onDelete="SET NULL"
                 constraintName="fk_vin_mappings_device"/>
 
+        <!-- lookup index: hook walks (organizationid, imei) -->
         <createIndex tableName="tc_vin_mappings" indexName="idx_vin_mappings_imei">
             <column name="imei"/>
+        </createIndex>
+
+    </changeSet>
+
+    <!-- CS-3: add groupid to tc_vin_mappings so a mapping can pin a device to a group -->
+    <changeSet author="author" id="changelog-6.7.0-add-groupid-to-vin-mappings">
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_vin_mappings"/>
+            <not>
+                <columnExists tableName="tc_vin_mappings" columnName="groupid"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="tc_vin_mappings">
+            <column name="groupid" type="INT">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <addForeignKeyConstraint
+                baseTableName="tc_vin_mappings"
+                baseColumnNames="groupid"
+                referencedTableName="tc_groups"
+                referencedColumnNames="id"
+                onDelete="SET NULL"
+                constraintName="fk_vin_mappings_group"/>
+
+        <createIndex tableName="tc_vin_mappings" indexName="idx_vin_mappings_groupid">
+            <column name="groupid"/>
         </createIndex>
 
     </changeSet>
