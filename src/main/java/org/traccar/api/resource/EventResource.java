@@ -100,8 +100,9 @@ public class EventResource extends BaseResource {
 
         Condition deviceCondition = null;
 
-        for (Long deviceId : deviceIds) {
-            Condition currentCondition = new Condition.Equals("deviceId", deviceId);
+        for (int i = 0; i < deviceIds.size(); i++) {
+            String variableName = "deviceId" + i;
+            Condition currentCondition = new Condition.Compare("deviceId", "=", variableName, deviceIds.get(i));
 
             if (deviceCondition == null) {
                 deviceCondition = currentCondition;
@@ -166,16 +167,32 @@ public class EventResource extends BaseResource {
     }
 
     public static class EventSearchResult {
-        public final Collection<Event> data;
-        public final long total;
-        public final int page;
-        public final int pageSize;
+        private final Collection<Event> data;
+        private final long total;
+        private final int page;
+        private final int pageSize;
 
         public EventSearchResult(Collection<Event> data, long total, int page, int pageSize) {
             this.data     = data;
             this.total    = total;
             this.page     = page;
             this.pageSize = pageSize;
+        }
+
+        public Collection<Event> getData() {
+            return data;
+        }
+
+        public long getTotal() {
+            return total;
+        }
+
+        public int getPage() {
+            return page;
+        }
+
+        public int getPageSize() {
+            return pageSize;
         }
     }
 
