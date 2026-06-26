@@ -15,7 +15,6 @@
  */
 package org.traccar.storage;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,9 +23,7 @@ import org.traccar.config.Keys;
 import org.traccar.model.Permission;
 
 import javax.sql.DataSource;
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;

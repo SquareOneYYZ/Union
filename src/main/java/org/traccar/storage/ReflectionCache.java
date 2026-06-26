@@ -5,7 +5,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ReflectionCache {
+public final class ReflectionCache {
     private static final ConcurrentHashMap<String, MethodHandle> CACHE =
             new ConcurrentHashMap<>();
 
