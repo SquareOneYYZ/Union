@@ -28,7 +28,6 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.stream.Collectors;
 
 public class KmlExportProvider {
 
@@ -44,11 +43,11 @@ public class KmlExportProvider {
 
         var device = storage.getObject(Device.class, new Request(
                 new Columns.All(), new Condition.Equals("id", deviceId)));
-        var positions = PositionUtil.getPositions(storage, deviceId, from, to);
 
         var dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
-        try (PrintWriter writer = new PrintWriter(outputStream)) {
+        try (var stream = PositionUtil.getPositionsStream(storage, deviceId, from, to);
+             PrintWriter writer = new PrintWriter(outputStream)) {
             writer.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
             writer.print("<kml xmlns=\"http://www.opengis.net/kml/2.2\">");
             writer.print("<Document>");
@@ -66,9 +65,14 @@ public class KmlExportProvider {
             writer.print("<tessellate>1</tessellate>");
             writer.print("<altitudeMode>absolute</altitudeMode>");
             writer.print("<coordinates>");
-            writer.print(positions.stream()
-                    .map((p -> String.format("%f,%f,%f", p.getLongitude(), p.getLatitude(), p.getAltitude())))
-                    .collect(Collectors.joining(" ")));
+            final boolean[] first = {true};
+            stream.forEach(p -> {
+                if (!first[0]) {
+                    writer.print(" ");
+                }
+                writer.print(String.format("%f,%f,%f", p.getLongitude(), p.getLatitude(), p.getAltitude()));
+                first[0] = false;
+            });
             writer.print("</coordinates>");
             writer.print("</LineString>");
             writer.print("</Placemark>");

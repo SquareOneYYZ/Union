@@ -27,6 +27,7 @@ import java.io.PrintWriter;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -42,11 +43,12 @@ public class CsvExportProvider {
     public void generate(
             OutputStream outputStream, long deviceId, Date from, Date to) throws StorageException {
 
-        var positions = PositionUtil.getPositions(storage, deviceId, from, to);
-
-        var attributes = positions.stream()
-                .flatMap((position -> position.getAttributes().keySet().stream()))
-                .collect(Collectors.toUnmodifiableSet());
+        Set<String> attributes;
+        try (var stream = PositionUtil.getPositionsStream(storage, deviceId, from, to)) {
+            attributes = stream
+                    .flatMap(position -> position.getAttributes().keySet().stream())
+                    .collect(Collectors.toUnmodifiableSet());
+        }
 
         var properties = new LinkedHashMap<String, Function<Position, Object>>();
         properties.put("id", Position::getId);
@@ -65,9 +67,10 @@ public class CsvExportProvider {
         properties.put("accuracy", Position::getAccuracy);
         attributes.forEach(key -> properties.put(key, position -> position.getAttributes().get(key)));
 
-        try (PrintWriter writer = new PrintWriter(outputStream)) {
+        try (var stream = PositionUtil.getPositionsStream(storage, deviceId, from, to);
+             PrintWriter writer = new PrintWriter(outputStream)) {
             writer.println(String.join(",", properties.keySet()));
-            positions.forEach(position -> writer.println(properties.values().stream()
+            stream.forEach(position -> writer.println(properties.values().stream()
                     .map(f -> Objects.toString(f.apply(position), ""))
                     .collect(Collectors.joining(","))));
         }

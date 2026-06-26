@@ -20,10 +20,20 @@ import org.traccar.model.Permission;
 import org.traccar.storage.query.Request;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public abstract class Storage {
 
-    public abstract <T> List<T> getObjects(Class<T> clazz, Request request) throws StorageException;
+
+    public abstract <T> Stream<T> getObjectsStream(Class<T> clazz, Request request) throws StorageException;
+
+
+    public <T> List<T> getObjects(Class<T> clazz, Request request) throws StorageException {
+        try (Stream<T> stream = getObjectsStream(clazz, request)) {
+            return stream.collect(Collectors.toList());
+        }
+    }
 
     public abstract <T> long addObject(T entity, Request request) throws StorageException;
 
@@ -46,8 +56,10 @@ public abstract class Storage {
     }
 
     public <T> T getObject(Class<T> clazz, Request request) throws StorageException {
-        var objects = getObjects(clazz, request);
-        return objects.isEmpty() ? null : objects.get(0);
+        try (Stream<T> stream = getObjectsStream(clazz, request)) {
+            return stream.findFirst().orElse(null);
+        }
     }
 
 }
+

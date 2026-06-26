@@ -42,6 +42,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 @SuppressWarnings("UnusedReturnValue")
 public final class QueryBuilder {
@@ -463,6 +467,75 @@ public final class QueryBuilder {
         }
 
         return result;
+    }
+
+    public <T> Stream<T> executeQueryStream(Class<T> clazz) throws SQLException {
+        if (query == null) {
+            return Stream.empty();
+        }
+
+        logQuery();
+
+        ResultSet resultSet = statement.executeQuery();
+        ResultSetMetaData resultMetaData = resultSet.getMetaData();
+
+        List<ResultSetProcessor<T>> processors = new LinkedList<>();
+        Method[] methods = clazz.getMethods();
+        for (final Method method : methods) {
+            if (method.getName().startsWith("set") && method.getParameterTypes().length == 1) {
+                final String name = method.getName().substring(3);
+                boolean column = false;
+                for (int i = 1; i <= resultMetaData.getColumnCount(); i++) {
+                    if (name.equalsIgnoreCase(resultMetaData.getColumnLabel(i))) {
+                        column = true;
+                        break;
+                    }
+                }
+                if (!column) {
+                    continue;
+                }
+                addProcessors(processors, method.getParameterTypes()[0], method, name);
+            }
+        }
+
+        Spliterator<T> spliterator = new Spliterators.AbstractSpliterator<T>(Long.MAX_VALUE, Spliterator.ORDERED) {
+            @Override
+            public boolean tryAdvance(java.util.function.Consumer<? super T> action) {
+                try {
+                    if (!resultSet.next()) {
+                        return false;
+                    }
+                    T object = clazz.getDeclaredConstructor().newInstance();
+                    for (ResultSetProcessor<T> processor : processors) {
+                        processor.process(object, resultSet);
+                    }
+                    action.accept(object);
+                    return true;
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalArgumentException(e);
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+
+        return StreamSupport.stream(spliterator, false).onClose(() -> {
+            try {
+                resultSet.close();
+            } catch (SQLException e) {
+                LOGGER.warn("Failed to close ResultSet", e);
+            }
+            try {
+                statement.close();
+            } catch (SQLException e) {
+                LOGGER.warn("Failed to close Statement", e);
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                LOGGER.warn("Failed to close Connection", e);
+            }
+        });
     }
 
     public long executeUpdate() throws SQLException {

@@ -43,9 +43,9 @@ public class GpxExportProvider {
 
         var device = storage.getObject(Device.class, new Request(
                 new Columns.All(), new Condition.Equals("id", deviceId)));
-        var positions = PositionUtil.getPositions(storage, deviceId, from, to);
 
-        try (PrintWriter writer = new PrintWriter(outputStream)) {
+        try (var stream = PositionUtil.getPositionsStream(storage, deviceId, from, to);
+             PrintWriter writer = new PrintWriter(outputStream)) {
             writer.print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
             writer.print("<gpx version=\"1.0\">");
             writer.print("<trk>");
@@ -53,7 +53,7 @@ public class GpxExportProvider {
             writer.print(device.getName());
             writer.print("</name>");
             writer.print("<trkseg>");
-            positions.forEach(position -> {
+            stream.forEach(position -> {
                 writer.print("<trkpt lat=\"");
                 writer.print(position.getLatitude());
                 writer.print("\" lon=\"");
