@@ -25,6 +25,7 @@ import org.traccar.model.Permission;
 
 import javax.sql.DataSource;
 import java.io.IOException;
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.Connection;
@@ -284,30 +285,31 @@ public final class QueryBuilder {
     }
 
     public QueryBuilder setObject(Object object, List<String> columns) throws SQLException {
-
         try {
             for (String column : columns) {
                 Method method = object.getClass().getMethod(
                         "get" + Character.toUpperCase(column.charAt(0)) + column.substring(1));
-                if (method.getReturnType().equals(boolean.class)) {
-                    setBoolean(column, (Boolean) method.invoke(object));
-                } else if (method.getReturnType().equals(int.class)) {
-                    setInteger(column, (Integer) method.invoke(object));
-                } else if (method.getReturnType().equals(long.class)) {
-                    setLong(column, (Long) method.invoke(object), column.endsWith("Id"));
-                } else if (method.getReturnType().equals(double.class)) {
-                    setDouble(column, (Double) method.invoke(object));
-                } else if (method.getReturnType().equals(String.class)) {
-                    setString(column, (String) method.invoke(object));
-                } else if (method.getReturnType().equals(Date.class)) {
-                    setDate(column, (Date) method.invoke(object));
-                } else if (method.getReturnType().equals(byte[].class)) {
-                    setBlob(column, (byte[]) method.invoke(object));
+                MethodHandle handle = ReflectionCache.get(method);
+                Class<?> returnType = method.getReturnType();
+                if (returnType.equals(boolean.class)) {
+                    setBoolean(column, (boolean) handle.invoke(object));
+                } else if (returnType.equals(int.class)) {
+                    setInteger(column, (int) handle.invoke(object));
+                } else if (returnType.equals(long.class)) {
+                    setLong(column, (long) handle.invoke(object), column.endsWith("Id"));
+                } else if (returnType.equals(double.class)) {
+                    setDouble(column, (double) handle.invoke(object));
+                } else if (returnType.equals(String.class)) {
+                    setString(column, (String) handle.invoke(object));
+                } else if (returnType.equals(Date.class)) {
+                    setDate(column, (Date) handle.invoke(object));
+                } else if (returnType.equals(byte[].class)) {
+                    setBlob(column, (byte[]) handle.invoke(object));
                 } else {
-                    setString(column, objectMapper.writeValueAsString(method.invoke(object)));
+                    setString(column, objectMapper.writeValueAsString(handle.invoke(object)));
                 }
             }
-        } catch (ReflectiveOperationException | JsonProcessingException e) {
+        } catch (Throwable e) {
             LOGGER.warn("Set object error", e);
         }
 
@@ -322,43 +324,45 @@ public final class QueryBuilder {
             List<ResultSetProcessor<T>> processors,
             final Class<?> parameterType, final Method method, final String name) {
 
+        final MethodHandle handle = ReflectionCache.get(method);
+
         if (parameterType.equals(boolean.class)) {
             processors.add((object, resultSet) -> {
                 try {
-                    method.invoke(object, resultSet.getBoolean(name));
-                } catch (IllegalAccessException | InvocationTargetException error) {
+                    handle.invoke(object, resultSet.getBoolean(name));
+                } catch (Throwable error) {
                     LOGGER.warn("Set property error", error);
                 }
             });
         } else if (parameterType.equals(int.class)) {
             processors.add((object, resultSet) -> {
                 try {
-                    method.invoke(object, resultSet.getInt(name));
-                } catch (IllegalAccessException | InvocationTargetException error) {
+                    handle.invoke(object, resultSet.getInt(name));
+                } catch (Throwable error) {
                     LOGGER.warn("Set property error", error);
                 }
             });
         } else if (parameterType.equals(long.class)) {
             processors.add((object, resultSet) -> {
                 try {
-                    method.invoke(object, resultSet.getLong(name));
-                } catch (IllegalAccessException | InvocationTargetException error) {
+                    handle.invoke(object, resultSet.getLong(name));
+                } catch (Throwable error) {
                     LOGGER.warn("Set property error", error);
                 }
             });
         } else if (parameterType.equals(double.class)) {
             processors.add((object, resultSet) -> {
                 try {
-                    method.invoke(object, resultSet.getDouble(name));
-                } catch (IllegalAccessException | InvocationTargetException error) {
+                    handle.invoke(object, resultSet.getDouble(name));
+                } catch (Throwable error) {
                     LOGGER.warn("Set property error", error);
                 }
             });
         } else if (parameterType.equals(String.class)) {
             processors.add((object, resultSet) -> {
                 try {
-                    method.invoke(object, resultSet.getString(name));
-                } catch (IllegalAccessException | InvocationTargetException error) {
+                    handle.invoke(object, resultSet.getString(name));
+                } catch (Throwable error) {
                     LOGGER.warn("Set property error", error);
                 }
             });
@@ -367,17 +371,17 @@ public final class QueryBuilder {
                 try {
                     Timestamp timestamp = resultSet.getTimestamp(name);
                     if (timestamp != null) {
-                        method.invoke(object, new Date(timestamp.getTime()));
+                        handle.invoke(object, new Date(timestamp.getTime()));
                     }
-                } catch (IllegalAccessException | InvocationTargetException error) {
+                } catch (Throwable error) {
                     LOGGER.warn("Set property error", error);
                 }
             });
         } else if (parameterType.equals(byte[].class)) {
             processors.add((object, resultSet) -> {
                 try {
-                    method.invoke(object, resultSet.getBytes(name));
-                } catch (IllegalAccessException | InvocationTargetException error) {
+                    handle.invoke(object, resultSet.getBytes(name));
+                } catch (Throwable error) {
                     LOGGER.warn("Set property error", error);
                 }
             });
@@ -386,8 +390,8 @@ public final class QueryBuilder {
                 String value = resultSet.getString(name);
                 if (value != null && !value.isEmpty()) {
                     try {
-                        method.invoke(object, objectMapper.readValue(value, parameterType));
-                    } catch (InvocationTargetException | IllegalAccessException | IOException error) {
+                        handle.invoke(object, objectMapper.readValue(value, parameterType));
+                    } catch (Throwable error) {
                         LOGGER.warn("Set property error", error);
                     }
                 }
