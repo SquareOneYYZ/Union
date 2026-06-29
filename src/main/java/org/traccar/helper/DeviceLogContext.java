@@ -5,8 +5,7 @@ import org.traccar.config.Keys;
 import org.traccar.model.Device;
 import org.traccar.session.cache.CacheManager;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 
@@ -16,8 +15,6 @@ public final class DeviceLogContext {
     }
 
     private static final ThreadLocal<Long> DEVICE_ID = new ThreadLocal<>();
-    private static final Pattern DEVICE_ID_PATTERN = Pattern.compile("deviceId\\s*[=:]\\s*(\\d+)");
-    private static final Pattern DEVICE_PATTERN = Pattern.compile("Device\\s+(\\d+)");
 
     private static volatile Config config;
     private static volatile CacheManager cacheManager;
@@ -49,17 +46,22 @@ public final class DeviceLogContext {
             return true;
         }
 
-        String loggerName = record.getLoggerName();
-        if (!loggerName.startsWith("org.traccar")) {
-            return record.getLevel().intValue() >= Level.INFO.intValue();
+        if (!record.getLoggerName().startsWith("org.traccar")) {
+            Level configuredLevel = Logger.getLogger("").getLevel();
+            if (configuredLevel == null) {
+                configuredLevel = Level.INFO;
+            }
+            return record.getLevel().intValue() >= configuredLevel.intValue();
         }
+
 
         Long deviceId = DEVICE_ID.get();
         if (deviceId == null) {
-            deviceId = extractDeviceId(record.getMessage());
-        }
-        if (deviceId == null) {
-            return true;
+            Level configuredLevel = Logger.getLogger("").getLevel();
+            if (configuredLevel == null) {
+                configuredLevel = Level.INFO;
+            }
+            return record.getLevel().intValue() >= configuredLevel.intValue();
         }
 
         Config localConfig = config;
@@ -73,25 +75,12 @@ public final class DeviceLogContext {
         }
 
         Device device = localCacheManager.getObject(Device.class, deviceId);
-        if (device != null && device.getDebugLogging()) {
+        if (device == null) {
             return true;
         }
 
-        return false;
+        return device.getDebugLogging();
     }
 
-    private static Long extractDeviceId(String message) {
-        if (message == null) {
-            return null;
-        }
-        Matcher deviceIdMatcher = DEVICE_ID_PATTERN.matcher(message);
-        if (deviceIdMatcher.find()) {
-            return Long.parseLong(deviceIdMatcher.group(1));
-        }
-        Matcher deviceMatcher = DEVICE_PATTERN.matcher(message);
-        if (deviceMatcher.find()) {
-            return Long.parseLong(deviceMatcher.group(1));
-        }
-        return null;
-    }
+
 }

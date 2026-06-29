@@ -2077,7 +2077,7 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
 
     public static final ConfigKey<Boolean> DEVICE_DEBUG_LOGGING = new BooleanConfigKey(
             "device.debugLogging",
-            List.of(KeyType.CONFIG, KeyType.SERVER, KeyType.DEVICE),
+            List.of(KeyType.CONFIG, KeyType.SERVER),
             false);
 
 
