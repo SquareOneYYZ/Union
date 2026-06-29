@@ -39,6 +39,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Path("admin")
 @Produces(MediaType.APPLICATION_JSON)
@@ -143,7 +144,7 @@ public class AdminResource extends BaseResource {
         String countSql = "SELECT COUNT(*) FROM " + T_DEVICES
                 + " WHERE lastupdate < ? OR lastupdate IS NULL";
 
-        String dataSql = "SELECT id, name, uniqueid, status, lastupdate, groupid"
+        String dataSql = "SELECT id, name, uniqueid, status, lastupdate, groupid, organizationid"
                 + " FROM " + T_DEVICES
                 + " WHERE lastupdate < ? OR lastupdate IS NULL"
                 + " ORDER BY name"
@@ -170,7 +171,10 @@ public class AdminResource extends BaseResource {
                         row.put("uniqueId",   rs.getString("uniqueid"));
                         row.put("status",     rs.getString("status"));
                         row.put("lastUpdate", toDate(rs.getTimestamp("lastupdate")));
-                        row.put("groupId",    rs.getLong("groupid"));
+                        long groupId = rs.getLong("groupid");
+                        row.put("groupId", rs.wasNull() ? null : groupId);
+                        long orgId = rs.getLong("organizationid");
+                        row.put("organizationId", rs.wasNull() ? null : orgId);
                         rows.add(row);
                     }
                 }
@@ -223,7 +227,8 @@ public class AdminResource extends BaseResource {
                     row.put("longitude",  rs.getDouble("cur_lon"));
                     row.put("fixTime",    toDate(rs.getTimestamp("cur_fixtime")));
                     row.put("serverTime", toDate(rs.getTimestamp("cur_servertime")));
-                    row.put("groupId",    rs.getLong("groupid"));
+                    long groupId = rs.getLong("groupid");
+                    row.put("groupId", rs.wasNull() ? null : groupId);
                     stuck.add(row);
                 }
             }
@@ -289,40 +294,28 @@ public class AdminResource extends BaseResource {
             @QueryParam("offset") @DefaultValue("0")   int offset) throws StorageException, SQLException {
         permissionsService.checkAdmin(getUserId());
 
-        String aggSql =
-            "SELECT UPPER(TRIM(vin)) AS nvin,"
-            + "     COUNT(*) AS device_count,"
-            + "     COUNT(DISTINCT organizationid) AS org_count"
-            + " FROM " + T_DEVICES
-            + " WHERE vin IS NOT NULL AND TRIM(vin) <> ''"
-            + " GROUP BY UPPER(TRIM(vin))"
-            + " HAVING COUNT(DISTINCT organizationid) > 1"
-            + " ORDER BY nvin"
-            + " LIMIT ? OFFSET ?";
-
-        String detailSql =
-            "SELECT d.id, d.name, d.uniqueid, d.organizationid,"
-            + "     UPPER(TRIM(d.vin)) AS nvin"
-            + " FROM " + T_DEVICES + " d"
-            + " WHERE UPPER(TRIM(d.vin)) IN ("
-            + "   SELECT UPPER(TRIM(vin)) FROM " + T_DEVICES
-            + "   WHERE vin IS NOT NULL AND TRIM(vin) <> ''"
-            + "   GROUP BY UPPER(TRIM(vin))"
-            + "   HAVING COUNT(DISTINCT organizationid) > 1"
-            + " )"
-            + " ORDER BY nvin, d.id";
-
         String countSql =
-            "SELECT COUNT(*) FROM ("
-            + "  SELECT 1 FROM " + T_DEVICES
-            + "  WHERE vin IS NOT NULL AND TRIM(vin) <> ''"
-            + "  GROUP BY UPPER(TRIM(vin))"
-            + "  HAVING COUNT(DISTINCT organizationid) > 1"
-            + ") sub";
+                "SELECT COUNT(*) FROM ("
+                        + "  SELECT 1 FROM " + T_DEVICES
+                        + "  WHERE vin IS NOT NULL AND TRIM(vin) <> ''"
+                        + "  GROUP BY UPPER(TRIM(vin))"
+                        + "  HAVING COUNT(DISTINCT organizationid) > 1"
+                        + ") sub";
+
+        String aggSql =
+                "SELECT UPPER(TRIM(vin)) AS nvin,"
+                        + "     COUNT(*) AS device_count,"
+                        + "     COUNT(DISTINCT organizationid) AS org_count"
+                        + " FROM " + T_DEVICES
+                        + " WHERE vin IS NOT NULL AND TRIM(vin) <> ''"
+                        + " GROUP BY UPPER(TRIM(vin))"
+                        + " HAVING COUNT(DISTINCT organizationid) > 1"
+                        + " ORDER BY nvin"
+                        + " LIMIT ? OFFSET ?";
+
 
         long total;
         Map<String, Map<String, Object>> byVin = new LinkedHashMap<>();
-
         try (Connection conn = dataSource.getConnection()) {
             try (PreparedStatement cs = conn.prepareStatement(countSql);
                  ResultSet rs = cs.executeQuery()) {
@@ -346,21 +339,37 @@ public class AdminResource extends BaseResource {
             }
 
             if (!byVin.isEmpty()) {
-                try (PreparedStatement detailStmt = conn.prepareStatement(detailSql);
-                     ResultSet rs = detailStmt.executeQuery()) {
-                    while (rs.next()) {
-                        String nvin = rs.getString("nvin");
-                        Map<String, Object> entry = byVin.get(nvin);
-                        if (entry != null) {
-                            @SuppressWarnings("unchecked")
-                            List<Map<String, Object>> devices =
-                                    (List<Map<String, Object>>) entry.get("devices");
-                            Map<String, Object> d = new LinkedHashMap<>();
-                            d.put("id",             rs.getLong("id"));
-                            d.put("name",           rs.getString("name"));
-                            d.put("uniqueId",       rs.getString("uniqueid"));
-                            d.put("organizationId", rs.getLong("organizationid"));
-                            devices.add(d);
+                String placeholders = byVin.keySet().stream()
+                        .map(v -> "?")
+                        .collect(Collectors.joining(", "));
+                String detailSql =
+                        "SELECT d.id, d.name, d.uniqueid, d.organizationid,"
+                                + "     UPPER(TRIM(d.vin)) AS nvin"
+                                + " FROM " + T_DEVICES + " d"
+                                + " WHERE UPPER(TRIM(d.vin)) IN (" + placeholders + ")"
+                                + " ORDER BY nvin, d.id";
+
+                try (PreparedStatement detailStmt = conn.prepareStatement(detailSql)) {
+                    int idx = 1;
+                    for (String nvin : byVin.keySet()) {
+                        detailStmt.setString(idx++, nvin);
+                    }
+                    try (ResultSet rs = detailStmt.executeQuery()) {
+                        while (rs.next()) {
+                            String nvin = rs.getString("nvin");
+                            Map<String, Object> entry = byVin.get(nvin);
+                            if (entry != null) {
+                                @SuppressWarnings("unchecked")
+                                List<Map<String, Object>> devices =
+                                        (List<Map<String, Object>>) entry.get("devices");
+                                Map<String, Object> d = new LinkedHashMap<>();
+                                d.put("id",             rs.getLong("id"));
+                                d.put("name",           rs.getString("name"));
+                                d.put("uniqueId",       rs.getString("uniqueid"));
+                                long organizationId = rs.getLong("organizationid");
+                                d.put("organizationId", rs.wasNull() ? null : organizationId);
+                                devices.add(d);
+                            }
                         }
                     }
                 }
