@@ -30,6 +30,7 @@ import org.traccar.storage.query.Request;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class PositionUtil {
 
@@ -57,6 +58,17 @@ public final class PositionUtil {
     public static List<Position> getPositions(
             Storage storage, long deviceId, Date from, Date to) throws StorageException {
         return storage.getObjects(Position.class, new Request(
+                new Columns.All(),
+                new Condition.And(
+                        new Condition.Equals("deviceId", deviceId),
+                        new Condition.Between("fixTime", "from", from, "to", to)),
+                new Order("fixTime")));
+    }
+
+
+    public static Stream<Position> getPositionsStream(
+            Storage storage, long deviceId, Date from, Date to) throws StorageException {
+        return storage.getObjectsStream(Position.class, new Request(
                 new Columns.All(),
                 new Condition.And(
                         new Condition.Equals("deviceId", deviceId),
