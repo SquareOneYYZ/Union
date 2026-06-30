@@ -17,6 +17,8 @@
 package org.traccar.api.resource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.api.SimpleObjectResource;
 import org.traccar.helper.LogAction;
 import org.traccar.helper.ReportPeriodUtil;
@@ -57,6 +59,7 @@ import java.util.concurrent.CompletableFuture;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class ReportResource extends SimpleObjectResource<Report> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReportResource.class);
 
     private static final String EXCEL = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -163,6 +166,18 @@ public class ReportResource extends SimpleObjectResource<Report> {
 
                 storage.addObject(history, new org.traccar.storage.query.Request(
                         new org.traccar.storage.query.Columns.Exclude("id")));
+
+                List<ReportHistory> allRows = storage.getObjects(ReportHistory.class,
+                        new org.traccar.storage.query.Request(
+                                new org.traccar.storage.query.Columns.All(),
+                                condition,
+                                new org.traccar.storage.query.Order("generatedAt", true, Integer.MAX_VALUE)));
+                if (allRows.size() > 50) {
+                    for (int i = 50; i < allRows.size(); i++) {
+                        storage.removeObject(ReportHistory.class, new org.traccar.storage.query.Request(
+                                new org.traccar.storage.query.Condition.Equals("id", allRows.get(i).getId())));
+                    }
+                }
             }
 
         } catch (Exception e) {
@@ -195,11 +210,17 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("groupId") List<Long> groupIds,
             @QueryParam("from") Date from,
             @QueryParam("to") Date to) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
-        LogAction.report(getUserId(), false, "combined", from, to, deviceIds, groupIds);
-        CompletableFuture.runAsync(() ->
-        saveReportHistory(getUserId(), "combined", deviceIds, groupIds, from, to, null));
-        return combinedReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
+        LogAction.report(userId, false, "combined", from, to, deviceIds, groupIds);
+        CompletableFuture.runAsync(() -> {
+            try {
+                saveReportHistory(userId, "combined", deviceIds, groupIds, from, to, null);
+            } catch (Exception e) {
+                LOGGER.warn("Failed to save report history", e);
+            }
+            });
+        return combinedReportProvider.getObjects(userId, deviceIds, groupIds, from, to);
 
     }
 
@@ -210,11 +231,17 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("groupId") List<Long> groupIds,
             @QueryParam("from") Date from,
             @QueryParam("to") Date to) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
-        LogAction.report(getUserId(), false, "route", from, to, deviceIds, groupIds);
-        CompletableFuture.runAsync(() ->
-        saveReportHistory(getUserId(), "route", deviceIds, groupIds, from, to, null));
-        return routeReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
+        LogAction.report(userId, false, "route", from, to, deviceIds, groupIds);
+        CompletableFuture.runAsync(() -> {
+            try {
+              saveReportHistory(userId, "route", deviceIds, groupIds, from, to, null);
+            } catch (Exception e) {
+                LOGGER.warn("Failed to save report history", e);
+            }
+            });
+        return routeReportProvider.getObjects(userId, deviceIds, groupIds, from, to);
     }
 
     @Path("route")
@@ -226,12 +253,13 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("from") Date from,
             @QueryParam("to") Date to,
             @QueryParam("mail") boolean mail) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
         CompletableFuture.runAsync(() ->
-                saveReportHistory(getUserId(), "route", deviceIds, groupIds, from, to, null));
-        return executeReport(getUserId(), mail, stream -> {
-            LogAction.report(getUserId(), false, "route", from, to, deviceIds, groupIds);
-            routeReportProvider.getExcel(stream, getUserId(), deviceIds, groupIds, from, to);
+                saveReportHistory(userId, "route", deviceIds, groupIds, from, to, null));
+        return executeReport(userId, mail, stream -> {
+            LogAction.report(userId, false, "route", from, to, deviceIds, groupIds);
+            routeReportProvider.getExcel(stream, userId, deviceIds, groupIds, from, to);
         });
     }
 
@@ -256,8 +284,9 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("alarm") List<String> alarms,
             @QueryParam("from") Date from,
             @QueryParam("to") Date to) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
-        LogAction.report(getUserId(), false, "events", from, to, deviceIds, groupIds);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
+        LogAction.report(userId, false, "events", from, to, deviceIds, groupIds);
         Map<String, Object> additionalParams = new HashMap<>();
         if (types != null && !types.isEmpty()) {
             additionalParams.put("types", types);
@@ -266,8 +295,8 @@ public class ReportResource extends SimpleObjectResource<Report> {
             additionalParams.put("alarms", alarms);
         }
         CompletableFuture.runAsync(() ->
-        saveReportHistory(getUserId(), "events", deviceIds, groupIds, from, to, additionalParams));
-        return eventsReportProvider.getObjects(getUserId(), deviceIds, groupIds, types, alarms, from, to);
+        saveReportHistory(userId, "events", deviceIds, groupIds, from, to, additionalParams));
+        return eventsReportProvider.getObjects(userId, deviceIds, groupIds, types, alarms, from, to);
     }
 
     @Path("events")
@@ -281,7 +310,8 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("from") Date from,
             @QueryParam("to") Date to,
             @QueryParam("mail") boolean mail) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
         Map<String, Object> additionalParams = new HashMap<>();
         if (types != null && !types.isEmpty()) {
             additionalParams.put("types", types);
@@ -290,10 +320,10 @@ public class ReportResource extends SimpleObjectResource<Report> {
             additionalParams.put("alarms", alarms);
         }
         CompletableFuture.runAsync(() ->
-                saveReportHistory(getUserId(), "events", deviceIds, groupIds, from, to, additionalParams));
-        return executeReport(getUserId(), mail, stream -> {
-            LogAction.report(getUserId(), false, "events", from, to, deviceIds, groupIds);
-            eventsReportProvider.getExcel(stream, getUserId(), deviceIds, groupIds, types, alarms, from, to);
+                saveReportHistory(userId, "events", deviceIds, groupIds, from, to, additionalParams));
+        return executeReport(userId, mail, stream -> {
+            LogAction.report(userId, false, "events", from, to, deviceIds, groupIds);
+            eventsReportProvider.getExcel(stream, userId, deviceIds, groupIds, types, alarms, from, to);
         });
     }
 
@@ -319,13 +349,14 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("from") Date from,
             @QueryParam("to") Date to,
             @QueryParam("daily") boolean daily) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
-        LogAction.report(getUserId(), false, "summary", from, to, deviceIds, groupIds);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
+        LogAction.report(userId, false, "summary", from, to, deviceIds, groupIds);
         Map<String, Object> additionalParams = new HashMap<>();
         additionalParams.put("daily", daily);
         CompletableFuture.runAsync(() ->
-        saveReportHistory(getUserId(), "summary", deviceIds, groupIds, from, to, additionalParams));
-        return summaryReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to, daily);
+        saveReportHistory(userId, "summary", deviceIds, groupIds, from, to, additionalParams));
+        return summaryReportProvider.getObjects(userId, deviceIds, groupIds, from, to, daily);
     }
 
     @Path("summary")
@@ -338,14 +369,15 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("to") Date to,
             @QueryParam("daily") boolean daily,
             @QueryParam("mail") boolean mail) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
         Map<String, Object> additionalParams = new HashMap<>();
         additionalParams.put("daily", daily);
         CompletableFuture.runAsync(() ->
-                saveReportHistory(getUserId(), "summary", deviceIds, groupIds, from, to, additionalParams));
-        return executeReport(getUserId(), mail, stream -> {
-            LogAction.report(getUserId(), false, "summary", from, to, deviceIds, groupIds);
-            summaryReportProvider.getExcel(stream, getUserId(), deviceIds, groupIds, from, to, daily);
+                saveReportHistory(userId, "summary", deviceIds, groupIds, from, to, additionalParams));
+        return executeReport(userId, mail, stream -> {
+            LogAction.report(userId, false, "summary", from, to, deviceIds, groupIds);
+            summaryReportProvider.getExcel(stream, userId, deviceIds, groupIds, from, to, daily);
         });
     }
 
@@ -369,11 +401,12 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("groupId") List<Long> groupIds,
             @QueryParam("from") Date from,
             @QueryParam("to") Date to) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
-        LogAction.report(getUserId(), false, "trips", from, to, deviceIds, groupIds);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
+        LogAction.report(userId, false, "trips", from, to, deviceIds, groupIds);
         CompletableFuture.runAsync(() ->
-        saveReportHistory(getUserId(), "trips", deviceIds, groupIds, from, to, null));
-        return tripsReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
+        saveReportHistory(userId, "trips", deviceIds, groupIds, from, to, null));
+        return tripsReportProvider.getObjects(userId, deviceIds, groupIds, from, to);
     }
 
     @Path("trips")
@@ -385,12 +418,13 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("from") Date from,
             @QueryParam("to") Date to,
             @QueryParam("mail") boolean mail) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
         CompletableFuture.runAsync(() ->
-                saveReportHistory(getUserId(), "trips", deviceIds, groupIds, from, to, null));
-        return executeReport(getUserId(), mail, stream -> {
-            LogAction.report(getUserId(), false, "trips", from, to, deviceIds, groupIds);
-            tripsReportProvider.getExcel(stream, getUserId(), deviceIds, groupIds, from, to);
+                saveReportHistory(userId, "trips", deviceIds, groupIds, from, to, null));
+        return executeReport(userId, mail, stream -> {
+            LogAction.report(userId, false, "trips", from, to, deviceIds, groupIds);
+            tripsReportProvider.getExcel(stream, userId, deviceIds, groupIds, from, to);
         });
     }
 
@@ -413,11 +447,12 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("groupId") List<Long> groupIds,
             @QueryParam("from") Date from,
             @QueryParam("to") Date to) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
-        LogAction.report(getUserId(), false, "stops", from, to, deviceIds, groupIds);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
+        LogAction.report(userId, false, "stops", from, to, deviceIds, groupIds);
         CompletableFuture.runAsync(() ->
-        saveReportHistory(getUserId(), "stops", deviceIds, groupIds, from, to, null));
-        return stopsReportProvider.getObjects(getUserId(), deviceIds, groupIds, from, to);
+        saveReportHistory(userId, "stops", deviceIds, groupIds, from, to, null));
+        return stopsReportProvider.getObjects(userId, deviceIds, groupIds, from, to);
     }
 
     @Path("stops")
@@ -429,12 +464,13 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("from") Date from,
             @QueryParam("to") Date to,
             @QueryParam("mail") boolean mail) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
         CompletableFuture.runAsync(() ->
-                saveReportHistory(getUserId(), "stops", deviceIds, groupIds, from, to, null));
-        return executeReport(getUserId(), mail, stream -> {
-            LogAction.report(getUserId(), false, "stops", from, to, deviceIds, groupIds);
-            stopsReportProvider.getExcel(stream, getUserId(), deviceIds, groupIds, from, to);
+                saveReportHistory(userId, "stops", deviceIds, groupIds, from, to, null));
+        return executeReport(userId, mail, stream -> {
+            LogAction.report(userId, false, "stops", from, to, deviceIds, groupIds);
+            stopsReportProvider.getExcel(stream, userId, deviceIds, groupIds, from, to);
         });
     }
 
@@ -462,9 +498,10 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("identifier") String identifier,
             @QueryParam("vin") String vin,
             @PathParam("type") String type) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
-        return executeReport(getUserId(), type.equals("mail"), stream -> {
-            devicesReportProvider.getExcel(stream, getUserId(),
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
+        return executeReport(userId, type.equals("mail"), stream -> {
+            devicesReportProvider.getExcel(stream, userId,
                     deviceIds, groupIds, model, status, name, identifier, vin);
         });
     }
@@ -478,18 +515,19 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("from") Date from,
             @QueryParam("to") Date to,
             @QueryParam("mail") boolean mail) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
         List<Long> deviceIds = deviceId > 0 ? List.of(deviceId) : List.of();
         Map<String, Object> additionalParams = new HashMap<>();
         if (geofenceId > 0) {
             additionalParams.put("geofenceId", geofenceId);
         }
         CompletableFuture.runAsync(() ->
-                saveReportHistory(getUserId(), "devicegeofencedistances", deviceIds, List.of(), from,
+                saveReportHistory(userId, "devicegeofencedistances", deviceIds, List.of(), from,
                         to, additionalParams));
-        return executeReport(getUserId(), mail, stream -> {
-            LogAction.report(getUserId(), mail, "devicegeofencedistances", from, to, deviceIds, List.of());
-            deviceGeofenceDistanceReportProvider.getExcel(stream, getUserId(), deviceId, geofenceId, from, to);
+        return executeReport(userId, mail, stream -> {
+            LogAction.report(userId, mail, "devicegeofencedistances", from, to, deviceIds, List.of());
+            deviceGeofenceDistanceReportProvider.getExcel(stream, userId, deviceId, geofenceId, from, to);
         });
     }
 
@@ -512,28 +550,29 @@ public class ReportResource extends SimpleObjectResource<Report> {
             @QueryParam("geofenceId") long geofenceId,
             @QueryParam("from") Date from,
             @QueryParam("to") Date to) throws StorageException {
-        permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
+        long userId = getUserId();
+        permissionsService.checkRestriction(userId, UserRestrictions::getDisableReports);
 
         List<Long> deviceIds = deviceId > 0 ? List.of(deviceId) : List.of();
-        LogAction.report(getUserId(), false, "devicegeofencedistances", from, to, deviceIds, List.of());
+        LogAction.report(userId, false, "devicegeofencedistances", from, to, deviceIds, List.of());
 
         Map<String, Object> additionalParams = new HashMap<>();
         if (geofenceId > 0) {
             additionalParams.put("geofenceId", geofenceId);
         }
         CompletableFuture.runAsync(() ->
-        saveReportHistory(getUserId(), "devicegeofencedistances", deviceIds, List.of(), from, to,
+        saveReportHistory(userId, "devicegeofencedistances", deviceIds, List.of(), from, to,
                 additionalParams));
 
         if (deviceId > 0) {
-            permissionsService.checkPermission(Device.class, getUserId(), deviceId);
-            return deviceGeofenceDistanceReportProvider.getObjects(getUserId(), deviceId, geofenceId, from, to);
+            permissionsService.checkPermission(Device.class, userId, deviceId);
+            return deviceGeofenceDistanceReportProvider.getObjects(userId, deviceId, geofenceId, from, to);
         } else if (geofenceId > 0) {
-            Collection<DeviceGeofenceSegment> segments = deviceGeofenceDistanceReportProvider.getObjects(getUserId(),
+            Collection<DeviceGeofenceSegment> segments = deviceGeofenceDistanceReportProvider.getObjects(userId,
                     0, geofenceId, from, to);
             segments.removeIf(segment -> {
                 try {
-                    permissionsService.checkPermission(Device.class, getUserId(), segment.getDeviceId());
+                    permissionsService.checkPermission(Device.class, userId, segment.getDeviceId());
                     return false;
                 } catch (Exception e) {
                     return true;

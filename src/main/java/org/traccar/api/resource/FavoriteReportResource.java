@@ -36,6 +36,16 @@ public class FavoriteReportResource extends BaseResource {
 
     @POST
     public Response add(FavoriteReport entity) throws StorageException {
+        if (entity.getName() == null || entity.getName().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Field 'name' is required.")
+                    .build();
+        }
+        if (entity.getReportType() == null || entity.getReportType().isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Field 'reportType' is required.")
+                    .build();
+        }
         entity.setCreatedBy(getUserId());
         entity.setCreatedAt(new Date());
         entity.setUpdatedAt(new Date());
@@ -57,6 +67,18 @@ public class FavoriteReportResource extends BaseResource {
                     .entity("You do not have permission to update this favorite report.")
                     .build();
         }
+        if (entity.getName() == null) entity.setName(existing.getName());
+        if (entity.getDescription() == null) entity.setDescription(existing.getDescription());
+        if (entity.getReportType() == null) entity.setReportType(existing.getReportType());
+        if (entity.getDeviceIds() == null) entity.setDeviceIds(existing.getDeviceIds());
+        if (entity.getGroupIds() == null) entity.setGroupIds(existing.getGroupIds());
+        if (entity.getAdditionalParams() == null) entity.setAdditionalParams(existing.getAdditionalParams());
+        if (entity.getPeriod() == null) entity.setPeriod(existing.getPeriod());
+        if (entity.getFromDate() == null) entity.setFromDate(existing.getFromDate());
+        if (entity.getToDate() == null) entity.setToDate(existing.getToDate());
+        if (entity.getDisplayOrder() == 0) entity.setDisplayOrder(existing.getDisplayOrder());
+        entity.setCreatedBy(existing.getCreatedBy());
+        entity.setCreatedAt(existing.getCreatedAt());
         entity.setId(id);
         entity.setUpdatedAt(new Date());
         storage.updateObject(entity, new Request(
