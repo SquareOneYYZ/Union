@@ -477,12 +477,30 @@ public final class Keys {
             List.of(KeyType.CONFIG),
             "./schema/changelog-master.xml");
 
+
+    public static final ConfigKey<Integer> DATABASE_MAX_LIFETIME = new IntegerConfigKey(
+            "database.maxLifetime",
+            List.of(KeyType.CONFIG));
+
     /**
-     * Database connection pool size. Default value is defined by the HikariCP library.
+     * Database connection pool size. Default value is 20.
      */
     public static final ConfigKey<Integer> DATABASE_MAX_POOL_SIZE = new IntegerConfigKey(
             "database.maxPoolSize",
-            List.of(KeyType.CONFIG));
+            List.of(KeyType.CONFIG),
+            20);
+
+
+    public static final ConfigKey<Long> DATABASE_POSITION_BATCH_INTERVAL = new LongConfigKey(
+            "database.positionBatchInterval",
+            List.of(KeyType.CONFIG),
+            0L);
+
+
+    public static final ConfigKey<Integer> DATABASE_POSITION_BATCH_SIZE = new IntegerConfigKey(
+            "database.positionBatchSize",
+            List.of(KeyType.CONFIG),
+            100);
 
     /**
      * SQL query to check connection status. Default value is 'SELECT 1'. For Oracle database you can use
@@ -541,6 +559,12 @@ public final class Keys {
     public static final ConfigKey<Boolean> DATABASE_SAVE_EMPTY = new BooleanConfigKey(
             "database.saveEmpty",
             List.of(KeyType.CONFIG));
+
+
+    public static final ConfigKey<Long> DATABASE_POSITION_PERIOD = new LongConfigKey(
+            "database.positionPeriod",
+            List.of(KeyType.CONFIG),
+            7776000L);
 
     /**
      * Device limit for self registered users. Default value is -1, which indicates no limit.
@@ -2068,6 +2092,9 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             List.of(KeyType.CONFIG),
             2);
 
+    public static final ConfigKey<String> ARCHIVE_SPACES_BUCKET = new StringConfigKey(
+            "archive.spaces.bucket",
+            List.of(KeyType.CONFIG));
 
     public static final ConfigKey<String> OVERPASS_URL = new StringConfigKey(
             "overpass.url",
@@ -2081,5 +2108,33 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             List.of(KeyType.CONFIG),
             true);
 
+    public static final ConfigKey<Boolean> DEVICE_DEBUG_LOGGING = new BooleanConfigKey(
+            "device.debugLogging",
+            List.of(KeyType.CONFIG, KeyType.SERVER),
+            false);
+
+    public static final ConfigKey<String> ARCHIVE_PYTHON_EXE = new StringConfigKey(
+            "archive.python.exe",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_S3CMD_SCRIPT = new StringConfigKey(
+            "archive.s3cmd.script",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_HADOOP_HOME = new StringConfigKey(
+            "archive.hadoop.home",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_S3CMD_CONFIG_FILE = new StringConfigKey(
+            "archive.s3cmd.configFile",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<String> ARCHIVE_TEMP_DIR = new StringConfigKey(
+            "archive.temp.dir",
+            List.of(KeyType.CONFIG));
+
+    public static final ConfigKey<Integer> ARCHIVE_RETENTION_MONTHS = new IntegerConfigKey(
+            "archive.retention.months",
+            List.of(KeyType.CONFIG));
 
 }

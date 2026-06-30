@@ -35,6 +35,12 @@
     <entry key='database.user'>root</entry>
     <entry key='database.password'>root</entry>
 
+    <entry key='database.maxPoolSize'>20</entry>
+    <entry key='database.maxLifetime'>1700000</entry>
+    <entry key='database.positionPeriod'>7776000</entry>
+    <entry key='database.positionBatchInterval'>100</entry>
+    <entry key='database.positionBatchSize'>100</entry>
+
     <entry key='notificator.types'>web,mail</entry>
 
 
@@ -93,6 +99,15 @@
     <entry key='event.speedCamera.enforcementTypes'>
         maxspeed,speed
     </entry>
+    
+    <entry key='archive.spaces.bucket'>iotrides</entry>
+    <entry key='archive.s3cmd.configFile'>C:/Users/Suryakanta Parida/AppData/Roaming/s3cmd.ini</entry>
+    <entry key='archive.temp.dir'>D:/parquet</entry>
+    <entry key='archive.retention.months'>6</entry>
+
+    <entry key='archive.python.exe'>C:\Users\Suryakanta Parida\AppData\Local\Programs\Python\Python313\python.exe</entry>
+    <entry key='archive.s3cmd.script'>C:\Users\Suryakanta Parida\AppData\Local\Programs\Python\Python313\Scripts\s3cmd</entry>
+    <entry key='archive.hadoop.home'>C:/</entry>
 
     <entry key='cache.ttl.seconds'>86400</entry>
     <entry key='geocoder.enable'>true</entry>
@@ -101,6 +116,7 @@
     <entry key='geocoder.key'>pk.8d53fbdaad1b9785ba8e39a1ac5e3533</entry>
     <entry key='geocoder.reuseDistance'>200</entry>
     <entry key='geocoder.cacheSize'>200</entry>
+
 
 
 

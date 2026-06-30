@@ -30,4 +30,14 @@ public class Group extends GroupedModel {
         this.name = name;
     }
 
+    private long organizationid;
+
+    public long getOrganizationId() {
+        return organizationid;
+    }
+
+    public void setOrganizationId(long organizationid) {
+        this.organizationid = organizationid;
+    }
+
 }

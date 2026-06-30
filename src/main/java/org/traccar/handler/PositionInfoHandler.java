@@ -4,12 +4,14 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traccar.helper.DistanceCalculator;
 import org.traccar.model.Position;
 import org.traccar.tollroute.TollData;
 import org.traccar.tollroute.TollRouteProvider;
 import org.traccar.tollroute.RegionData;
 import org.traccar.tollroute.RegionProvider;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Singleton
@@ -17,6 +19,9 @@ public class PositionInfoHandler extends BasePositionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(PositionInfoHandler.class);
     private final TollRouteProvider tollRouteProvider;
     private final RegionProvider regionProvider;
+
+    private static final double MIN_DISTANCE_METERS = 500.0;
+    private final ConcurrentHashMap<Long, double[]> lastProcessedPositions = new ConcurrentHashMap<>();
 
     @Inject
     public PositionInfoHandler(TollRouteProvider tollRouteProvider, RegionProvider regionProvider) {
@@ -27,10 +32,25 @@ public class PositionInfoHandler extends BasePositionHandler {
     @Override
     public void onPosition(Position position, Callback callback) {
         if (position.getValid()) {
+
+            double currentLat = position.getLatitude();
+            double currentLon = position.getLongitude();
+            long deviceId = position.getDeviceId();
+
+            double[] last = lastProcessedPositions.get(deviceId);
+            if (last != null) {
+                double distanceMoved = DistanceCalculator.distance(last[0], last[1], currentLat, currentLon);
+                if (distanceMoved < MIN_DISTANCE_METERS) {
+                    LOGGER.debug("Device {} moved only {} m - skipping external API calls", deviceId, distanceMoved);
+                    callback.processed(false);
+                    return;
+                }
+            }
+            lastProcessedPositions.put(deviceId, new double[]{currentLat, currentLon});
             // Use atomic counter to track both async callbacks
             AtomicInteger pendingCallbacks = new AtomicInteger(2);
 
-            regionProvider.getRegion(position.getLatitude(), position.getLongitude(),
+            regionProvider.getRegion(currentLat, currentLon,
                     new RegionProvider.RegionProviderCallback() {
                         @Override
                         public void onSuccess(RegionData data) {
@@ -61,7 +81,7 @@ public class PositionInfoHandler extends BasePositionHandler {
                         }
                     });
 
-            tollRouteProvider.getTollRoute(position.getLatitude(), position.getLongitude(),
+            tollRouteProvider.getTollRoute(currentLat, currentLon,
                     new TollRouteProvider.TollRouteProviderCallback() {
                         @Override
                         public void onSuccess(TollData data) {

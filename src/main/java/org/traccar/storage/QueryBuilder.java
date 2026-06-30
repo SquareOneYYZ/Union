@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 
 @SuppressWarnings("UnusedReturnValue")
@@ -398,6 +399,36 @@ public final class QueryBuilder {
     private void logQuery() {
         if (config.getBoolean(Keys.LOGGER_QUERIES)) {
             LOGGER.info(query);
+        }
+    }
+
+    public QueryBuilder addBatch() throws SQLException {
+        try {
+            statement.addBatch();
+        } catch (SQLException error) {
+            statement.close();
+            connection.close();
+            throw error;
+        }
+        return this;
+    }
+
+    public List<Long> executeBatch() throws SQLException {
+        try {
+            logQuery();
+            statement.executeBatch();
+            List<Long> ids = new ArrayList<>();
+            if (returnGeneratedKeys) {
+                try (ResultSet resultSet = statement.getGeneratedKeys()) {
+                    while (resultSet.next()) {
+                        ids.add(resultSet.getLong(1));
+                    }
+                }
+            }
+            return ids;
+        } finally {
+            statement.close();
+            connection.close();
         }
     }
 

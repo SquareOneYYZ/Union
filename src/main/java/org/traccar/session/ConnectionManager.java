@@ -40,6 +40,7 @@ import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Request;
+import org.traccar.vinmapping.VinMappingService;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -77,6 +78,7 @@ public class ConnectionManager implements BroadcastInterface {
     private final Timer timer;
     private final BroadcastService broadcastService;
     private final DeviceLookupService deviceLookupService;
+    private final VinMappingService vinMappingService;
 
     private final Map<Long, Set<UpdateListener>> listeners = new HashMap<>();
     private final Set<UpdateListener> allListeners = new HashSet<>();
@@ -89,7 +91,7 @@ public class ConnectionManager implements BroadcastInterface {
     public ConnectionManager(
             Config config, CacheManager cacheManager, Storage storage,
             NotificationManager notificationManager, Timer timer, BroadcastService broadcastService,
-            DeviceLookupService deviceLookupService) {
+            DeviceLookupService deviceLookupService, VinMappingService vinMappingService) {
         this.config = config;
         this.cacheManager = cacheManager;
         this.storage = storage;
@@ -97,6 +99,7 @@ public class ConnectionManager implements BroadcastInterface {
         this.timer = timer;
         this.broadcastService = broadcastService;
         this.deviceLookupService = deviceLookupService;
+        this.vinMappingService = vinMappingService;
         deviceTimeout = config.getLong(Keys.STATUS_TIMEOUT);
         showUnknownDevices = config.getBoolean(Keys.WEB_SHOW_UNKNOWN_DEVICES);
         broadcastService.registerListener(this);
@@ -182,6 +185,11 @@ public class ConnectionManager implements BroadcastInterface {
         try {
             device.setId(storage.addObject(device, new Request(new Columns.Exclude("id"))));
             LOGGER.info("Automatically registered " + uniqueId);
+
+            if (defaultGroupId != 0) {
+                vinMappingService.onDeviceAssigned(device, defaultGroupId);
+            }
+
             return device;
         } catch (StorageException e) {
             LOGGER.warn("Automatic registration failed", e);
