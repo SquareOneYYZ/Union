@@ -34,6 +34,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class AsyncSocket extends WebSocketAdapter implements ConnectionManager.UpdateListener {
 
@@ -43,11 +45,16 @@ public class AsyncSocket extends WebSocketAdapter implements ConnectionManager.U
     private static final String KEY_POSITIONS = "positions";
     private static final String KEY_EVENTS = "events";
     private static final String KEY_LOGS = "logs";
+    private static final String KEY_STREAM_HEALTH = "streamHealth";
+    private static final long HEALTHY_EVENT_MIN_GAP_MILLIS = 1000;
 
     private final ObjectMapper objectMapper;
     private final ConnectionManager connectionManager;
     private final Storage storage;
     private final long userId;
+    private final AtomicLong lastMessageAt = new AtomicLong(System.currentTimeMillis());
+    private final AtomicLong lastHealthyEventAt = new AtomicLong();
+    private final AtomicBoolean streamDegraded = new AtomicBoolean();
 
     private boolean includeLogs;
 
@@ -82,6 +89,7 @@ public class AsyncSocket extends WebSocketAdapter implements ConnectionManager.U
     @Override
     public void onWebSocketText(String message) {
         super.onWebSocketText(message);
+        onActivity(System.currentTimeMillis());
 
         try {
             includeLogs = objectMapper.readTree(message).get("logs").asBoolean();
@@ -117,13 +125,54 @@ public class AsyncSocket extends WebSocketAdapter implements ConnectionManager.U
         }
     }
 
+    @Override
+    public long getLastMessageAt() {
+        return lastMessageAt.get();
+    }
+
+    @Override
+    public boolean isStreamDegraded() {
+        return streamDegraded.get();
+    }
+
+    @Override
+    public boolean setStreamDegraded(boolean degraded) {
+        return streamDegraded.compareAndSet(!degraded, degraded);
+    }
+
+    @Override
+    public void onUpdateStreamHealth(StreamHealthEvent streamHealthEvent) {
+        sendData(Map.of(KEY_STREAM_HEALTH, List.of(streamHealthEvent)));
+    }
+
     private void sendData(Map<String, Collection<?>> data) {
         if (isConnected()) {
             try {
+                long now = System.currentTimeMillis();
                 getRemote().sendString(objectMapper.writeValueAsString(data), null);
+                if (isMeaningfulStreamData(data)) {
+                    onActivity(now);
+                }
             } catch (JsonProcessingException e) {
                 LOGGER.warn("Socket JSON formatting error", e);
             }
+        }
+    }
+
+    private boolean isMeaningfulStreamData(Map<String, Collection<?>> data) {
+        return !data.isEmpty() && !data.containsKey(KEY_STREAM_HEALTH);
+    }
+
+    private void onActivity(long now) {
+        lastMessageAt.set(now);
+        if (streamDegraded.compareAndSet(true, false)
+                && now - lastHealthyEventAt.get() > HEALTHY_EVENT_MIN_GAP_MILLIS) {
+            lastHealthyEventAt.set(now);
+            StreamHealthEvent streamHealthEvent = new StreamHealthEvent();
+            streamHealthEvent.setStatus(StreamHealthEvent.STATUS_HEALTHY);
+            streamHealthEvent.setTimestamp(now);
+            LOGGER.debug("WebSocket stream health changed to HEALTHY for user {}", userId);
+            onUpdateStreamHealth(streamHealthEvent);
         }
     }
 }

@@ -2102,6 +2102,12 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             "http://147.182.153.145/api/interpreter");
 
 
+
+    public static final ConfigKey<Boolean> WEB_STREAM_HEALTH_ENABLE = new BooleanConfigKey(
+            "web.streamHealth.enable",
+            List.of(KeyType.CONFIG),
+            true);
+
     public static final ConfigKey<Boolean> DEVICE_DEBUG_LOGGING = new BooleanConfigKey(
             "device.debugLogging",
             List.of(KeyType.CONFIG, KeyType.SERVER),
