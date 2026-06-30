@@ -58,6 +58,10 @@ public class ReplayResource extends BaseResource {
             throw new WebApplicationException(
                     Response.status(Response.Status.BAD_REQUEST).entity("deviceId, from, to are required").build());
         }
+        if (request.getFrom().after(request.getTo())) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("'from' must not be after 'to'").build());
+        }
 
         permissionsService.checkPermission(Device.class, getUserId(), request.getDeviceId());
         permissionsService.checkRestriction(getUserId(), UserRestrictions::getDisableReports);
@@ -84,6 +88,9 @@ public class ReplayResource extends BaseResource {
         } else if (limit > MAX_CHUNK_LIMIT) {
             limit = MAX_CHUNK_LIMIT;
         }
+        if (offset < 0) {
+            offset = 0;
+        }
 
         ReplaySession session = replaySessionService.getSession(sessionId);
         if (session == null) {
@@ -93,6 +100,7 @@ public class ReplayResource extends BaseResource {
         if (session.getUserId() != getUserId()) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
+        permissionsService.checkPermission(Device.class, getUserId(), session.getDeviceId());
 
         return replaySessionService.getChunk(session, offset, limit);
     }
@@ -117,6 +125,7 @@ public class ReplayResource extends BaseResource {
         if (session.getUserId() != getUserId()) {
             throw new WebApplicationException(Response.Status.FORBIDDEN);
         }
+        permissionsService.checkPermission(Device.class, getUserId(), session.getDeviceId());
 
         return replaySessionService.getOverview(session, limit);
     }

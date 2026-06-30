@@ -89,7 +89,7 @@ public class ReplaySessionService {
                 new Condition.And(
                         new Condition.Equals("deviceId", session.getDeviceId()),
                         new Condition.Between("fixTime", "from", from, "to", to)),
-                new Order("fixTime", false, limit, offset)));
+                new Order("id", false, limit, offset)));
     }
 
     public List<Position> getOverview(ReplaySession session, int limit) throws StorageException {
