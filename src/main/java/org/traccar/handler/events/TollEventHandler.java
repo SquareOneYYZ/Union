@@ -26,6 +26,7 @@ import java.util.Arrays;
 public class TollEventHandler extends BaseEventHandler {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(TollEventHandler.class);
+    private static final String REDIS_KEY_PREFIX = "toll:";
 
     private static final String CACHE_KEY_PREFIX = "";
 
@@ -48,6 +49,7 @@ public class TollEventHandler extends BaseEventHandler {
     public void onPosition(Position position, Callback callback) {
         long deviceId = position.getDeviceId();
 
+        String cacheKey = REDIS_KEY_PREFIX + deviceId;
         Device device = cacheManager.getObject(Device.class, deviceId);
         if (device == null) {
             return;
