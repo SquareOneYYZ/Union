@@ -17,6 +17,7 @@ package org.traccar.api.resource;
 
 import org.traccar.api.BaseResource;
 import org.traccar.api.security.CodeRequiredException;
+import org.traccar.api.security.PasswordResetRequiredException;
 import org.traccar.api.security.LoginResult;
 import org.traccar.api.security.LoginService;
 import org.traccar.api.signature.TokenManager;
@@ -118,6 +119,13 @@ public class SessionResource extends BaseResource {
             Response response = Response
                     .status(Response.Status.UNAUTHORIZED)
                     .header("WWW-Authenticate", "TOTP")
+                    .build();
+            throw new WebApplicationException(response);
+        } catch (PasswordResetRequiredException e) {
+            Response response = Response
+                    .status(Response.Status.FORBIDDEN)
+                    .entity(java.util.Collections.singletonMap("passwordReset", true))
+                    .type(MediaType.APPLICATION_JSON)
                     .build();
             throw new WebApplicationException(response);
         }
