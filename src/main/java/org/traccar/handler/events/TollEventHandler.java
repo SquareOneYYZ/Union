@@ -26,9 +26,7 @@ import java.util.Arrays;
 public class TollEventHandler extends BaseEventHandler {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(TollEventHandler.class);
-    private static final String REDIS_KEY_PREFIX = "toll:";
-
-    private static final String CACHE_KEY_PREFIX = "";
+    private static final String CACHE_KEY_PREFIX = "toll:";
 
     private final CacheManager cacheManager;
     private final Storage storage;
@@ -49,11 +47,12 @@ public class TollEventHandler extends BaseEventHandler {
     public void onPosition(Position position, Callback callback) {
         long deviceId = position.getDeviceId();
 
-        String cacheKey = REDIS_KEY_PREFIX + deviceId;
+        String cacheKey = CACHE_KEY_PREFIX + deviceId;
         Device device = cacheManager.getObject(Device.class, deviceId);
         if (device == null) {
             return;
         }
+
 
         if (!PositionUtil.isLatest(cacheManager, position) || !position.getValid()) {
             return;
@@ -69,7 +68,6 @@ public class TollEventHandler extends BaseEventHandler {
         Boolean positionIsToll  = position.getBoolean(Position.KEY_TOLL);
         String positionTollName = position.getString(Position.KEY_TOLL_NAME);
 
-        String cacheKey = CACHE_KEY_PREFIX + deviceId;
         TollRouteState tollState = stateManager.load(cacheKey, TollRouteState.class);
         if (tollState == null) {
             tollState = new TollRouteState();
