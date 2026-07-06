@@ -80,11 +80,20 @@ public class VinMappingService {
                     device.getUniqueId(), deviceOrgId, mapping.getOrganizationId());
             return null;
         }
+        if (device.getOrganizationId() <= 0) {
+            device.setOrganizationId(deviceOrgId);
+        }
 
         if (mapping.getGroupId() > 0) {
-            LOGGER.info("VinMapping: overriding device groupId {} → {} for IMEI {} (mapping {})",
-                    device.getGroupId(), mapping.getGroupId(), device.getUniqueId(), mapping.getId());
-            device.setGroupId(mapping.getGroupId());
+            if (device.getGroupId() <= 0) {
+                LOGGER.info("VinMapping: auto-assigning groupId {} for IMEI {} (mapping {})",
+                     mapping.getGroupId(), device.getUniqueId(), mapping.getId());
+                device.setGroupId(mapping.getGroupId());
+            } else {
+                LOGGER.debug("VinMapping: payload already has groupId {} for IMEI {} – keeping payload value"
+                        + " (mapping groupId {} not applied)",
+                        device.getGroupId(), device.getUniqueId(), mapping.getGroupId());
+            }
         }
 
         return mapping;
