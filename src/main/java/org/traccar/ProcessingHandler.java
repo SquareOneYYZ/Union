@@ -138,7 +138,11 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-            processPositionHandlers(context, position);
+            try {
+                processPositionHandlers(context, position);
+            } finally {
+                DeviceLogContext.clear();
+            }
         } else {
             DeviceLogContext.clear();
         }
@@ -190,7 +194,11 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
             nextPosition = queue.peek();
         }
         if (nextPosition != null) {
-            processPositionHandlers(ctx, nextPosition);
+            try {
+                processPositionHandlers(ctx, nextPosition);
+            } finally {
+                DeviceLogContext.clear();
+            }
         } else {
             cacheManager.removeDevice(deviceId, deviceId);
             DeviceLogContext.clear();

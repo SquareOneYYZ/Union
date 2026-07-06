@@ -69,10 +69,15 @@ public class VinMappingService {
         }
 
 
-        if (device.getOrganizationId() > 0 && device.getOrganizationId() != mapping.getOrganizationId()) {
-            LOGGER.debug("VinMapping: device IMEI {} has org {} but mapping belongs to org {} "
-                    + "– skipping VIN/group auto-assign",
-                    device.getUniqueId(), device.getOrganizationId(), mapping.getOrganizationId());
+        long deviceOrgId = device.getOrganizationId();
+        if (deviceOrgId <= 0 && device.getGroupId() > 0) {
+            Organization org = resolveOrganization(device.getGroupId());
+            deviceOrgId = org != null ? org.getId() : 0;
+        }
+        if (deviceOrgId <= 0 || deviceOrgId != mapping.getOrganizationId()) {
+            LOGGER.debug("VinMapping: cannot validate org for IMEI {} (device org {}, mapping org {})"
+                    + " – skipping auto-assign",
+                    device.getUniqueId(), deviceOrgId, mapping.getOrganizationId());
             return null;
         }
 

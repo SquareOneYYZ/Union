@@ -78,22 +78,24 @@ public class PositionBatchWriter {
     }
 
     private void flush() {
-        List<Entry> batch = new ArrayList<>(batchSize);
-        Entry entry;
-        while (batch.size() < batchSize && (entry = queue.poll()) != null) {
-            batch.add(entry);
-        }
-        if (batch.isEmpty()) {
-            return;
-        }
-        try {
-            List<Position> positions = batch.stream().map(Entry::position).toList();
-            List<Long> ids = storage.addObjects(positions, INSERT_REQUEST);
-            for (int i = 0; i < batch.size(); i++) {
-                batch.get(i).future().complete(ids.get(i));
+        while (true) {
+            List<Entry> batch = new ArrayList<>(batchSize);
+            Entry entry;
+            while (batch.size() < batchSize && (entry = queue.poll()) != null) {
+                batch.add(entry);
             }
-        } catch (Exception error) {
-            batch.forEach(e -> e.future().completeExceptionally(error));
+            if (batch.isEmpty()) {
+                return;
+            }
+            try {
+                List<Position> positions = batch.stream().map(Entry::position).toList();
+                List<Long> ids = storage.addObjects(positions, INSERT_REQUEST);
+                for (int i = 0; i < batch.size(); i++) {
+                    batch.get(i).future().complete(ids.get(i));
+                }
+            } catch (Exception error) {
+                batch.forEach(e -> e.future().completeExceptionally(error));
+            }
         }
     }
 

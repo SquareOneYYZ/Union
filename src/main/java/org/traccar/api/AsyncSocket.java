@@ -100,6 +100,7 @@ public class AsyncSocket extends WebSocketAdapter implements ConnectionManager.U
 
     @Override
     public void onKeepalive() {
+        onActivity(System.currentTimeMillis());
         sendData(new HashMap<>());
     }
 
@@ -165,8 +166,9 @@ public class AsyncSocket extends WebSocketAdapter implements ConnectionManager.U
 
     private void onActivity(long now) {
         lastMessageAt.set(now);
-        if (streamDegraded.compareAndSet(true, false)
-                && now - lastHealthyEventAt.get() > HEALTHY_EVENT_MIN_GAP_MILLIS) {
+        if (streamDegraded.get()
+                && now - lastHealthyEventAt.get() > HEALTHY_EVENT_MIN_GAP_MILLIS
+                && streamDegraded.compareAndSet(true, false)) {
             lastHealthyEventAt.set(now);
             StreamHealthEvent streamHealthEvent = new StreamHealthEvent();
             streamHealthEvent.setStatus(StreamHealthEvent.STATUS_HEALTHY);

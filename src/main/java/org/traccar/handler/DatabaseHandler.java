@@ -22,12 +22,22 @@ import org.traccar.database.PositionBatchWriter;
 import org.traccar.database.StatisticsManager;
 import org.traccar.model.Position;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
 public class DatabaseHandler extends BasePositionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseHandler.class);
 
     private final PositionBatchWriter batchWriter;
     private final StatisticsManager statisticsManager;
+    private final Executor completionExecutor = Executors.newFixedThreadPool(
+            Math.max(2, Runtime.getRuntime().availableProcessors()),
+            r -> {
+                Thread t = new Thread(r, "DatabaseHandler-completion");
+                t.setDaemon(true);
+                return t;
+            });
 
     @Inject
     public DatabaseHandler(PositionBatchWriter batchWriter, StatisticsManager statisticsManager) {
@@ -37,7 +47,7 @@ public class DatabaseHandler extends BasePositionHandler {
 
     @Override
     public void onPosition(Position position, Callback callback) {
-        batchWriter.submit(position).whenComplete((id, error) -> {
+        batchWriter.submit(position).whenCompleteAsync((id, error) -> {
             if (error == null) {
                 position.setId(id);
                 statisticsManager.registerMessageStored(position.getDeviceId(), position.getProtocol());
@@ -45,7 +55,7 @@ public class DatabaseHandler extends BasePositionHandler {
                 LOGGER.warn("Failed to store position", error);
             }
             callback.processed(false);
-        });
+        }, completionExecutor);
     }
 
 }

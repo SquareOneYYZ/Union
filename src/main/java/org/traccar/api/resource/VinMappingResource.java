@@ -88,6 +88,16 @@ public class VinMappingResource extends BaseResource {
             return Response.status(Response.Status.BAD_REQUEST).entity(validationError).build();
         }
 
+        VinMapping duplicateImei = storage.getObject(VinMapping.class, new Request(
+                new Columns.Include("id"),
+                new Condition.And(
+                        new Condition.Equals("organizationid", entity.getOrganizationId()),
+                        new Condition.Equals("imei", entity.getImei()))));
+        if (duplicateImei != null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("IMEI already exists in your mapping list").build();
+        }
+
         VinMapping duplicateVin = storage.getObject(VinMapping.class, new Request(
                 new Columns.Include("id"),
                 new Condition.And(
@@ -121,6 +131,16 @@ public class VinMappingResource extends BaseResource {
         String validationError = validate(entity);
         if (validationError != null) {
             return Response.status(Response.Status.BAD_REQUEST).entity(validationError).build();
+        }
+
+        VinMapping duplicateImeiUpdate = storage.getObject(VinMapping.class, new Request(
+                new Columns.Include("id"),
+                new Condition.And(
+                        new Condition.Equals("organizationid", entity.getOrganizationId()),
+                        new Condition.Equals("imei", entity.getImei()))));
+        if (duplicateImeiUpdate != null && duplicateImeiUpdate.getId() != entity.getId()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("IMEI already exists in your mapping list").build();
         }
 
         VinMapping duplicateVin = storage.getObject(VinMapping.class, new Request(
@@ -269,6 +289,9 @@ public class VinMappingResource extends BaseResource {
 
 
     private String validate(VinMapping entity) {
+        if (entity.getOrganizationId() <= 0) {
+            return "organizationId is required";
+        }
         if (entity.getImei() == null || entity.getImei().isBlank()) {
             return "IMEI is required";
         }
@@ -296,7 +319,9 @@ public class VinMappingResource extends BaseResource {
         if (permissionsService.notAdmin(getUserId())) {
             long callerOrgId = getCallerOrganizationId();
             if (mapping.getOrganizationId() != callerOrgId) {
-                throw new SecurityException("VinMapping access denied");
+                throw new jakarta.ws.rs.WebApplicationException(
+                        jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.FORBIDDEN)
+                                .entity("VinMapping access denied").build());
             }
         }
     }

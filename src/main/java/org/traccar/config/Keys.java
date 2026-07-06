@@ -564,7 +564,7 @@ public final class Keys {
     public static final ConfigKey<Long> DATABASE_POSITION_PERIOD = new LongConfigKey(
             "database.positionPeriod",
             List.of(KeyType.CONFIG),
-            7776000L);
+            0L);
 
     /**
      * Device limit for self registered users. Default value is -1, which indicates no limit.
@@ -2110,7 +2110,7 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
 
     public static final ConfigKey<Boolean> DEVICE_DEBUG_LOGGING = new BooleanConfigKey(
             "device.debugLogging",
-            List.of(KeyType.CONFIG, KeyType.SERVER),
+            List.of(KeyType.CONFIG),
             false);
 
     public static final ConfigKey<String> ARCHIVE_PYTHON_EXE = new StringConfigKey(

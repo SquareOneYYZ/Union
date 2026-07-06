@@ -13,8 +13,9 @@ public final class DeviceLogContext {
 
     private DeviceLogContext() {
     }
+    private record Ctx(long deviceId, boolean loggable) { }
 
-    private static final ThreadLocal<Long> DEVICE_ID = new ThreadLocal<>();
+    private static final ThreadLocal<Ctx> CONTEXT = new ThreadLocal<>();
 
     private static volatile Config config;
     private static volatile CacheManager cacheManager;
@@ -26,12 +27,25 @@ public final class DeviceLogContext {
 
     public static void setDeviceId(long deviceId) {
         if (deviceId > 0) {
-            DEVICE_ID.set(deviceId);
+            CONTEXT.set(new Ctx(deviceId, resolveLoggable(deviceId)));
         }
     }
 
     public static void clear() {
-        DEVICE_ID.remove();
+        CONTEXT.remove();
+    }
+
+    private static boolean resolveLoggable(long deviceId) {
+        Config localConfig = config;
+        CacheManager localCacheManager = cacheManager;
+        if (localConfig == null || localCacheManager == null) {
+            return true;
+        }
+        if (localConfig.getBoolean(Keys.DEVICE_DEBUG_LOGGING)) {
+            return true;
+        }
+        Device device = localCacheManager.getObject(Device.class, deviceId);
+        return device == null || device.getDebugLogging();
     }
 
     public static boolean isLoggable(LogRecord record) {
@@ -54,9 +68,8 @@ public final class DeviceLogContext {
             return record.getLevel().intValue() >= configuredLevel.intValue();
         }
 
-
-        Long deviceId = DEVICE_ID.get();
-        if (deviceId == null) {
+        Ctx ctx = CONTEXT.get();
+        if (ctx == null) {
             Level configuredLevel = Logger.getLogger("").getLevel();
             if (configuredLevel == null) {
                 configuredLevel = Level.INFO;
@@ -64,23 +77,7 @@ public final class DeviceLogContext {
             return record.getLevel().intValue() >= configuredLevel.intValue();
         }
 
-        Config localConfig = config;
-        CacheManager localCacheManager = cacheManager;
-        if (localConfig == null || localCacheManager == null) {
-            return true;
-        }
-
-        if (localConfig.getBoolean(Keys.DEVICE_DEBUG_LOGGING)) {
-            return true;
-        }
-
-        Device device = localCacheManager.getObject(Device.class, deviceId);
-        if (device == null) {
-            return true;
-        }
-
-        return device.getDebugLogging();
+        return ctx.loggable();
     }
-
 
 }

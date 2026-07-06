@@ -84,15 +84,7 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
             }
             vinMappingService.prepareDeviceCreate(device);
 
-            entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
-            LogAction.create(getUserId(), entity);
-
-            if (getUserId() != ServiceAccountUser.ID) {
-                storage.addPermission(new Permission(User.class, getUserId(), baseClass, entity.getId()));
-                cacheManager.invalidatePermission(true, User.class, getUserId(), baseClass, entity.getId(), true);
-                connectionManager.invalidatePermission(true, User.class, getUserId(), baseClass, entity.getId(), true);
-                LogAction.link(getUserId(), User.class, getUserId(), baseClass, entity.getId());
-            }
+            persistNewEntity(entity);
 
             // VIN apply hook: fire after device is persisted with its final groupId.
             if (device.getGroupId() > 0) {
@@ -102,6 +94,11 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
             return Response.ok(entity).build();
         }
 
+        persistNewEntity(entity);
+        return Response.ok(entity).build();
+    }
+
+    private void persistNewEntity(T entity) throws Exception {
         entity.setId(storage.addObject(entity, new Request(new Columns.Exclude("id"))));
         LogAction.create(getUserId(), entity);
 
@@ -111,8 +108,6 @@ public abstract class BaseObjectResource<T extends BaseModel> extends BaseResour
             connectionManager.invalidatePermission(true, User.class, getUserId(), baseClass, entity.getId(), true);
             LogAction.link(getUserId(), User.class, getUserId(), baseClass, entity.getId());
         }
-
-        return Response.ok(entity).build();
     }
 
     @Path("{id}")

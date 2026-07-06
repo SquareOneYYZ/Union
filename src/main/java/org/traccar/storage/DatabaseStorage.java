@@ -113,10 +113,10 @@ public class DatabaseStorage extends Storage {
             if (keys.size() == entities.size()) {
                 return keys;
             } else if (keys.size() == 1) {
-                long firstId = keys.get(0);
+
                 List<Long> ids = new ArrayList<>(entities.size());
-                for (int i = 0; i < entities.size(); i++) {
-                    ids.add(firstId + i);
+                for (T entity : entities) {
+                    ids.add(addObject(entity, request));
                 }
                 return ids;
             } else {
