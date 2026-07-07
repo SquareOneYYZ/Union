@@ -44,22 +44,43 @@ public class VinMappingResource extends BaseResource {
 
     @GET
     public Collection<VinMapping> get(
-            @QueryParam("organizationId") long organizationId) throws StorageException {
+            @QueryParam("organizationId") long organizationId,
+            @QueryParam("userId")         long userId,
+            @QueryParam("groupId")        long groupId,
+            @QueryParam("imei")           String imei,
+            @QueryParam("vin")            String vin) throws StorageException {
 
         boolean isAdmin = !permissionsService.notAdmin(getUserId());
 
-        Condition condition;
+        long effectiveOrgId;
         if (isAdmin) {
-            condition = organizationId > 0
-                    ? new Condition.Equals("organizationid", organizationId)
-                    : null;
+            effectiveOrgId = organizationId;
         } else {
-            long callerOrgId = getCallerOrganizationId();
-            if (callerOrgId <= 0) {
+            effectiveOrgId = getCallerOrganizationId();
+            if (effectiveOrgId <= 0) {
                 return List.of();
             }
-            condition = new Condition.Equals("organizationid", callerOrgId);
         }
+
+        List<Condition> conditions = new ArrayList<>();
+
+        if (effectiveOrgId > 0) {
+            conditions.add(new Condition.Equals("organizationid", effectiveOrgId));
+        }
+        if (userId > 0 && isAdmin) {
+            conditions.add(new Condition.Equals("userid", userId));
+        }
+        if (groupId > 0) {
+            conditions.add(new Condition.Equals("groupid", groupId));
+        }
+        if (imei != null && !imei.isBlank()) {
+            conditions.add(new Condition.Equals("imei", imei.trim()));
+        }
+        if (vin != null && !vin.isBlank()) {
+            conditions.add(new Condition.Equals("vin", vin.trim().toUpperCase()));
+        }
+
+        Condition condition = conditions.isEmpty() ? null : Condition.merge(conditions);
 
         return storage.getObjects(VinMapping.class, new Request(
                 new Columns.All(), condition, new Order("imei")));
@@ -83,6 +104,7 @@ public class VinMappingResource extends BaseResource {
     public Response add(VinMapping entity) throws Exception {
         enforceOrganization(entity);
 
+        entity.setUserId(getUserId());
         String validationError = validate(entity);
         if (validationError != null) {
             return Response.status(Response.Status.BAD_REQUEST).entity(validationError).build();
@@ -213,6 +235,7 @@ public class VinMappingResource extends BaseResource {
             }
             row.setOrganizationId(orgId);
 
+            row.setUserId(getUserId());
             String validationError = validate(row);
             if (validationError != null) {
                 results.add(new BulkImportResult(
