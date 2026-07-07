@@ -173,8 +173,7 @@ public class WebServer implements LifecycleObject {
                 DateParameterConverterProvider.class,
                 SecurityRequestFilter.class,
                 CorsResponseFilter.class,
-                ResourceErrorHandler.class,
-                ReplayResource.class);
+                ResourceErrorHandler.class);
         resourceConfig.packages(ServerResource.class.getPackage().getName());
         if (resourceConfig.getClasses().stream().filter(ServerResource.class::equals).findAny().isEmpty()) {
             LOGGER.warn("Failed to load API resources");

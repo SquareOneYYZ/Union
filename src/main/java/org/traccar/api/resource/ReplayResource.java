@@ -45,7 +45,7 @@ public class ReplayResource extends BaseResource {
     private static final int DEFAULT_CHUNK_LIMIT = 100;
     private static final int MAX_CHUNK_LIMIT = 1000;
     private static final int DEFAULT_OVERVIEW_LIMIT = 1000;
-    private static final int MAX_OVERVIEW_LIMIT = 5000;
+    private static final int MAX_OVERVIEW_LIMIT = 2000;
 
     @Inject
     private ReplaySessionService replaySessionService;

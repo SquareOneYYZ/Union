@@ -89,7 +89,7 @@ public class ReplaySessionService {
                 new Condition.And(
                         new Condition.Equals("deviceId", session.getDeviceId()),
                         new Condition.Between("fixTime", "from", from, "to", to)),
-                new Order("id", false, limit, offset)));
+                new Order("fixTime", false, limit, offset)));
     }
 
     public List<Position> getOverview(ReplaySession session, int limit) throws StorageException {
@@ -133,10 +133,21 @@ public class ReplaySessionService {
                     new Condition.Equals("deviceId", session.getDeviceId()),
                     new Condition.Between("fixTime", "from", bucketFrom, "to", bucketTo));
 
-            points.addAll(storage.getObjects(Position.class, new Request(
-                    new Columns.Include("latitude", "longitude", "fixTime"),
-                    bucketCondition,
-                    new Order("fixTime", false, bucketSize, 0))));
+            int subSamples = Math.min(bucketSize, 20);
+            for (int j = 0; j < subSamples; j++) {
+                long subStartMs = startMs + (endMs - startMs) * j / subSamples;
+                long subEndMs = startMs + (endMs - startMs) * (j + 1) / subSamples;
+                Condition subCondition = new Condition.And(
+                        new Condition.Equals("deviceId", session.getDeviceId()),
+                        new Condition.Between("fixTime", "from", new Date(subStartMs), "to", new Date(subEndMs)));
+                List<Position> sub = storage.getObjects(Position.class, new Request(
+                        new Columns.Include("latitude", "longitude", "fixTime"),
+                        subCondition,
+                        new Order("fixTime", false, 1, 0)));
+                if (!sub.isEmpty()) {
+                    points.add(sub.get(0));
+                }
+            }
         }
 
         List<Position> last = storage.getObjects(Position.class, new Request(
