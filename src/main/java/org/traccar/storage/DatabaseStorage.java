@@ -17,6 +17,7 @@ package org.traccar.storage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.traccar.config.Config;
+import org.traccar.config.Keys;
 import org.traccar.model.BaseModel;
 import org.traccar.model.Device;
 import org.traccar.model.Group;
@@ -30,6 +31,8 @@ import org.traccar.storage.query.Request;
 import jakarta.inject.Inject;
 import javax.sql.DataSource;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -50,8 +53,8 @@ public class DatabaseStorage extends Storage {
         this.dataSource = dataSource;
         this.objectMapper = objectMapper;
 
-        try {
-            databaseType = dataSource.getConnection().getMetaData().getDatabaseProductName();
+        try (var connection = dataSource.getConnection()) {
+            databaseType = connection.getMetaData().getDatabaseProductName();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -82,20 +85,58 @@ public class DatabaseStorage extends Storage {
     @Override
     public <T> long addObject(T entity, Request request) throws StorageException {
         List<String> columns = request.getColumns().getColumns(entity.getClass(), "get");
-        StringBuilder query = new StringBuilder("INSERT INTO ");
-        query.append(getStorageName(entity.getClass()));
-        query.append("(");
-        query.append(formatColumns(columns, c -> c));
-        query.append(") VALUES (");
-        query.append(formatColumns(columns, c -> ':' + c));
-        query.append(")");
         try {
-            QueryBuilder builder = QueryBuilder.create(config, dataSource, objectMapper, query.toString(), true);
+            QueryBuilder builder = QueryBuilder.create(
+                    config, dataSource, objectMapper, formatInsert(entity.getClass(), columns), true);
             builder.setObject(entity, columns);
             return builder.executeUpdate();
         } catch (SQLException e) {
             throw new StorageException(e);
         }
+    }
+
+    @Override
+    public <T> List<Long> addObjects(List<T> entities, Request request) throws StorageException {
+        if (entities.isEmpty()) {
+            return List.of();
+        }
+        Class<?> entityClass = entities.get(0).getClass();
+        List<String> columns = request.getColumns().getColumns(entityClass, "get");
+        try {
+            QueryBuilder builder = QueryBuilder.create(
+                    config, dataSource, objectMapper, formatInsert(entityClass, columns), true);
+            for (T entity : entities) {
+                builder.setObject(entity, columns);
+                builder.addBatch();
+            }
+            List<Long> keys = builder.executeBatch();
+            if (keys.size() == entities.size()) {
+                return keys;
+            } else if (keys.size() == 1) {
+
+                List<Long> ids = new ArrayList<>(entities.size());
+                for (T entity : entities) {
+                    ids.add(addObject(entity, request));
+                }
+                return ids;
+            } else {
+                throw new StorageException(
+                        "Generated key count " + keys.size() + " does not match batch size " + entities.size());
+            }
+        } catch (SQLException e) {
+            throw new StorageException(e);
+        }
+    }
+
+    private String formatInsert(Class<?> entityClass, List<String> columns) throws StorageException {
+        StringBuilder query = new StringBuilder("INSERT INTO ");
+        query.append(getStorageName(entityClass));
+        query.append("(");
+        query.append(formatColumns(columns, c -> c));
+        query.append(") VALUES (");
+        query.append(formatColumns(columns, c -> ':' + c));
+        query.append(")");
+        return query.toString();
     }
 
     @Override
@@ -226,6 +267,10 @@ public class DatabaseStorage extends Storage {
             if (condition.getDeviceId() > 0) {
                 results.put("deviceId", condition.getDeviceId());
             }
+            long positionPeriod = config.getLong(Keys.DATABASE_POSITION_PERIOD);
+            if (positionPeriod > 0) {
+                results.put("fixTime", new Date(System.currentTimeMillis() - positionPeriod * 1000));
+            }
         }
         return results;
     }
@@ -283,6 +328,10 @@ public class DatabaseStorage extends Storage {
                     result.append(" WHERE id = :deviceId");
                 }
                 result.append(")");
+                long positionPeriod = config.getLong(Keys.DATABASE_POSITION_PERIOD);
+                if (positionPeriod > 0) {
+                    result.append(" AND fixTime > :fixTime");
+                }
 
             }
         }

@@ -18,36 +18,44 @@ package org.traccar.handler;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traccar.database.PositionBatchWriter;
 import org.traccar.database.StatisticsManager;
 import org.traccar.model.Position;
-import org.traccar.storage.Storage;
-import org.traccar.storage.query.Columns;
-import org.traccar.storage.query.Request;
+
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 public class DatabaseHandler extends BasePositionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseHandler.class);
 
-    private final Storage storage;
+    private final PositionBatchWriter batchWriter;
     private final StatisticsManager statisticsManager;
+    private final Executor completionExecutor = Executors.newFixedThreadPool(
+            Math.max(2, Runtime.getRuntime().availableProcessors()),
+            r -> {
+                Thread t = new Thread(r, "DatabaseHandler-completion");
+                t.setDaemon(true);
+                return t;
+            });
 
     @Inject
-    public DatabaseHandler(Storage storage, StatisticsManager statisticsManager) {
-        this.storage = storage;
+    public DatabaseHandler(PositionBatchWriter batchWriter, StatisticsManager statisticsManager) {
+        this.batchWriter = batchWriter;
         this.statisticsManager = statisticsManager;
     }
 
     @Override
     public void onPosition(Position position, Callback callback) {
-
-        try {
-            position.setId(storage.addObject(position, new Request(new Columns.Exclude("id"))));
-            statisticsManager.registerMessageStored(position.getDeviceId(), position.getProtocol());
-        } catch (Exception error) {
-            LOGGER.warn("Failed to store position", error);
-        }
-
-        callback.processed(false);
+        batchWriter.submit(position).whenCompleteAsync((id, error) -> {
+            if (error == null) {
+                position.setId(id);
+                statisticsManager.registerMessageStored(position.getDeviceId(), position.getProtocol());
+            } else {
+                LOGGER.warn("Failed to store position", error);
+            }
+            callback.processed(false);
+        }, completionExecutor);
     }
 
 }

@@ -477,12 +477,30 @@ public final class Keys {
             List.of(KeyType.CONFIG),
             "./schema/changelog-master.xml");
 
+
+    public static final ConfigKey<Integer> DATABASE_MAX_LIFETIME = new IntegerConfigKey(
+            "database.maxLifetime",
+            List.of(KeyType.CONFIG));
+
     /**
-     * Database connection pool size. Default value is defined by the HikariCP library.
+     * Database connection pool size. Default value is 20.
      */
     public static final ConfigKey<Integer> DATABASE_MAX_POOL_SIZE = new IntegerConfigKey(
             "database.maxPoolSize",
-            List.of(KeyType.CONFIG));
+            List.of(KeyType.CONFIG),
+            20);
+
+
+    public static final ConfigKey<Long> DATABASE_POSITION_BATCH_INTERVAL = new LongConfigKey(
+            "database.positionBatchInterval",
+            List.of(KeyType.CONFIG),
+            0L);
+
+
+    public static final ConfigKey<Integer> DATABASE_POSITION_BATCH_SIZE = new IntegerConfigKey(
+            "database.positionBatchSize",
+            List.of(KeyType.CONFIG),
+            100);
 
     /**
      * SQL query to check connection status. Default value is 'SELECT 1'. For Oracle database you can use
@@ -541,6 +559,12 @@ public final class Keys {
     public static final ConfigKey<Boolean> DATABASE_SAVE_EMPTY = new BooleanConfigKey(
             "database.saveEmpty",
             List.of(KeyType.CONFIG));
+
+
+    public static final ConfigKey<Long> DATABASE_POSITION_PERIOD = new LongConfigKey(
+            "database.positionPeriod",
+            List.of(KeyType.CONFIG),
+            0L);
 
     /**
      * Device limit for self registered users. Default value is -1, which indicates no limit.
@@ -2076,6 +2100,18 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
             "overpass.url",
             List.of(KeyType.CONFIG),
             "http://147.182.153.145/api/interpreter");
+
+
+
+    public static final ConfigKey<Boolean> WEB_STREAM_HEALTH_ENABLE = new BooleanConfigKey(
+            "web.streamHealth.enable",
+            List.of(KeyType.CONFIG),
+            true);
+
+    public static final ConfigKey<Boolean> DEVICE_DEBUG_LOGGING = new BooleanConfigKey(
+            "device.debugLogging",
+            List.of(KeyType.CONFIG),
+            false);
 
     public static final ConfigKey<String> ARCHIVE_PYTHON_EXE = new StringConfigKey(
             "archive.python.exe",

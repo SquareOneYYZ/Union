@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 - 2018 Anton Tananaev (anton@traccar.org)
+ * Copyright 2026 Anton Tananaev (anton@traccar.org)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,31 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.traccar.model;
+package org.traccar.api;
 
-import org.traccar.storage.StorageName;
+public class StreamHealthEvent {
 
-@StorageName("tc_groups")
-public class Group extends GroupedModel {
+    public static final String STATUS_HEALTHY = "HEALTHY";
+    public static final String STATUS_DEGRADED = "DEGRADED";
 
-    private String name;
+    private String status;
 
-    public String getName() {
-        return name;
+    public String getStatus() {
+        return status;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
-    private long organizationid;
+    private long timestamp;
 
-    public long getOrganizationId() {
-        return organizationid;
+    public long getTimestamp() {
+        return timestamp;
     }
 
-    public void setOrganizationId(long organizationid) {
-        this.organizationid = organizationid;
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
     }
 
 }
