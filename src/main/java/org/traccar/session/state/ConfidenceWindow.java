@@ -42,9 +42,11 @@ public class ConfidenceWindow<T> {
             LOGGER.debug("[ConfidenceWindow] Evicted oldest value='{}' | window={}/{} | current={}",
                     evicted, window.size(), windowSize, window);
         }
-        double fillPct = getFillPercent();
-        LOGGER.debug("[ConfidenceWindow] Added value='{}' | fill={}/{} ({}%) | threshold={}% | window={}",
-                value, window.size(), windowSize, String.format("%.1f", fillPct), thresholdPercent, window);
+        if (LOGGER.isDebugEnabled()) {
+            double fillPct = getFillPercent();
+            LOGGER.debug("[ConfidenceWindow] Added value='{}' | fill={}/{} ({}%) | threshold={}% | window={}",
+                    value, window.size(), windowSize, String.format("%.1f", fillPct), thresholdPercent, window);
+        }
     }
 
 
@@ -78,12 +80,16 @@ public class ConfidenceWindow<T> {
             return null;
         }
 
+        if (LOGGER.isDebugEnabled()) {
+            double percent = (bestCount * 100.0) / windowSize;
+            LOGGER.debug("[ConfidenceWindow] Dominant='{}' | count={}/{} | achieved={}% | required={}% | {}",
+                    bestValue, bestCount, windowSize,
+                    String.format("%.1f", percent),
+                    thresholdPercent,
+                    percent >= thresholdPercent ? "THRESHOLD MET ✓" : "below threshold ✗");
+        }
+
         double percent = (bestCount * 100.0) / windowSize;
-        LOGGER.debug("[ConfidenceWindow] Dominant='{}' | count={}/{} | achieved={}% | required={}% | {}",
-                bestValue, bestCount, windowSize,
-                String.format("%.1f", percent),
-                thresholdPercent,
-                percent >= thresholdPercent ? "THRESHOLD MET ✓" : "below threshold ✗");
 
         return percent >= thresholdPercent ? bestValue : null;
     }

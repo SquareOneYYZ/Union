@@ -17,7 +17,7 @@ public class SurfaceEventHandler extends BaseEventHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SurfaceEventHandler.class);
 
-    private static final String CACHE_KEY_PREFIX = "surface:";
+    private static final String CACHE_KEY_PREFIX = "surface:v2:";
 
     private final EventStateManager stateManager;
     private final Config config;

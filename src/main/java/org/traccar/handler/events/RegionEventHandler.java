@@ -17,7 +17,7 @@ public class RegionEventHandler extends BaseEventHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RegionEventHandler.class);
 
-    private static final String CACHE_KEY_PREFIX = "region:";
+    private static final String CACHE_KEY_PREFIX = "region:v2:";
 
     private final CacheManager cacheManager;
     private final EventStateManager stateManager;

@@ -46,10 +46,11 @@ import java.util.stream.Collectors;
 @Consumes(MediaType.APPLICATION_JSON)
 public class AdminResource extends BaseResource {
 
-    private static final String T_DEVICES  = Device.class.getAnnotation(StorageName.class).value();
-    private static final String T_POSITIONS = Position.class.getAnnotation(StorageName.class).value();
-    private static final String T_EVENTS   = Event.class.getAnnotation(StorageName.class).value();
-    private static final String T_DEV_DRIVER = Permission.getStorageName(Device.class, Driver.class);
+    private static final String T_DEVICES      = Device.class.getAnnotation(StorageName.class).value();
+    private static final String T_POSITIONS    = Position.class.getAnnotation(StorageName.class).value();
+    private static final String T_EVENTS       = Event.class.getAnnotation(StorageName.class).value();
+    private static final String T_DEV_DRIVER   = Permission.getStorageName(Device.class, Driver.class);
+    private static final String T_VIN_MAPPINGS = "tc_vin_mappings";
 
     @Inject
     private DataSource dataSource;
@@ -108,12 +109,12 @@ public class AdminResource extends BaseResource {
         int storedToday = statisticsManager.getMessagesStoredToday();
         if (storedToday > 0) {
             long elapsedSec = elapsedSecondsSinceMidnight();
-            double lagSeconds = Math.round((double) elapsedSec / storedToday * 100.0) / 100.0;
-            result.put("ingestionLag", Map.of(
-                    "messagesStoredToday", storedToday,
-                    "avgSecondsBetweenMessages", lagSeconds));
+            double avgInterval = Math.round((double) elapsedSec / storedToday * 100.0) / 100.0;
+            result.put("messagesStoredToday", storedToday);
+            result.put("avgSecondsBetweenPositions", avgInterval);
         } else {
-            result.put("ingestionLag", null);
+            result.put("messagesStoredToday", 0);
+            result.put("avgSecondsBetweenPositions", null);
         }
 
         Date oneHourAgo = new Date(System.currentTimeMillis() - 3_600_000L);
@@ -123,7 +124,7 @@ public class AdminResource extends BaseResource {
              PreparedStatement stmt = conn.prepareStatement(errorSql)) {
             stmt.setTimestamp(1, new Timestamp(oneHourAgo.getTime()));
             try (ResultSet rs = stmt.executeQuery()) {
-                result.put("recentErrorCount", rs.next() ? rs.getLong(1) : 0L);
+                result.put("recentAlarmCount", rs.next() ? rs.getLong(1) : 0L);
             }
         }
 
@@ -293,26 +294,24 @@ public class AdminResource extends BaseResource {
             @QueryParam("limit")  @DefaultValue("200") int limit,
             @QueryParam("offset") @DefaultValue("0")   int offset) throws StorageException, SQLException {
         permissionsService.checkAdmin(getUserId());
-
         String countSql =
                 "SELECT COUNT(*) FROM ("
-                        + "  SELECT 1 FROM " + T_DEVICES
+                        + "  SELECT 1 FROM " + T_VIN_MAPPINGS
                         + "  WHERE vin IS NOT NULL AND TRIM(vin) <> ''"
                         + "  GROUP BY UPPER(TRIM(vin))"
-                        + "  HAVING COUNT(DISTINCT organizationid) > 1"
+                        + "  HAVING COUNT(*) > 1"
                         + ") sub";
 
         String aggSql =
                 "SELECT UPPER(TRIM(vin)) AS nvin,"
-                        + "     COUNT(*) AS device_count,"
+                        + "     COUNT(*) AS mapping_count,"
                         + "     COUNT(DISTINCT organizationid) AS org_count"
-                        + " FROM " + T_DEVICES
+                        + " FROM " + T_VIN_MAPPINGS
                         + " WHERE vin IS NOT NULL AND TRIM(vin) <> ''"
                         + " GROUP BY UPPER(TRIM(vin))"
-                        + " HAVING COUNT(DISTINCT organizationid) > 1"
+                        + " HAVING COUNT(*) > 1"
                         + " ORDER BY nvin"
                         + " LIMIT ? OFFSET ?";
-
 
         long total;
         Map<String, Map<String, Object>> byVin = new LinkedHashMap<>();
@@ -329,10 +328,10 @@ public class AdminResource extends BaseResource {
                     while (rs.next()) {
                         String nvin = rs.getString("nvin");
                         Map<String, Object> entry = new LinkedHashMap<>();
-                        entry.put("vin",         nvin);
-                        entry.put("deviceCount", rs.getInt("device_count"));
-                        entry.put("orgCount",    rs.getInt("org_count"));
-                        entry.put("devices",     new ArrayList<Map<String, Object>>());
+                        entry.put("vin",          nvin);
+                        entry.put("mappingCount", rs.getInt("mapping_count"));
+                        entry.put("orgCount",     rs.getInt("org_count"));
+                        entry.put("mappings",     new ArrayList<Map<String, Object>>());
                         byVin.put(nvin, entry);
                     }
                 }
@@ -343,11 +342,13 @@ public class AdminResource extends BaseResource {
                         .map(v -> "?")
                         .collect(Collectors.joining(", "));
                 String detailSql =
-                        "SELECT d.id, d.name, d.uniqueid, d.organizationid,"
-                                + "     UPPER(TRIM(d.vin)) AS nvin"
-                                + " FROM " + T_DEVICES + " d"
-                                + " WHERE UPPER(TRIM(d.vin)) IN (" + placeholders + ")"
-                                + " ORDER BY nvin, d.id";
+                        "SELECT m.id AS mapping_id, m.organizationid, m.imei, m.deviceid,"
+                                + "     UPPER(TRIM(m.vin)) AS nvin,"
+                                + "     d.name AS device_name, d.uniqueid AS device_uniqueid"
+                                + " FROM " + T_VIN_MAPPINGS + " m"
+                                + " LEFT JOIN " + T_DEVICES + " d ON d.id = m.deviceid"
+                                + " WHERE UPPER(TRIM(m.vin)) IN (" + placeholders + ")"
+                                + " ORDER BY nvin, m.id";
 
                 try (PreparedStatement detailStmt = conn.prepareStatement(detailSql)) {
                     int idx = 1;
@@ -360,15 +361,18 @@ public class AdminResource extends BaseResource {
                             Map<String, Object> entry = byVin.get(nvin);
                             if (entry != null) {
                                 @SuppressWarnings("unchecked")
-                                List<Map<String, Object>> devices =
-                                        (List<Map<String, Object>>) entry.get("devices");
-                                Map<String, Object> d = new LinkedHashMap<>();
-                                d.put("id",             rs.getLong("id"));
-                                d.put("name",           rs.getString("name"));
-                                d.put("uniqueId",       rs.getString("uniqueid"));
+                                List<Map<String, Object>> mappings =
+                                        (List<Map<String, Object>>) entry.get("mappings");
+                                Map<String, Object> m = new LinkedHashMap<>();
+                                m.put("mappingId",     rs.getLong("mapping_id"));
+                                m.put("imei",          rs.getString("imei"));
                                 long organizationId = rs.getLong("organizationid");
-                                d.put("organizationId", rs.wasNull() ? null : organizationId);
-                                devices.add(d);
+                                m.put("organizationId", rs.wasNull() ? null : organizationId);
+                                long deviceId = rs.getLong("deviceid");
+                                m.put("deviceId",     rs.wasNull() ? null : deviceId);
+                                m.put("deviceName",   rs.getString("device_name"));
+                                m.put("uniqueId",     rs.getString("device_uniqueid"));
+                                mappings.add(m);
                             }
                         }
                     }

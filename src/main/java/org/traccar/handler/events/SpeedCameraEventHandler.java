@@ -19,7 +19,7 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SpeedCameraEventHandler.class);
 
-    private static final String CACHE_KEY_PREFIX = "speed_camera:";
+    private static final String CACHE_KEY_PREFIX = "speed_camera:v2:";
 
     private static final int CONFIDENCE_WINDOW = 1; // configurable via config if needed
 

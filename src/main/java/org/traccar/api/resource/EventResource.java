@@ -15,7 +15,14 @@
  */
 package org.traccar.api.resource;
 
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import org.traccar.api.BaseResource;
 import org.traccar.model.Device;
 import org.traccar.model.Event;
@@ -29,7 +36,11 @@ import org.traccar.storage.query.Request;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.List;
 
 @Path("events")
 @Produces(MediaType.APPLICATION_JSON)
@@ -94,6 +105,17 @@ public class EventResource extends BaseResource {
                     .entity("'sortOrder' must be 'asc' or 'desc'").build();
         }
 
+        boolean hasTypeFilter = types != null && !types.isEmpty() && !types.contains(Event.ALL_EVENTS);
+        long rangeMs = to.getTime() - from.getTime();
+        long maxRangeMs = hasTypeFilter ? 31L * 86_400_000L : 7L * 86_400_000L;
+        if (rangeMs > maxRangeMs) {
+            String days = hasTypeFilter ? "31" : "7";
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Date range too large. Without a type filter: max 7 days; with a type filter: max 31 days."
+                            + " Requested: " + (rangeMs / 86_400_000L) + " days, limit: " + days + " days.")
+                    .build();
+        }
+
         for (Long deviceId : deviceIds) {
             permissionsService.checkPermission(Device.class, getUserId(), deviceId);
         }
@@ -115,8 +137,7 @@ public class EventResource extends BaseResource {
                 new Columns.All(),
                 new Condition.And(
                         deviceCondition,
-                        new Condition.Between("eventTime", "from", from, "to", to)),
-                new Order("eventTime")));
+                        new Condition.Between("eventTime", "from", from, "to", to))));
 
         boolean all = types == null || types.isEmpty() || types.contains(Event.ALL_EVENTS);
         if (!all) {

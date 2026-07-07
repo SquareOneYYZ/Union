@@ -49,7 +49,8 @@ import java.util.TimeZone;
 public final class QueryBuilder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(QueryBuilder.class);
-    private static final Calendar UTC_CALENDAR = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    private static final ThreadLocal<Calendar> UTC_CALENDAR =
+            ThreadLocal.withInitial(() -> Calendar.getInstance(TimeZone.getTimeZone("UTC")));
 
     private final Config config;
     private final ObjectMapper objectMapper;
@@ -242,7 +243,7 @@ public final class QueryBuilder {
                 if (value == null) {
                     statement.setNull(i, Types.TIMESTAMP);
                 } else {
-                    statement.setTimestamp(i, new Timestamp(value.getTime()), UTC_CALENDAR);
+                    statement.setTimestamp(i, new Timestamp(value.getTime()), UTC_CALENDAR.get());
                 }
             } catch (SQLException error) {
                 statement.close();
@@ -369,7 +370,7 @@ public final class QueryBuilder {
         } else if (parameterType.equals(Date.class)) {
             processors.add((object, resultSet) -> {
                 try {
-                    Timestamp timestamp = resultSet.getTimestamp(name, UTC_CALENDAR);
+                    Timestamp timestamp = resultSet.getTimestamp(name, UTC_CALENDAR.get());
                     if (timestamp != null) {
                         method.invoke(object, new Date(timestamp.getTime()));
                     }
