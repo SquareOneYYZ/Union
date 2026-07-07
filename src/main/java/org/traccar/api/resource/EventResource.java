@@ -30,7 +30,6 @@ import org.traccar.model.Position;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
-import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
 
 import jakarta.ws.rs.core.MediaType;
