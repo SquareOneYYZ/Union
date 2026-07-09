@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 
 
 @Singleton
@@ -82,7 +83,13 @@ public class DigitalOceanSpacesService {
             Process process = pb.start();
 
             String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                LOGGER.warn("s3cmd upload timed out for geofence {}", id);
+                return;
+            }
+            int exitCode = process.exitValue();
 
             if (exitCode == 0) {
                 LOGGER.debug("Uploaded geofence {} to Spaces successfully", id);

@@ -40,7 +40,12 @@ public class GeofenceSyncService implements LifecycleObject {
         if (!spacesService.isAvailable()) {
             return;
         }
+        Thread syncThread = new Thread(this::runSync, "geofence-sync");
+        syncThread.setDaemon(true);
+        syncThread.start();
+    }
 
+    private void runSync() {
         List<Geofence> geofences;
         try {
             geofences = storage.getObjects(Geofence.class, new Request(new Columns.All()));
@@ -63,9 +68,22 @@ public class GeofenceSyncService implements LifecycleObject {
                 success++;
             } catch (Exception e) {
                 failed++;
+                LOGGER.warn(
+                        "Failed to upload geofence {} during startup sync",
+                        geofence.getId(),
+                        e
+                );
             }
         }
+        LOGGER.debug(
+                "GeofenceSyncService completed. Success={}, Failed={}",
+                success,
+                failed
+        );
 
+        if (failed > 0) {
+            LOGGER.warn("{} geofence uploads failed during startup sync", failed);
+        }
     }
 
     @Override

@@ -29,21 +29,13 @@ import jakarta.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.api.ExtendedObjectResource;
-import org.traccar.model.Device;
 import org.traccar.model.Geofence;
-import org.traccar.model.Group;
-import org.traccar.model.User;
 import org.traccar.storage.StorageException;
 import org.traccar.storage.spaces.DigitalOceanSpacesService;
-import org.traccar.storage.query.Columns;
-import org.traccar.storage.query.Condition;
-import org.traccar.storage.query.Order;
-import org.traccar.storage.query.Request;
-
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Path("geofences")
@@ -73,32 +65,7 @@ public class GeofenceResource extends ExtendedObjectResource<Geofence> {
             @QueryParam("groupId") long groupId,
             @QueryParam("deviceId") long deviceId) throws StorageException {
 
-        var conditions = new LinkedList<Condition>();
-
-        if (all) {
-            if (permissionsService.notAdmin(getUserId())) {
-                conditions.add(new Condition.Permission(User.class, getUserId(), Geofence.class));
-            }
-        } else {
-            if (userId == 0) {
-                conditions.add(new Condition.Permission(User.class, getUserId(), Geofence.class));
-            } else {
-                permissionsService.checkUser(getUserId(), userId);
-                conditions.add(new Condition.Permission(User.class, userId, Geofence.class).excludeGroups());
-            }
-        }
-
-        if (groupId > 0) {
-            permissionsService.checkPermission(Group.class, getUserId(), groupId);
-            conditions.add(new Condition.Permission(Group.class, groupId, Geofence.class).excludeGroups());
-        }
-        if (deviceId > 0) {
-            permissionsService.checkPermission(Device.class, getUserId(), deviceId);
-            conditions.add(new Condition.Permission(Device.class, deviceId, Geofence.class).excludeGroups());
-        }
-
-        Collection<Geofence> geofences = storage.getObjects(Geofence.class, new Request(
-                new Columns.All(), Condition.merge(conditions), new Order("name")));
+        Collection<Geofence> geofences = get(all, userId, groupId, deviceId);
 
         List<Map<String, Object>> result = geofences.stream()
                 .map(g -> Map.<String, Object>of("id", g.getId(), "name", g.getName()))
@@ -112,8 +79,9 @@ public class GeofenceResource extends ExtendedObjectResource<Geofence> {
     @Override
     public Response add(Geofence entity) throws Exception {
         Response response = super.add(entity);
-        if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-            uploadToSpaces(entity);
+        if (response.getStatus() == Response.Status.OK.getStatusCode()
+                || response.getStatus() == Response.Status.CREATED.getStatusCode()) {
+            CompletableFuture.runAsync(() -> uploadToSpaces(entity));
         }
         return response;
     }
@@ -124,8 +92,9 @@ public class GeofenceResource extends ExtendedObjectResource<Geofence> {
     @Override
     public Response update(Geofence entity) throws Exception {
         Response response = super.update(entity);
-        if (response.getStatus() == Response.Status.OK.getStatusCode()) {
-            uploadToSpaces(entity);
+        if (response.getStatus() == Response.Status.OK.getStatusCode()
+                || response.getStatus() == Response.Status.CREATED.getStatusCode()) {
+            CompletableFuture.runAsync(() -> uploadToSpaces(entity));
         }
         return response;
     }
@@ -133,6 +102,7 @@ public class GeofenceResource extends ExtendedObjectResource<Geofence> {
 
     private void uploadToSpaces(Geofence geofence) {
         if (!spacesService.isAvailable()) {
+            LOGGER.warn("DigitalOcean Spaces is not configured. Skipping upload for geofence {}", geofence.getId());
             return;
         }
         try {
