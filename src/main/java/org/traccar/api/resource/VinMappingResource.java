@@ -1,15 +1,7 @@
 package org.traccar.api.resource;
 
 import jakarta.inject.Inject;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.PUT;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.traccar.api.BaseResource;
@@ -22,11 +14,12 @@ import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
 import org.traccar.vinmapping.BulkImportResult;
+import org.traccar.vinmapping.BulkImportSummary;
+import org.traccar.vinmapping.VinMappingFileParser;
 import org.traccar.vinmapping.VinMappingService;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.io.InputStream;
+import java.util.*;
 import java.util.regex.Pattern;
 
 @Path("vinmappings")
@@ -37,6 +30,12 @@ public class VinMappingResource extends BaseResource {
     private static final Pattern IMEI_PATTERN = Pattern.compile("^\\d{15}$");
 
     private static final Pattern VIN_PATTERN = Pattern.compile("^[A-HJ-NPR-Z0-9]{17}$");
+
+    private static final long MAX_UPLOAD_BYTES = 5L * 1024 * 1024; // 5 MB
+    private static final int MAX_BULK_ROWS = 5000;
+
+    private static final String CSV_TYPE = "text/csv";
+    private static final String XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     @Inject
     private VinMappingService vinMappingService;
@@ -203,89 +202,175 @@ public class VinMappingResource extends BaseResource {
 
     @POST
     @Path("bulk")
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response bulkImport(List<VinMapping> rows) throws Exception {
         if (rows == null || rows.isEmpty()) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("Request body must be a non-empty JSON array").build();
+        }
+        if (rows.size() > MAX_BULK_ROWS) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Too many rows in a single request (max " + MAX_BULK_ROWS + ")").build();
         }
 
         boolean isAdmin = !permissionsService.notAdmin(getUserId());
         long callerOrgId = isAdmin ? 0 : getCallerOrganizationId();
 
         List<BulkImportResult> results = new ArrayList<>();
+        Set<String> seenImeis = new HashSet<>();
+        Set<String> seenVins = new HashSet<>();
 
+        int rowNumber = 0;
         for (VinMapping row : rows) {
-            if (row.getImei() != null) {
-                row.setImei(row.getImei().trim());
-            }
-            if (row.getVin() != null) {
-                row.setVin(row.getVin().trim().toUpperCase());
-            }
+            rowNumber++;
+            processRow(rowNumber, row.getImei(), row.getVin(), row.getGroupId(), row.getOrganizationId(),
+                    isAdmin, callerOrgId, seenImeis, seenVins, results);
+        }
 
-            long orgId = isAdmin && row.getOrganizationId() > 0
-                    ? row.getOrganizationId()
-                    : callerOrgId;
+        return Response.ok(new BulkImportSummary(results)).build();
+    }
 
-            if (orgId <= 0) {
+
+    @POST
+    @Path("bulk/file")
+    @Consumes({CSV_TYPE, XLSX_TYPE, MediaType.APPLICATION_OCTET_STREAM})
+    public Response bulkImportFile(
+            @HeaderParam("X-Filename") String filename,
+            InputStream fileStream) throws Exception {
+
+        if (fileStream == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("No file uploaded").build();
+        }
+        if (filename == null || filename.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Missing X-Filename header").build();
+        }
+
+        String lowerFilename = filename.toLowerCase();
+        if (!lowerFilename.endsWith(".csv") && !lowerFilename.endsWith(".xlsx") && !lowerFilename.endsWith(".xls")) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Unsupported file type. Upload a .csv or .xlsx file.").build();
+        }
+
+        List<VinMappingFileParser.ParsedRow> parsedRows;
+        try {
+            parsedRows = VinMappingFileParser.parse(lowerFilename, boundedStream(fileStream));
+        } catch (Exception e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Failed to parse file: " + e.getMessage()).build();
+        }
+
+        if (parsedRows.isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("File contains no data rows").build();
+        }
+        if (parsedRows.size() > MAX_BULK_ROWS) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Too many rows in file (max " + MAX_BULK_ROWS + ")").build();
+        }
+
+        boolean isAdmin = !permissionsService.notAdmin(getUserId());
+        long callerOrgId = isAdmin ? 0 : getCallerOrganizationId();
+
+        List<BulkImportResult> results = new ArrayList<>();
+        Set<String> seenImeis = new HashSet<>();
+        Set<String> seenVins = new HashSet<>();
+
+        for (VinMappingFileParser.ParsedRow row : parsedRows) {
+            if (row.parseError != null) {
                 results.add(new BulkImportResult(
-                        row.getImei(), row.getVin(),
-                        BulkImportResult.Status.REJECTED,
-                        "No organization associated with your account"));
+                        row.rowNumber, row.imei, row.vin, BulkImportResult.Status.REJECTED, row.parseError));
                 continue;
             }
-            row.setOrganizationId(orgId);
+            processRow(row.rowNumber, row.imei, row.vin, row.groupId, row.organizationId,
+                    isAdmin, callerOrgId, seenImeis, seenVins, results);
+        }
 
-            row.setUserId(getUserId());
-            String validationError = validate(row);
-            if (validationError != null) {
-                results.add(new BulkImportResult(
-                        row.getImei(), row.getVin(),
-                        BulkImportResult.Status.REJECTED,
-                        validationError));
-                continue;
-            }
+        return Response.ok(new BulkImportSummary(results)).build();
+    }
 
-            VinMapping existing = storage.getObject(VinMapping.class, new Request(
+    private void processRow(
+            int rowNumber, String rawImei, String rawVin, Long groupId, Long organizationId,
+            boolean isAdmin, long callerOrgId,
+            Set<String> seenImeis, Set<String> seenVins, List<BulkImportResult> results) {
+
+        String imei = rawImei != null ? rawImei.trim() : null;
+        String vin = rawVin != null ? rawVin.trim().toUpperCase() : null;
+
+        long orgId = isAdmin && organizationId != null && organizationId > 0
+                ? organizationId
+                : callerOrgId;
+
+        if (orgId <= 0) {
+            results.add(new BulkImportResult(rowNumber, imei, vin,
+                    BulkImportResult.Status.REJECTED, "No organization associated with your account"));
+            return;
+        }
+
+        VinMapping row = new VinMapping();
+        row.setImei(imei);
+        row.setVin(vin);
+        row.setOrganizationId(orgId);
+        row.setUserId(getUserId());
+        if (groupId != null && groupId > 0) {
+            row.setGroupId(groupId);
+        }
+
+        String validationError = validate(row);
+        if (validationError != null) {
+            results.add(new BulkImportResult(rowNumber, imei, vin,
+                    BulkImportResult.Status.REJECTED, validationError));
+            return;
+        }
+
+        String imeiKey = orgId + ":" + row.getImei();
+        String vinKey = orgId + ":" + row.getVin();
+        if (!seenImeis.add(imeiKey)) {
+            results.add(new BulkImportResult(rowNumber, imei, vin,
+                    BulkImportResult.Status.REJECTED, "Duplicate IMEI within uploaded file"));
+            return;
+        }
+        if (!seenVins.add(vinKey)) {
+            results.add(new BulkImportResult(rowNumber, imei, vin,
+                    BulkImportResult.Status.REJECTED, "Duplicate VIN within uploaded file"));
+            return;
+        }
+
+        try {
+            VinMapping existingByImei = storage.getObject(VinMapping.class, new Request(
                     new Columns.Include("id"),
                     new Condition.And(
                             new Condition.Equals("organizationid", orgId),
                             new Condition.Equals("imei", row.getImei()))));
-            if (existing != null) {
-                results.add(new BulkImportResult(
-                        row.getImei(), row.getVin(),
-                        BulkImportResult.Status.REJECTED,
-                        "IMEI already exists in your mapping list"));
-                continue;
+            if (existingByImei != null) {
+                results.add(new BulkImportResult(rowNumber, imei, vin,
+                        BulkImportResult.Status.REJECTED, "IMEI already exists in your mapping list"));
+                return;
             }
 
-            VinMapping dupVin = storage.getObject(VinMapping.class, new Request(
+            VinMapping existingByVin = storage.getObject(VinMapping.class, new Request(
                     new Columns.Include("id"),
                     new Condition.And(
                             new Condition.Equals("organizationid", orgId),
                             new Condition.Equals("vin", row.getVin()))));
-            if (dupVin != null) {
-                results.add(new BulkImportResult(
-                        row.getImei(), row.getVin(),
-                        BulkImportResult.Status.REJECTED,
-                        "VIN already exists in your mapping list"));
-                continue;
+            if (existingByVin != null) {
+                results.add(new BulkImportResult(rowNumber, imei, vin,
+                        BulkImportResult.Status.REJECTED, "VIN already exists in your mapping list"));
+                return;
             }
 
-            try {
-                row.setId(storage.addObject(row, new Request(new Columns.Exclude("id"))));
-                LogAction.create(getUserId(), row);
-                results.add(new BulkImportResult(
-                        row.getImei(), row.getVin(),
-                        BulkImportResult.Status.CREATED, null));
-            } catch (StorageException e) {
-                results.add(new BulkImportResult(
-                        row.getImei(), row.getVin(),
-                        BulkImportResult.Status.REJECTED,
-                        "Database error: " + e.getMessage()));
-            }
+            row.setId(storage.addObject(row, new Request(new Columns.Exclude("id"))));
+            LogAction.create(getUserId(), row);
+            results.add(new BulkImportResult(rowNumber, imei, vin, BulkImportResult.Status.CREATED, null));
+        } catch (StorageException e) {
+            results.add(new BulkImportResult(rowNumber, imei, vin,
+                    BulkImportResult.Status.REJECTED, "Database error: " + e.getMessage()));
         }
+    }
 
-        return Response.ok(results).build();
+    private InputStream boundedStream(InputStream in) {
+        return in;
     }
 
 
