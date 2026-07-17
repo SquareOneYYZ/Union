@@ -278,12 +278,13 @@ public class VinMappingResource extends BaseResource {
         Set<String> seenVins = new HashSet<>();
 
         for (VinMappingFileParser.ParsedRow row : parsedRows) {
-            if (row.parseError != null) {
+            if (row.getParseError() != null) {
                 results.add(new BulkImportResult(
-                        row.rowNumber, row.imei, row.vin, BulkImportResult.Status.REJECTED, row.parseError));
+                        row.getRowNumber(), row.getImei(), row.getVin(),
+                        BulkImportResult.Status.REJECTED, row.getParseError()));
                 continue;
             }
-            processRow(row.rowNumber, row.imei, row.vin, row.groupId, row.organizationId,
+            processRow(row.getRowNumber(), row.getImei(), row.getVin(), row.getGroupId(), row.getOrganizationId(),
                     isAdmin, callerOrgId, seenImeis, seenVins, results);
         }
 

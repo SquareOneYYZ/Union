@@ -45,7 +45,6 @@ import org.traccar.LifecycleObject;
 import org.traccar.api.CorsResponseFilter;
 import org.traccar.api.DateParameterConverterProvider;
 import org.traccar.api.ResourceErrorHandler;
-import org.traccar.api.resource.ReplayResource;
 import org.traccar.api.resource.ServerResource;
 import org.traccar.api.security.SecurityRequestFilter;
 import org.traccar.config.Config;

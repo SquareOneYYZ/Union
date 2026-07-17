@@ -15,15 +15,38 @@ import java.util.Map;
 public final class VinMappingFileParser {
 
     public static class ParsedRow {
-        public final int rowNumber;
-        public String imei;
-        public String vin;
-        public Long groupId;
-        public Long organizationId;
-        public String parseError;
+        private final int rowNumber;
+        private String imei;
+        private String vin;
+        private Long groupId;
+        private Long organizationId;
+        private String parseError;
 
         public ParsedRow(int rowNumber) {
             this.rowNumber = rowNumber;
+        }
+        public int getRowNumber() {
+            return rowNumber;
+        }
+
+        public String getImei() {
+            return imei;
+        }
+
+        public String getVin() {
+            return vin;
+        }
+
+        public Long getGroupId() {
+            return groupId;
+        }
+
+        public Long getOrganizationId() {
+            return organizationId;
+        }
+
+        public String getParseError() {
+            return parseError;
         }
     }
 
