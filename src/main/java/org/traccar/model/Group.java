@@ -38,6 +38,7 @@ public class Group extends GroupedModel {
 
     public void setUnassigned(int unassigned) {
         this.unassigned = unassigned;
+    }
     private long organizationid;
 
     public long getOrganizationId() {
