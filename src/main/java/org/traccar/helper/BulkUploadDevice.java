@@ -28,30 +28,57 @@ public final class BulkUploadDevice {
 
     public static List<String[]> readAndParse(InputStream is, String contentType) throws Exception {
         byte[] fileBytes = readWithSizeLimit(is, MAX_UPLOAD_BYTES);
-        boolean isXlsx = contentType != null && contentType.contains("spreadsheetml");
+        boolean isXlsx = (contentType != null && contentType.contains("spreadsheetml"))
+                || isXlsxMagicBytes(fileBytes);
         return isXlsx
                 ? parseXlsx(new java.io.ByteArrayInputStream(fileBytes))
                 : parseCsv(new java.io.ByteArrayInputStream(fileBytes));
     }
 
+    private static boolean isXlsxMagicBytes(byte[] bytes) {
+        return bytes.length >= 4
+                && bytes[0] == 0x50 && bytes[1] == 0x4B
+                && bytes[2] == 0x03 && bytes[3] == 0x04;
+    }
+
     private static List<String[]> parseCsv(InputStream is) throws Exception {
         List<String[]> rows = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))) {
             String line;
             int lineNum = 0;
             while ((line = reader.readLine()) != null) {
                 lineNum++;
                 if (lineNum == 1) {
+                    if (line.startsWith("\uFEFF")) {
+                        line = line.substring(1);
+                    }
                     validateCsvHeader(line);
                     continue;
                 }
                 if (line.isBlank()) {
                     continue;
                 }
+                if (hasUnbalancedQuotes(line)) {
+                    throw new InvalidFileFormatException(
+                            "Invalid file format at row " + lineNum
+                                    + ": quoted fields spanning multiple lines are not supported. "
+                                    + "Please remove line breaks inside quoted values.");
+                }
                 rows.add(splitCsvLine(line));
             }
         }
         return rows;
+    }
+
+    private static boolean hasUnbalancedQuotes(String line) {
+        int quoteCount = 0;
+        for (int i = 0; i < line.length(); i++) {
+            if (line.charAt(i) == '"') {
+                quoteCount++;
+            }
+        }
+        return quoteCount % 2 != 0;
     }
 
     private static void validateCsvHeader(String headerLine) {
@@ -134,14 +161,7 @@ public final class BulkUploadDevice {
     }
 
     public static String sanitize(String value) {
-        if (value == null) {
-            return null;
-        }
-        String v = value.trim();
-        if (!v.isEmpty() && "=+-@".indexOf(v.charAt(0)) >= 0) {
-            v = "'" + v;
-        }
-        return v;
+        return value == null ? null : value.trim();
     }
 
     private static byte[] readWithSizeLimit(InputStream is, int maxBytes) throws IOException {

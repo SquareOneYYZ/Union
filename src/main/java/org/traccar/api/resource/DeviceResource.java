@@ -19,6 +19,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.api.BaseObjectResource;
 import org.traccar.api.signature.TokenManager;
 import org.traccar.broadcast.BroadcastService;
@@ -29,11 +31,7 @@ import org.traccar.dtos.BulkUploadResponse;
 import org.traccar.dtos.RowResult;
 import org.traccar.helper.BulkUploadDevice;
 import org.traccar.helper.LogAction;
-import org.traccar.model.Device;
-import org.traccar.model.DeviceAccumulators;
-import org.traccar.model.Permission;
-import org.traccar.model.Position;
-import org.traccar.model.User;
+import org.traccar.model.*;
 import org.traccar.session.ConnectionManager;
 import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.StorageException;
@@ -71,6 +69,8 @@ import java.util.concurrent.TimeUnit;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class DeviceResource extends BaseObjectResource<Device> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeviceResource.class);
 
     private static final int DEFAULT_BUFFER_SIZE = 8192;
     private static final int IMAGE_SIZE_LIMIT = 500000;
@@ -445,19 +445,9 @@ public class DeviceResource extends BaseObjectResource<Device> {
     @Produces(MediaType.APPLICATION_JSON)
     public Response bulkUpload(
             InputStream fileInputStream,
-            @HeaderParam("Content-Type") String contentType) {
+            @HeaderParam("Content-Type") String contentType) throws StorageException {
 
-        try {
-            permissionsService.checkAdmin(getUserId());
-        } catch (SecurityException e) {
-            return Response.status(Response.Status.FORBIDDEN)
-                    .entity("Administrator access required.")
-                    .build();
-        } catch (StorageException e) {
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Failed to verify permissions.")
-                    .build();
-        }
+        permissionsService.checkAdmin(getUserId());
 
         List<String[]> rawRows;
         try {
@@ -499,6 +489,18 @@ public class DeviceResource extends BaseObjectResource<Device> {
                         false, "MISSING_UNIQUE_ID", "Column 'uniqueId' is required."));
                 continue;
             }
+            if (name.length() > 128) {
+                results.add(new RowResult(rowNum, name, uniqueId,
+                        false, "NAME_TOO_LONG", "Column 'name' exceeds maximum" +
+                        " length of 128 characters."));
+                continue;
+            }
+            if (uniqueId.length() > 128) {
+                results.add(new RowResult(rowNum, name, uniqueId,
+                        false, "UNIQUE_ID_TOO_LONG", "Column 'uniqueId' exceeds" +
+                        " maximum length of 128 characters."));
+                continue;
+            }
             if (!seenInFile.add(uniqueId.toLowerCase())) {
                 results.add(new RowResult(rowNum, name, uniqueId,
                         false, "DUPLICATE_IN_FILE",
@@ -528,6 +530,8 @@ public class DeviceResource extends BaseObjectResource<Device> {
                 r.setStatus(upsertDevice(r.getName(), r.getUniqueId()));
                 r.setSuccess(true);
             } catch (Exception e) {
+                LOGGER.warn("Bulk upload failed for row {} (uniqueId={}): {}",
+                        r.getRow(), r.getUniqueId(), e.getMessage(), e);
                 r.setSuccess(false);
                 r.setStatus("INTERNAL_ERROR");
                 r.setMessage("Unexpected error. Please contact support.");
@@ -550,6 +554,8 @@ public class DeviceResource extends BaseObjectResource<Device> {
                     new Columns.Exclude("id"),
                     new Condition.Equals("id", existing.getId())
             ));
+            cacheManager.invalidateObject(true, Device.class, existing.getId(), ObjectOperation.UPDATE);
+            LogAction.edit(getUserId(), existing);
             return "UPDATED";
         }
 
@@ -557,8 +563,14 @@ public class DeviceResource extends BaseObjectResource<Device> {
         device.setName(name);
         device.setUniqueId(uniqueId);
         device.setId(storage.addObject(device, new Request(new Columns.Exclude("id"))));
+        LogAction.create(getUserId(), device);
+
         storage.addPermission(
                 new Permission(User.class, getUserId(), Device.class, device.getId()));
+        cacheManager.invalidatePermission(true, User.class, getUserId(), Device.class, device.getId(), true);
+        connectionManager.invalidatePermission(true, User.class, getUserId(), Device.class, device.getId(), true);
+        LogAction.link(getUserId(), User.class, getUserId(), Device.class, device.getId());
+
         return "CREATED";
     }
 
