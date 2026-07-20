@@ -35,17 +35,22 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.TimeZone;
 
 @SuppressWarnings("UnusedReturnValue")
 public final class QueryBuilder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(QueryBuilder.class);
+    private static final ThreadLocal<Calendar> UTC_CALENDAR =
+            ThreadLocal.withInitial(() -> Calendar.getInstance(TimeZone.getTimeZone("UTC")));
 
     private final Config config;
     private final ObjectMapper objectMapper;
@@ -238,7 +243,7 @@ public final class QueryBuilder {
                 if (value == null) {
                     statement.setNull(i, Types.TIMESTAMP);
                 } else {
-                    statement.setTimestamp(i, new Timestamp(value.getTime()));
+                    statement.setTimestamp(i, new Timestamp(value.getTime()), UTC_CALENDAR.get());
                 }
             } catch (SQLException error) {
                 statement.close();
@@ -365,7 +370,7 @@ public final class QueryBuilder {
         } else if (parameterType.equals(Date.class)) {
             processors.add((object, resultSet) -> {
                 try {
-                    Timestamp timestamp = resultSet.getTimestamp(name);
+                    Timestamp timestamp = resultSet.getTimestamp(name, UTC_CALENDAR.get());
                     if (timestamp != null) {
                         method.invoke(object, new Date(timestamp.getTime()));
                     }
@@ -398,6 +403,36 @@ public final class QueryBuilder {
     private void logQuery() {
         if (config.getBoolean(Keys.LOGGER_QUERIES)) {
             LOGGER.info(query);
+        }
+    }
+
+    public QueryBuilder addBatch() throws SQLException {
+        try {
+            statement.addBatch();
+        } catch (SQLException error) {
+            statement.close();
+            connection.close();
+            throw error;
+        }
+        return this;
+    }
+
+    public List<Long> executeBatch() throws SQLException {
+        try {
+            logQuery();
+            statement.executeBatch();
+            List<Long> ids = new ArrayList<>();
+            if (returnGeneratedKeys) {
+                try (ResultSet resultSet = statement.getGeneratedKeys()) {
+                    while (resultSet.next()) {
+                        ids.add(resultSet.getLong(1));
+                    }
+                }
+            }
+            return ids;
+        } finally {
+            statement.close();
+            connection.close();
         }
     }
 
@@ -459,6 +494,23 @@ public final class QueryBuilder {
         }
 
         return result;
+    }
+
+    public long executeScalarLong() throws SQLException {
+        if (query != null) {
+            try {
+                logQuery();
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        return resultSet.getLong(1);
+                    }
+                }
+            } finally {
+                statement.close();
+                connection.close();
+            }
+        }
+        return 0;
     }
 
     public long executeUpdate() throws SQLException {

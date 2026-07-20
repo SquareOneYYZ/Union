@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.traccar.Protocol;
 import org.traccar.broadcast.BroadcastInterface;
 import org.traccar.broadcast.BroadcastService;
+import org.traccar.api.StreamHealthEvent;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.database.DeviceLookupService;
@@ -39,6 +40,7 @@ import org.traccar.storage.StorageException;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Request;
+import org.traccar.vinmapping.VinMappingService;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -76,8 +78,10 @@ public class ConnectionManager implements BroadcastInterface {
     private final Timer timer;
     private final BroadcastService broadcastService;
     private final DeviceLookupService deviceLookupService;
+    private final VinMappingService vinMappingService;
 
     private final Map<Long, Set<UpdateListener>> listeners = new HashMap<>();
+    private final Set<UpdateListener> allListeners = new HashSet<>();
     private final Map<Long, Set<Long>> userDevices = new HashMap<>();
     private final Map<Long, Set<Long>> deviceUsers = new HashMap<>();
 
@@ -87,7 +91,7 @@ public class ConnectionManager implements BroadcastInterface {
     public ConnectionManager(
             Config config, CacheManager cacheManager, Storage storage,
             NotificationManager notificationManager, Timer timer, BroadcastService broadcastService,
-            DeviceLookupService deviceLookupService) {
+            DeviceLookupService deviceLookupService, VinMappingService vinMappingService) {
         this.config = config;
         this.cacheManager = cacheManager;
         this.storage = storage;
@@ -95,6 +99,7 @@ public class ConnectionManager implements BroadcastInterface {
         this.timer = timer;
         this.broadcastService = broadcastService;
         this.deviceLookupService = deviceLookupService;
+        this.vinMappingService = vinMappingService;
         deviceTimeout = config.getLong(Keys.STATUS_TIMEOUT);
         showUnknownDevices = config.getBoolean(Keys.WEB_SHOW_UNKNOWN_DEVICES);
         broadcastService.registerListener(this);
@@ -180,6 +185,11 @@ public class ConnectionManager implements BroadcastInterface {
         try {
             device.setId(storage.addObject(device, new Request(new Columns.Exclude("id"))));
             LOGGER.info("Automatically registered " + uniqueId);
+
+            if (defaultGroupId != 0) {
+                vinMappingService.onDeviceAssigned(device, defaultGroupId);
+            }
+
             return device;
         } catch (StorageException e) {
             LOGGER.warn("Automatic registration failed", e);
@@ -280,9 +290,19 @@ public class ConnectionManager implements BroadcastInterface {
     }
 
     public synchronized void sendKeepalive() {
-        for (Set<UpdateListener> userListeners : listeners.values()) {
-            for (UpdateListener listener : userListeners) {
-                listener.onKeepalive();
+        for (UpdateListener listener : allListeners) {
+            listener.onKeepalive();
+        }
+    }
+
+    public synchronized void monitorWebSocketHealth(long now, long timeout) {
+        for (UpdateListener listener : allListeners) {
+            if (now - listener.getLastMessageAt() > timeout && listener.setStreamDegraded(true)) {
+                StreamHealthEvent streamHealthEvent = new StreamHealthEvent();
+                streamHealthEvent.setStatus(StreamHealthEvent.STATUS_DEGRADED);
+                streamHealthEvent.setTimestamp(now);
+                LOGGER.debug("WebSocket stream health changed to DEGRADED");
+                listener.onUpdateStreamHealth(streamHealthEvent);
             }
         }
     }
@@ -369,6 +389,17 @@ public class ConnectionManager implements BroadcastInterface {
         void onUpdatePosition(Position position);
         void onUpdateEvent(Event event);
         void onUpdateLog(LogRecord record);
+        default long getLastMessageAt() {
+            return Long.MAX_VALUE;
+        }
+        default boolean isStreamDegraded() {
+            return false;
+        }
+        default boolean setStreamDegraded(boolean degraded) {
+            return false;
+        }
+        default void onUpdateStreamHealth(StreamHealthEvent streamHealthEvent) {
+        }
     }
 
     public synchronized void addListener(long userId, UpdateListener listener) throws StorageException {
@@ -383,11 +414,13 @@ public class ConnectionManager implements BroadcastInterface {
             devices.forEach(device -> deviceUsers.computeIfAbsent(device.getId(), id -> new HashSet<>()).add(userId));
         }
         set.add(listener);
+        allListeners.add(listener);
     }
 
     public synchronized void removeListener(long userId, UpdateListener listener) {
         var set = listeners.get(userId);
         set.remove(listener);
+        allListeners.remove(listener);
         if (set.isEmpty()) {
             listeners.remove(userId);
 
@@ -396,6 +429,10 @@ public class ConnectionManager implements BroadcastInterface {
                 return userIds.isEmpty() ? null : userIds;
             }));
         }
+    }
+
+    public synchronized int getWebSocketClientCount() {
+        return listeners.values().stream().mapToInt(Set::size).sum();
     }
 
 }

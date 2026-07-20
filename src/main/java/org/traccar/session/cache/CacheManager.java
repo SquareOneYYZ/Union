@@ -149,7 +149,9 @@ public class CacheManager implements BroadcastInterface {
                 initializeCache(device);
                 if (device.getPositionId() > 0) {
                     devicePositions.put(deviceId, storage.getObject(Position.class, new Request(
-                            new Columns.All(), new Condition.Equals("id", device.getPositionId()))));
+                            new Columns.All(), new Condition.And(
+                                    new Condition.Equals("deviceId", deviceId),
+                                    new Condition.Equals("id", device.getPositionId())))));
                 }
             }
             references.add(key);

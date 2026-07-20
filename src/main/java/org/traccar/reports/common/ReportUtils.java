@@ -386,9 +386,13 @@ public class ReportUtils {
                 startEvent = event;
             } else if (startEvent != null) {
                 Position startPosition = storage.getObject(Position.class, new Request(
-                        new Columns.All(), new Condition.Equals("id", startEvent.getPositionId())));
+                        new Columns.All(), new Condition.And(
+                                new Condition.Equals("deviceId", device.getId()),
+                                new Condition.Equals("id", startEvent.getPositionId()))));
                 Position endPosition = storage.getObject(Position.class, new Request(
-                        new Columns.All(), new Condition.Equals("id", event.getPositionId())));
+                        new Columns.All(), new Condition.And(
+                                new Condition.Equals("deviceId", device.getId()),
+                                new Condition.Equals("id", event.getPositionId()))));
                 if (startPosition != null && endPosition != null) {
                     result.add(calculateTripOrStop(
                             device, startPosition, endPosition, 0, ignoreOdometer, reportClass));

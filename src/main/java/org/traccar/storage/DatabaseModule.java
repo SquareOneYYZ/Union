@@ -73,8 +73,11 @@ public class DatabaseModule extends AbstractModule {
         hikariConfig.setIdleTimeout(600000);
 
         int maxPoolSize = config.getInteger(Keys.DATABASE_MAX_POOL_SIZE);
-        if (maxPoolSize != 0) {
-            hikariConfig.setMaximumPoolSize(maxPoolSize);
+        hikariConfig.setMaximumPoolSize(maxPoolSize > 0 ? maxPoolSize : Keys.DATABASE_MAX_POOL_SIZE.getDefaultValue());
+
+        int maxLifetime = config.getInteger(Keys.DATABASE_MAX_LIFETIME);
+        if (maxLifetime != 0) {
+            hikariConfig.setMaxLifetime(maxLifetime);
         }
 
         DataSource dataSource = new HikariDataSource(hikariConfig);

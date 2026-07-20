@@ -20,11 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
-import org.traccar.model.Device;
-import org.traccar.model.DeviceGeofenceSegment;
-import org.traccar.model.Geofence;
-import org.traccar.model.Group;
-import org.traccar.model.Position;
+import org.traccar.model.*;
 import org.traccar.reports.common.ReportUtils;
 import org.traccar.reports.model.DeviceReportSection;
 import org.traccar.session.cache.CacheManager;
@@ -117,6 +113,7 @@ public class DeviceGeofenceDistanceReportProvider {
         HashMap<Long, String> geofenceNames = new HashMap<>();
 
         var conditions = new LinkedList<Condition>();
+        conditions.add(new Condition.Permission(User.class, userId, Device.class).excludeGroups());
         if (deviceId > 0) {
             conditions.add(new Condition.Equals("deviceId", deviceId));
         }
@@ -133,16 +130,17 @@ public class DeviceGeofenceDistanceReportProvider {
 
         HashMap<Long, Collection<DeviceGeofenceSegment>> segmentsByDevice = new HashMap<>();
         for (DeviceGeofenceSegment segment : allSegments) {
-            try {
-                reportUtils.getObject(userId, Device.class, segment.getDeviceId());
-                segmentsByDevice.computeIfAbsent(segment.getDeviceId(), k -> new ArrayList<>()).add(segment);
-                if (segment.getGeofenceId() > 0 && !geofenceNames.containsKey(segment.getGeofenceId())) {
+            segmentsByDevice.computeIfAbsent(segment.getDeviceId(), k -> new ArrayList<>()).add(segment);
+            if (segment.getGeofenceId() > 0 && !geofenceNames.containsKey(segment.getGeofenceId())) {
+                try {
                     Geofence geofence = reportUtils.getObject(userId, Geofence.class, segment.getGeofenceId());
                     if (geofence != null) {
                         geofenceNames.put(segment.getGeofenceId(), geofence.getName());
                     }
+                } catch (Exception e) {
+                    LOGGER.warn("Failed to resolve geofence name for geofenceId={}, userId={}: {}",
+                            segment.getGeofenceId(), userId, e.getMessage());
                 }
-            } catch (Exception e) {
             }
         }
 
