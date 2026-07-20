@@ -15,13 +15,19 @@
  */
 package org.traccar.api.resource;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.FormParam;
+import jakarta.ws.rs.container.AsyncResponse;
+import jakarta.ws.rs.container.Suspended;
 import org.traccar.api.BaseObjectResource;
 import org.traccar.api.signature.TokenManager;
 import org.traccar.broadcast.BroadcastService;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.database.MediaManager;
+import org.traccar.dtos.BulkUploadResponse;
+import org.traccar.dtos.RowResult;
+import org.traccar.helper.BulkUploadDevice;
 import org.traccar.helper.LogAction;
 import org.traccar.model.Device;
 import org.traccar.model.DeviceAccumulators;
@@ -31,10 +37,15 @@ import org.traccar.model.User;
 import org.traccar.session.ConnectionManager;
 import org.traccar.session.cache.CacheManager;
 import org.traccar.storage.StorageException;
+import org.traccar.storage.localCache.RedisCache;
 import org.traccar.storage.query.Columns;
 import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
+import org.traccar.vindecoder.OverpassProvider;
+import org.traccar.vindecoder.TollWay;
+import org.traccar.vindecoder.VinDecoder;
+import org.traccar.vindecoder.VinDecoderProvider;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -49,14 +60,12 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+
+import java.io.*;
 import java.security.GeneralSecurityException;
-import java.util.Collection;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
+import java.security.MessageDigest;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Path("devices")
 @Produces(MediaType.APPLICATION_JSON)
@@ -65,6 +74,24 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
     private static final int DEFAULT_BUFFER_SIZE = 8192;
     private static final int IMAGE_SIZE_LIMIT = 500000;
+    private int getCacheTtl() {
+        return config.getInteger("cache.ttl.seconds", 86400);
+    }
+    private static final int VIN_DECODE_TIMEOUT_SECONDS = 30;
+
+    private static String sha256Hex(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Inject
     private Config config;
@@ -83,6 +110,19 @@ public class DeviceResource extends BaseObjectResource<Device> {
 
     @Inject
     private TokenManager tokenManager;
+
+    @Inject
+    private RedisCache redisCache;
+
+    @Inject
+    private VinDecoderProvider vinDecoderProvider;
+
+    @Inject
+    private OverpassProvider overpassProvider;
+
+
+    private final ObjectMapper mapper = new ObjectMapper();
+
 
     public DeviceResource() {
         super(Device.class);
@@ -265,6 +305,261 @@ public class DeviceResource extends BaseObjectResource<Device> {
         }
 
         return tokenManager.generateToken(share.getId(), expiration);
+    }
+
+
+    @GET
+    @Path("Vindecoder/{vin}")
+    public void decodeVin(
+            @PathParam("vin") String vin,
+            @Suspended AsyncResponse asyncResponse) {
+
+        asyncResponse.setTimeout(VIN_DECODE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        asyncResponse.setTimeoutHandler(ar ->
+                ar.resume(Response.status(Response.Status.GATEWAY_TIMEOUT)
+                        .entity("VIN decode request timed out")
+                        .build()));
+
+        if (vin == null || vin.trim().isEmpty() || vin.trim().length() > 17) {
+            asyncResponse.resume(Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Invalid VIN. VIN must not exceed 17 characters.")
+                    .build());
+            return;
+        }
+
+        String normalizedVin = vin.trim().toUpperCase();
+        String cacheKey = "vin:v3:" + normalizedVin;
+
+        try {
+            String cached = redisCache.get(cacheKey);
+            if (cached != null) {
+                asyncResponse.resume(Response.ok(cached).build());
+                return;
+            }
+        } catch (Exception e) {
+            asyncResponse.resume(Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Cache error: " + e.getMessage())
+                    .build());
+            return;
+        }
+
+        vinDecoderProvider.decodeVin(normalizedVin, new VinDecoderProvider.VinDecoderCallback() {
+            @Override
+            public void onSuccess(VinDecoder vinDecoder) {
+                try {
+                    String responseJson = mapper.writeValueAsString(vinDecoder);
+                    redisCache.setWithTTL(cacheKey, responseJson, getCacheTtl());
+                    asyncResponse.resume(Response.ok(responseJson).build());
+                } catch (Exception e) {
+                    asyncResponse.resume(Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                            .entity("Error serializing VIN response: " + e.getMessage())
+                            .build());
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable e) {
+                if (e instanceof IllegalArgumentException) {
+                    asyncResponse.resume(Response.status(Response.Status.BAD_REQUEST)
+                            .entity(e.getMessage())
+                            .build());
+                } else {
+                    asyncResponse.resume(Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                            .entity("Error processing VIN decode request: " + e.getMessage())
+                            .build());
+                }
+            }
+        });
+    }
+
+
+    @POST
+    @Path("overpass/toll")
+    @Consumes(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.APPLICATION_JSON)
+    public void fetchTollWays(
+            String query,
+            @Suspended AsyncResponse asyncResponse) {
+
+        asyncResponse.setTimeout(30, TimeUnit.SECONDS);
+        asyncResponse.setTimeoutHandler(ar ->
+                ar.resume(Response.status(Response.Status.GATEWAY_TIMEOUT)
+                        .entity("Overpass API request timed out")
+                        .build()));
+
+        if (query == null || query.trim().isEmpty()) {
+            asyncResponse.resume(Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Query cannot be empty")
+                    .build());
+            return;
+        }
+
+        String cacheKey = "overpass:v2:" + sha256Hex(query);
+
+        try {
+            String cached = redisCache.get(cacheKey);
+            if (cached != null) {
+                asyncResponse.resume(Response.ok(cached).build());
+                return;
+            }
+        } catch (Exception e) {
+            asyncResponse.resume(Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Cache error: " + e.getMessage())
+                    .build());
+            return;
+        }
+
+        overpassProvider.fetchTollWays(query, new OverpassProvider.Callback() {
+            @Override
+            public void onSuccess(List<TollWay> tollWays) {
+                try {
+                    String responseJson = mapper.writeValueAsString(tollWays);
+                    redisCache.setWithTTL(cacheKey, responseJson, getCacheTtl());
+                    asyncResponse.resume(Response.ok(responseJson).build());
+                } catch (Exception e) {
+                    asyncResponse.resume(Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                            .entity("Error serializing toll way response: " + e.getMessage())
+                            .build());
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable e) {
+                asyncResponse.resume(Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity("Error fetching toll data: " + e.getMessage())
+                        .build());
+            }
+        });
+    }
+
+
+
+
+    @POST
+    @Path("bulk-upload")
+    @Consumes({
+            MediaType.APPLICATION_OCTET_STREAM,
+            "text/csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    })
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response bulkUpload(
+            InputStream fileInputStream,
+            @HeaderParam("Content-Type") String contentType) {
+
+        try {
+            permissionsService.checkAdmin(getUserId());
+        } catch (SecurityException e) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Administrator access required.")
+                    .build();
+        } catch (StorageException e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Failed to verify permissions.")
+                    .build();
+        }
+
+        List<String[]> rawRows;
+        try {
+            rawRows = BulkUploadDevice.readAndParse(fileInputStream, contentType);
+        } catch (BulkUploadDevice.FileTooLargeException e) {
+            return Response.status(413)
+                    .entity("File too large. Maximum allowed size is 5 MB.")
+                    .build();
+        } catch (BulkUploadDevice.InvalidFileFormatException e) {
+            return Response.status(400).entity(e.getMessage()).build();
+        } catch (Exception e) {
+            return Response.status(400)
+                    .entity("Could not parse file: " + e.getMessage())
+                    .build();
+        }
+
+        if (rawRows.isEmpty()) {
+            return Response.status(400)
+                    .entity("File contains no data rows.")
+                    .build();
+        }
+
+        List<RowResult> results = new ArrayList<>();
+        Set<String> seenInFile  = new HashSet<>();
+
+        for (int i = 0; i < rawRows.size(); i++) {
+            int      rowNum   = i + 2;
+            String[] cols     = rawRows.get(i);
+            String   name     = cols.length > 0 ? BulkUploadDevice.sanitize(cols[0]) : null;
+            String   uniqueId = cols.length > 1 ? BulkUploadDevice.sanitize(cols[1]) : null;
+
+            if (name == null || name.isEmpty()) {
+                results.add(new RowResult(rowNum, name, uniqueId,
+                        false, "MISSING_NAME", "Column 'name' is required."));
+                continue;
+            }
+            if (uniqueId == null || uniqueId.isEmpty()) {
+                results.add(new RowResult(rowNum, name, uniqueId,
+                        false, "MISSING_UNIQUE_ID", "Column 'uniqueId' is required."));
+                continue;
+            }
+            if (!seenInFile.add(uniqueId.toLowerCase())) {
+                results.add(new RowResult(rowNum, name, uniqueId,
+                        false, "DUPLICATE_IN_FILE",
+                        "uniqueId '" + uniqueId + "' appears more than once in this file."));
+                continue;
+            }
+
+            results.add(new RowResult(rowNum, name, uniqueId, true, "PENDING", null));
+        }
+
+        boolean anyInvalid = results.stream().anyMatch(r -> !r.isSuccess());
+        if (anyInvalid) {
+            results.forEach(r -> {
+                if ("PENDING".equals(r.getStatus())) {
+                    r.setSuccess(false);
+                    r.setStatus("SKIPPED");
+                    r.setMessage("Skipped because other rows in this file have errors.");
+                }
+            });
+            return Response.status(422)
+                    .entity(new BulkUploadResponse(results))
+                    .build();
+        }
+
+        for (RowResult r : results) {
+            try {
+                r.setStatus(upsertDevice(r.getName(), r.getUniqueId()));
+                r.setSuccess(true);
+            } catch (Exception e) {
+                r.setSuccess(false);
+                r.setStatus("INTERNAL_ERROR");
+                r.setMessage("Unexpected error. Please contact support.");
+            }
+        }
+
+        return Response.ok(new BulkUploadResponse(results)).build();
+    }
+
+    private String upsertDevice(String name, String uniqueId) throws Exception {
+        Request lookupRequest = new Request(
+                new Columns.All(),
+                new Condition.Equals("uniqueId", uniqueId)
+        );
+        Device existing = storage.getObject(Device.class, lookupRequest);
+
+        if (existing != null) {
+            existing.setName(name);
+            storage.updateObject(existing, new Request(
+                    new Columns.Exclude("id"),
+                    new Condition.Equals("id", existing.getId())
+            ));
+            return "UPDATED";
+        }
+
+        Device device = new Device();
+        device.setName(name);
+        device.setUniqueId(uniqueId);
+        device.setId(storage.addObject(device, new Request(new Columns.Exclude("id"))));
+        storage.addPermission(
+                new Permission(User.class, getUserId(), Device.class, device.getId()));
+        return "CREATED";
     }
 
 }

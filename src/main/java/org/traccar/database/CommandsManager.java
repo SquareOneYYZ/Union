@@ -76,7 +76,9 @@ public class CommandsManager implements BroadcastInterface {
             Device device = storage.getObject(Device.class, new Request(
                     new Columns.Include("positionId", "phone"), new Condition.Equals("id", deviceId)));
             Position position = storage.getObject(Position.class, new Request(
-                    new Columns.All(), new Condition.Equals("id", device.getPositionId())));
+                    new Columns.All(), new Condition.And(
+                            new Condition.Equals("deviceId", deviceId),
+                            new Condition.Equals("id", device.getPositionId()))));
             if (position != null) {
                 BaseProtocol protocol = serverManager.getProtocol(position.getProtocol());
                 protocol.sendTextCommand(device.getPhone(), command);
