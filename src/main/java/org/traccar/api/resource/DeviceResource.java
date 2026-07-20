@@ -65,11 +65,6 @@ import java.io.*;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.Collection;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Path("devices")
