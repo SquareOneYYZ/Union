@@ -30,6 +30,15 @@ public class Group extends GroupedModel {
         this.name = name;
     }
 
+    private int unassigned;
+
+    public int getUnassigned() {
+        return unassigned;
+    }
+
+    public void setUnassigned(int unassigned) {
+        this.unassigned = unassigned;
+    }
     private long organizationid;
 
     public long getOrganizationId() {

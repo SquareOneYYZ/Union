@@ -15,4 +15,14 @@
 
   </changeSet>
 
+  <changeSet author="author" id="changelog-6.6.2">
+
+    <addColumn tableName="tc_groups">
+      <column name="unassigned" type="INT" defaultValueNumeric="0">
+        <constraints nullable="false" />
+      </column>
+    </addColumn>
+
+  </changeSet>
+
 </databaseChangeLog>
