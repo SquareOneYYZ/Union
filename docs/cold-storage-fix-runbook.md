@@ -39,7 +39,17 @@ SQL goes to the managed MySQL — run it yourself; nothing here should be execut
 # PHASE 0 — host-state gate (ALL READ-ONLY)
 # Production droplet, as root, unless a line says otherwise.
 # Paste raw output into docs/.phase0-answers.local.md (NOT the runbook).
+# Record `date -u` alongside every section you collect; the answers file
+# carries a Collected: line per section and a top-level collection window.
 ############################################################
+
+### F0 — host inventory (FIRST). The recon never verified single-host; do not
+### assume it. Confirm from the DO console droplet list how many hosts run this
+### archiver. If more than one: run EVERY host-side item below (F0-F3, F9, F10)
+### on EACH host, as its own subsection in the answers file.
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+hostname; hostname -I; uptime
+ls -la /opt/traccar/ /opt/traccar/scripts/ 2>/dev/null
 
 ### F1 — deployed script hash
 sha256sum /opt/traccar/scripts/archive_cold_storage.py
@@ -69,6 +79,8 @@ grep -c '\.parquet\.tmp$' /tmp/archive_listing.txt   # ANY hit => STOP condition
 grep -c '\.parquet$'      /tmp/archive_listing.txt
 grep -c '\.done$'         /tmp/archive_listing.txt
 # The whole /tmp/archive_listing.txt goes into the local answers file.
+# Then remove it — it is a full map of the archive sitting on a prod host:
+rm -f /tmp/archive_listing.txt
 
 ### F5 — bucket versioning + lifecycle
 s3cmd --config <host-s3cmd.ini> info s3://iotrides
@@ -151,6 +163,13 @@ Every version of `scripts/archive_cold_storage.py` that has ever been committed
 F1 matching `a364cefc4` = deployed script is current. Matching an older row = stale deploy
 (diff it before changing anything). Matching **no** row = STOP condition 4.
 
+### Collection-window rule
+
+Every answers-file section carries a `Collected:` UTC timestamp. If the window from first to
+last collection spans **more than 24 hours**, F4 (bucket listing) and F7d (group discovery)
+are stale relative to each other — they must be re-taken together before any STOP-condition
+verdict below is treated as final.
+
 ### STOP conditions — if any is true, halt; no code gets written until it is resolved
 
 1. **Any `*.tmp` object exists under `archive/`** (F4) → an unfinished destructive run.
@@ -167,7 +186,8 @@ F1 matching `a364cefc4` = deployed script is current. Matching an older row = st
 
 | # | Item | Conclusion |
 |---|------|------------|
-| F1 | Deployed hash matches commit … / no commit | _pending_ |
+| F0 | Number of hosts running the archiver (per DO console droplet list) | _pending_ |
+| F1 | Deployed hash matches commit … / no commit (per host if F0 > 1) | _pending_ |
 | F2 | Archive cron installed: yes/no; where | _pending_ |
 | F3 | Completed deleting runs: count; errors present: yes/no | _pending_ |
 | F4 | `.tmp` count / `.parquet` count / `.done` count | _pending_ |
