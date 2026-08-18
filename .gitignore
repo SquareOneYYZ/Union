@@ -10,6 +10,7 @@ nbactions.xml
 .gradle
 out
 build
+docs/.phase0-answers.local.md
 .vscode
 bin
 .metadata
