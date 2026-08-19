@@ -37,6 +37,11 @@ import pandas as pd
 import pymysql
 import pymysql.cursors
 
+try:
+    import fcntl  # POSIX only -- the deployed hosts; None on Windows dev boxes
+except ImportError:
+    fcntl = None
+
 # ---------------------------------------------------------------------------
 # Logging -- replaces all print() (#10 fix)
 # ---------------------------------------------------------------------------
@@ -622,6 +627,37 @@ def snapshot_device_geofence_segments(conn, cfg, temp_dir):
 
 
 # ---------------------------------------------------------------------------
+# Run lock -- cron and a manual run must never overlap
+# ---------------------------------------------------------------------------
+
+def acquire_run_lock(temp_dir: str):
+    """Take an exclusive non-blocking lock; abort loudly if already held.
+
+    Guards the one real overlap on a single-host deployment: the cron firing
+    while someone hand-runs the script. Fail-fast by design -- a held lock
+    exits non-zero immediately instead of queueing this run behind the other
+    one. The returned handle must stay referenced for the whole run; the lock
+    is released when the process exits.
+    """
+    lock_path = os.path.join(temp_dir, "archive_cold_storage.lock")
+    if fcntl is None:
+        logger.warning("File locking unavailable on this platform -- "
+                       "running WITHOUT overlap protection.")
+        return None
+    handle = open(lock_path, "w")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        logger.error("Another archiver instance already holds the lock (%s) "
+                     "-- aborting this run.", lock_path)
+        sys.exit(1)
+    handle.write(str(os.getpid()))
+    handle.flush()
+    return handle
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -634,6 +670,9 @@ def main():
                         else int(props.get("archive.retention.months", 6)))
     temp_dir = ensure_temp_dir(props.get("archive.temp.dir", "/tmp/traccar-archive"))
     dry_run  = args.dry_run
+
+    # Held via the returned handle until the process exits.
+    run_lock = acquire_run_lock(temp_dir)  # noqa: F841
 
     # #9 fix: timezone-aware datetime
     now    = dt.now(timezone.utc).replace(tzinfo=None)
