@@ -301,24 +301,42 @@ matching the index). Restructure options are recorded here; implementation waits
 explicit decision. Whether tc_events has a usable `(deviceid, eventtime)` index is still
 unknown (P-F7b outstanding) and affects the events side of any option.
 
-**Option A — device-iterated discovery (recommended).** Enumerate device ids first, then
-per device run `SELECT YEAR(t), MONTH(t), COUNT(*) ... WHERE deviceid = ? AND t < cutoff
-GROUP BY 1, 2` — an index range scan touching only that device's old rows. Device list via
-`SELECT DISTINCT deviceid FROM tc_positions` (a loose index scan on the leading column;
-also catches orphan rows a `tc_devices` join would miss). Total cost per run ≈ one
-distinct-scan + reads proportional to the actual backlog, instead of the whole table.
-Code cost: one commit — the discovery function changes shape, the group loop is untouched
-(same groups list), plus offline tests. Events side needs the tc_events index answer
-first; if events lacks a deviceid-led index, its discovery stays a scan and the option
-applies to positions only until that's known.
+**DECIDED (2026-08-19): Option A — device-iterated discovery, sequenced after C7**, with
+one design gate. Enumerate device ids first, then per device run `SELECT YEAR(t),
+MONTH(t), COUNT(*) ... WHERE deviceid = ? AND t < cutoff GROUP BY 1, 2` — an index range
+scan touching only that device's old rows. The group loop is untouched (same groups list).
 
-**Option B — add a fixtime-led index.** Ruled out here: schema DDL is out of scope (D7),
-and an online index build on 730M rows is its own project.
+**Design gate — device-list source needs an EXPLAIN before commitment.**
+`SELECT DISTINCT deviceid FROM tc_positions` is probably NOT cheap: MySQL/InnoDB does not
+reliably apply a loose index scan to DISTINCT on a secondary index, so it may full-scan
+the (deviceid, fixtime) index over ~730M rows at the top of every run. The operator runs
+(read-only, does not execute the query):
 
-**Option C — leave as-is for now.** The cron is unarmed everywhere, so nothing fires
-unsupervised; the first supervised runs eat one full scan each, off-peak. Zero code cost,
-but the defect ships into production usage and the scan lands on the shared instance every
-monthly fire thereafter.
+```sql
+EXPLAIN FORMAT=TREE SELECT DISTINCT deviceid FROM tc_positions;
+EXPLAIN             SELECT DISTINCT deviceid FROM tc_positions;
+-- (loose scan shows as "Using index for group-by" in Extra / a skip-scan
+--  node in TREE; a plain index scan over the whole index means: too costly)
+EXPLAIN             SELECT deviceid FROM tc_positions GROUP BY deviceid;
+-- (equivalent GROUP BY form — the optimizer sometimes loose-scans this one
+--  when it will not loose-scan the DISTINCT)
+```
+
+If EXPLAIN confirms the full index scan: enumerate devices from **`tc_devices`** (small,
+cheap) instead, and record this tradeoff explicitly — **orphan positions (rows whose
+deviceid no longer exists in tc_devices) would then never be discovered by the per-run
+loop.** That gap is handled by a documented **one-off orphan sweep** (run manually,
+off-peak, during cutover — not per-run), and the design must never silently stop
+archiving rows the old time-scan discovery would have found. Additionally, the
+restructure commit must **log the device count and per-device group counts at the end of
+each run**, so a device that stops appearing is visible rather than silent.
+
+Events side still gated on the missing `SHOW INDEX FROM tc_events` answer; if tc_events
+lacks a deviceid-led index, the option applies to positions only until that is known.
+
+**Option B — add a fixtime-led index:** ruled out (D7 forbids DDL; an online index build
+on 730M rows is its own project). **Option C — leave as-is:** rejected with Option A's
+adoption; the cron being unarmed everywhere buys the time to do it properly.
 
 ### Historical script hashes (for F1 on either host / STOP condition 4)
 
@@ -340,7 +358,7 @@ Every version of `scripts/archive_cold_storage.py` ever committed
 Match `a364cefc4` = current. Older row = stale deploy (diff before trusting). No row =
 STOP 4.
 
-### C1 lock decision — per-host `flock`; **path UNVERIFIED pending L1**
+### C1 lock decision — per-host `flock`; **mechanism VERIFIED in CI; path identity pending L1**
 
 F0 is answered: **one Linux box per environment, no multi-host archiver anywhere**
 (operator-confirmed). With separate buckets (Branch C) and separate DB schemas, the two
@@ -351,14 +369,14 @@ shows. Behavior: **non-blocking, fail fast and loud** — if the lock is held, t
 invocation logs an error and exits non-zero immediately; it never blocks and waits, so a
 long-running manual run cannot silently queue a cron fire behind it.
 
-**Lock-path status (2026-08-19): tentative, held UNVERIFIED until L1 is answered.** The
-lock file is fixed at `/var/lock/traccar-archive.lock` and there is **no fallback path**:
-if the running identity cannot open it, the run fails loudly at startup — two identities
-resolving to two different lock files would mean no mutual exclusion at all, which is
-worse than refusing to run. Whether both identities (the cron's user and a human
-hand-run) can share that path is a host fact, not a design decision — L1 below answers
-it, and the path moves if the answers demand it. The lock is also unverified
-cross-process until the CI job's POSIX contention tests run (branch not yet pushed).
+**Lock mechanism VERIFIED (2026-08-19):** the branch was pushed and CI ran green — all
+three POSIX `flock` contention tests passed on ubuntu (held lock → immediate exit 1;
+reacquire after release; unopenable path → loud exit 1). What remains open is **only the
+L1 identity question**: the lock file is fixed at `/var/lock/traccar-archive.lock` with
+**no fallback path** — if the running identity cannot open it, the run fails loudly at
+startup, because two identities resolving to two different lock files would mean no mutual
+exclusion at all. Whether the cron's user and a human hand-run can share that path is a
+host fact — L1 below answers it, and the path moves if the answers demand it.
 
 ### L1 — lock-path identities (Phase 0 addendum; run on BOTH hosts)
 
