@@ -587,8 +587,9 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
         if verify_upload(cfg, marker_key):
             logger.info(
                 "  [%s] .done marker present but the group still has %d "
-                "row(s) -- late-arriving data; merging into the existing "
-                "archive instead of skipping.", table, g["cnt"])
+                "row(s) -- late-arriving data; proceeding instead of "
+                "skipping (the export merges with the final object if it "
+                "still exists).", table, g["cnt"])
 
         if check_temp_key_exists(cfg, temp_key):
             # C5: a leftover tmp is EVIDENCE, never garbage. This code cannot
