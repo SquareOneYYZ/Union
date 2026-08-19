@@ -568,6 +568,13 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
 
     logger.info("[%s] Found %d device/month group(s) to archive.", table, len(groups))
 
+    # C7: never touch the month containing the cutoff. A group qualifies via
+    # any row < cutoff, but export/delete take the FULL calendar month -- on
+    # a mid-month run that would archive-and-delete rows younger than the
+    # retention period. Only whole months strictly before the cutoff's month
+    # are processed.
+    cutoff_month_start = date(cutoff.year, cutoff.month, 1)
+
     for g in groups:
         device_id    = g["deviceid"]
         yr, mo       = g["yr"], g["mo"]
@@ -580,6 +587,14 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
         marker_key   = f"{key_prefix}/{spaces_prefix}/{device_id}/{label}.done"
 
         logger.info("  [%s] device=%d period=%s rows=%d", table, device_id, label, g["cnt"])
+
+        if period_end > cutoff_month_start:
+            logger.info(
+                "  [%s] Skipping device=%d %s: month window extends past the "
+                "cutoff month start (%s) -- rows younger than the retention "
+                "period stay live until a later run.",
+                table, device_id, label, cutoff_month_start)
+            continue
 
         # C6: a marker no longer skips the group. Discovery only returns
         # groups that still have rows, so marker + rows = late-arriving data
