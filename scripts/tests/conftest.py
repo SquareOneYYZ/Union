@@ -10,23 +10,55 @@ import pytest  # noqa: E402
 
 @pytest.fixture
 def s3(monkeypatch):
-    """Fake the s3 helpers; record every key uploaded/copied/deleted.
+    """Fake the s3 helpers; record every call in order.
 
-    Marker checks miss, temp-key checks miss, temp verifies hit -- the happy
-    path for a fresh group.
+    Defaults are the happy path for a fresh group: marker checks miss,
+    temp-key checks miss, verifies hit. Tests can inject failures via
+    calls["fail_copy"] = True or calls["fail_verify"].add(<key>). Every call
+    also lands in calls["events"] in invocation order, so ordering tests can
+    assert what happened before what.
     """
     import archive_cold_storage as acs
 
-    calls = {"uploads": [], "copies": [], "spaces_deletes": []}
+    calls = {
+        "uploads": [], "copies": [], "spaces_deletes": [], "events": [],
+        "fail_copy": False, "fail_verify": set(),
+    }
 
-    monkeypatch.setattr(acs, "do_upload",
-                        lambda cfg, path, key: calls["uploads"].append(key) or True)
-    monkeypatch.setattr(acs, "verify_upload",
-                        lambda cfg, key: not key.endswith(".done"))
-    monkeypatch.setattr(acs, "check_temp_key_exists", lambda cfg, key: False)
-    monkeypatch.setattr(acs, "verify_row_count", lambda cfg, key, n: True)
-    monkeypatch.setattr(acs, "copy_spaces_key",
-                        lambda cfg, src, dst: calls["copies"].append((src, dst)) or True)
-    monkeypatch.setattr(acs, "delete_spaces_key",
-                        lambda cfg, key: calls["spaces_deletes"].append(key))
+    def do_upload(cfg, path, key):
+        calls["uploads"].append(key)
+        calls["events"].append(("upload", key))
+        return True
+
+    def verify_upload(cfg, key):
+        calls["events"].append(("verify", key))
+        if key in calls["fail_verify"]:
+            return False
+        return not key.endswith(".done")
+
+    def check_temp_key_exists(cfg, key):
+        calls["events"].append(("check_tmp", key))
+        return False
+
+    def verify_row_count(cfg, key, n):
+        calls["events"].append(("rowcount", key))
+        return True
+
+    def copy_spaces_key(cfg, src, dst):
+        calls["events"].append(("copy", src, dst))
+        if calls["fail_copy"]:
+            return False
+        calls["copies"].append((src, dst))
+        return True
+
+    def delete_spaces_key(cfg, key):
+        calls["spaces_deletes"].append(key)
+        calls["events"].append(("delete", key))
+
+    monkeypatch.setattr(acs, "do_upload", do_upload)
+    monkeypatch.setattr(acs, "verify_upload", verify_upload)
+    monkeypatch.setattr(acs, "check_temp_key_exists", check_temp_key_exists)
+    monkeypatch.setattr(acs, "verify_row_count", verify_row_count)
+    monkeypatch.setattr(acs, "copy_spaces_key", copy_spaces_key)
+    monkeypatch.setattr(acs, "delete_spaces_key", delete_spaces_key)
     return calls

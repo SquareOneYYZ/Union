@@ -285,6 +285,26 @@ def copy_spaces_key(cfg, src_key: str, dst_key: str) -> bool:
     return True
 
 
+def finalize_parquet(cfg, temp_key: str, spaces_key: str) -> bool:
+    """Promote a verified temp upload to its final key.
+
+    copy tmp -> final, verify the final key exists, then delete the tmp.
+    Returns False -- leaving the temp key in place -- if the copy or the
+    final-key verification fails. Callers run this BEFORE any DB delete (D3),
+    so a False here always means nothing has been removed yet.
+    """
+    if not copy_spaces_key(cfg, temp_key, spaces_key):
+        logger.error("  [S3] Could not copy %s -> %s; temp key preserved.",
+                     temp_key, spaces_key)
+        return False
+    if not verify_upload(cfg, spaces_key):
+        logger.error("  [S3] Final key %s not verifiable after copy; temp key "
+                     "preserved at %s.", spaces_key, temp_key)
+        return False
+    delete_spaces_key(cfg, temp_key)
+    return True
+
+
 def verify_row_count(cfg, spaces_key: str, expected_rows: int) -> bool:
     """Download uploaded Parquet and verify row count matches DB."""
     bucket     = cfg.get("spaces", "bucket")
@@ -544,15 +564,21 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                 # --archive-only: finalize the parquet and stop. No delete
                 # capability was injected, so this branch cannot touch the DB;
                 # no .done marker either (marker means "archived AND deleted").
-                if not copy_spaces_key(cfg, temp_key, spaces_key):
-                    logger.error("  [%s] Could not finalize parquet key -- "
-                                 "temp key left at %s.", table, temp_key)
+                if not finalize_parquet(cfg, temp_key, spaces_key):
                     failures += 1
                     continue
-                delete_spaces_key(cfg, temp_key)
                 logger.info("  [%s] Archive-only: finalized %s "
                             "(no DB delete, no marker).", table, spaces_key)
             else:
+                # D3: finalize BEFORE any delete. A failure from here up
+                # means the group failed with the DB untouched.
+                if not finalize_parquet(cfg, temp_key, spaces_key):
+                    logger.error("  [%s] Finalize failed for device=%d %s -- "
+                                 "group failed BEFORE any DB delete; nothing "
+                                 "was removed.", table, device_id, label)
+                    failures += 1
+                    continue
+
                 ids = [int(i) for i in df["id"].tolist()]
                 if id_exclusions:
                     keep = [i for i in ids if i not in id_exclusions]
@@ -568,24 +594,14 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                     logger.error(
                         "  [%s] DELETE COUNT MISMATCH for device=%d %s: "
                         "expected %d, deleted %d. Failing this group loudly: "
-                        "archive left intact (temp key %s preserved), no "
-                        "marker uploaded, no repair attempted -- reconcile "
-                        "manually.",
-                        table, device_id, label, len(ids), deleted, temp_key)
+                        "the final parquet %s is safely in place, no marker "
+                        "uploaded, no repair attempted -- rows may be "
+                        "partially deleted; reconcile manually.",
+                        table, device_id, label, len(ids), deleted, spaces_key)
                     failures += 1
                     continue
                 logger.info("  [%s] Deleted %d rows by id in batches.",
                             table, deleted)
-
-                if not copy_spaces_key(cfg, temp_key, spaces_key):
-                    logger.error(
-                        "  [%s] CRITICAL: DB deleted but could not finalize parquet key. "
-                        "Temp key still exists at %s — recover manually.", table, temp_key
-                    )
-                    failures += 1
-                    continue
-
-                delete_spaces_key(cfg, temp_key)
 
                 marker_path = os.path.join(temp_dir, f"{table}_{device_id}_{label}.done")
                 try:

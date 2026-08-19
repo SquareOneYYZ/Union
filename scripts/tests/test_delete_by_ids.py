@@ -48,6 +48,8 @@ class TestBatchDeleteByIds:
 
 class TestCountMismatch:
     def test_mismatch_fails_group_loudly_no_repair(self, tmp_path, s3):
+        # Under C4 ordering the finalize has ALREADY succeeded when the
+        # delete-count assertion fires: the final parquet is the safety net.
         calls = []
 
         def bad_deleter(conn, table, ids):
@@ -60,9 +62,10 @@ class TestCountMismatch:
         assert failures == 1
         assert total == 0
         assert len(calls) == 1                    # no retry, no repair
-        assert s3["copies"] == []                 # no finalize
-        assert not any(k.endswith(".done") for k in s3["uploads"])
-        assert s3["spaces_deletes"] == []         # tmp preserved: archive intact
+        # Finalize completed before the delete: final parquet is in place.
+        assert s3["copies"] == [("rehearsal/positions/7/2025-03.parquet.tmp",
+                                 "rehearsal/positions/7/2025-03.parquet")]
+        assert not any(k.endswith(".done") for k in s3["uploads"])  # no marker
 
 
 class TestLatestPositionExclusion:
