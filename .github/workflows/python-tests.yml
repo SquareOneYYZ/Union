@@ -22,3 +22,14 @@ jobs:
       run: pip install pytest pymysql pandas pyarrow python-dateutil
     - name: Run tests
       run: python -m pytest scripts/tests/ -v
+
+  packaging-verifier:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install packaging tools
+      run: sudo apt-get update && sudo apt-get install -y makeself zip unzip
+    - name: Self-test the artifact verifier (faithful, tampered, missing, sneak)
+      run: bash setup/test_verify_artifacts.sh
