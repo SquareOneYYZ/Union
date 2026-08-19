@@ -2,7 +2,7 @@ name: Archive Script Tests
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, riq-cold-storage-hardening ]
   pull_request:
     branches: [ master ]
 

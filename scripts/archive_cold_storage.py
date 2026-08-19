@@ -630,21 +630,48 @@ def snapshot_device_geofence_segments(conn, cfg, temp_dir):
 # Run lock -- cron and a manual run must never overlap
 # ---------------------------------------------------------------------------
 
-def acquire_run_lock(temp_dir: str):
+def _lock_path() -> str:
+    """Fixed lock location, deliberately independent of any config value.
+
+    archive.temp.dir comes from --config, so deriving the lock from it would
+    let a manual run pointing at a different config lock a different file and
+    slip past the cron's lock -- the exact overlap the lock exists to stop.
+    /var/lock is host-wide; the fallback is the directory this script itself
+    lives in, which is identical for cron and manual runs of the installed
+    copy.
+    """
+    primary_dir = "/var/lock"
+    if os.path.isdir(primary_dir) and os.access(primary_dir, os.W_OK):
+        return os.path.join(primary_dir, "traccar-archive.lock")
+    fallback = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "archive_cold_storage.lock")
+    logger.warning("%s not writable -- using lock fallback %s",
+                   primary_dir, fallback)
+    return fallback
+
+
+def acquire_run_lock():
     """Take an exclusive non-blocking lock; abort loudly if already held.
 
     Guards the one real overlap on a single-host deployment: the cron firing
     while someone hand-runs the script. Fail-fast by design -- a held lock
     exits non-zero immediately instead of queueing this run behind the other
-    one. The returned handle must stay referenced for the whole run; the lock
-    is released when the process exits.
+    one. Only a missing fcntl module (Windows dev box) downgrades to a
+    warning; on a real host any lock-file problem is fatal rather than a
+    silent run without exclusion. The returned handle must stay referenced
+    for the whole run; the lock is released when the process exits.
     """
-    lock_path = os.path.join(temp_dir, "archive_cold_storage.lock")
     if fcntl is None:
         logger.warning("File locking unavailable on this platform -- "
                        "running WITHOUT overlap protection.")
         return None
-    handle = open(lock_path, "w")
+    lock_path = _lock_path()
+    try:
+        handle = open(lock_path, "w")
+    except OSError as e:
+        logger.error("Cannot open lock file %s: %s -- refusing to run "
+                     "without overlap protection.", lock_path, e)
+        sys.exit(1)
     try:
         fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
@@ -672,7 +699,7 @@ def main():
     dry_run  = args.dry_run
 
     # Held via the returned handle until the process exits.
-    run_lock = acquire_run_lock(temp_dir)  # noqa: F841
+    run_lock = acquire_run_lock()  # noqa: F841
 
     # #9 fix: timezone-aware datetime
     now    = dt.now(timezone.utc).replace(tzinfo=None)
