@@ -11,6 +11,8 @@ nbactions.xml
 out
 build
 docs/.phase0-answers.local.md
+__pycache__
+.pytest_cache
 .vscode
 bin
 .metadata

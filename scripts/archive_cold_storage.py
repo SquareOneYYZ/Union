@@ -136,6 +136,9 @@ def get_connection(props: dict):
         database=dbname,
         charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor,
+        # Pin the session to UTC so cutoff, month windows, and the rendered
+        # datetime strings in Parquet are independent of the server timezone.
+        init_command="SET time_zone = '+00:00'",
     )
 
 
@@ -164,13 +167,27 @@ def build_s3cmd_base(cfg) -> list:
     return cmd
 
 
+def key_in_listing(stdout: str, dest: str) -> bool:
+    """True only if a listing line's key column equals dest exactly.
+
+    `s3cmd ls <dest>` is a prefix listing: asking for X.parquet also returns
+    X.parquet.tmp, so a substring test against stdout false-positives. Compare
+    the final whitespace-separated token of each line instead.
+    """
+    for line in stdout.splitlines():
+        parts = line.split()
+        if parts and parts[-1] == dest:
+            return True
+    return False
+
+
 def verify_upload(cfg, spaces_key: str) -> bool:
     """Verify file landed in Spaces after upload. (#4 fix: no delete without verify)"""
     bucket = cfg.get("spaces", "bucket")
     dest   = f"s3://{bucket}/{spaces_key}"
     cmd    = build_s3cmd_base(cfg) + ["ls", dest]
     result = subprocess.run(cmd, capture_output=True, text=True)
-    exists = result.returncode == 0 and spaces_key in result.stdout
+    exists = result.returncode == 0 and key_in_listing(result.stdout, dest)
     if not exists:
         logger.warning("Verification failed -- file not found at %s", dest)
     return exists
@@ -181,7 +198,7 @@ def check_temp_key_exists(cfg, temp_spaces_key: str) -> bool:
     dest   = f"s3://{bucket}/{temp_spaces_key}"
     cmd    = build_s3cmd_base(cfg) + ["ls", dest]
     result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.returncode == 0 and temp_spaces_key in result.stdout
+    return result.returncode == 0 and key_in_listing(result.stdout, dest)
 
 
 def delete_spaces_key(cfg, spaces_key: str):
