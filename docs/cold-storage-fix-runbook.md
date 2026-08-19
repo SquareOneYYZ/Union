@@ -302,7 +302,7 @@ Every version of `scripts/archive_cold_storage.py` ever committed
 Match `a364cefc4` = current. Older row = stale deploy (diff before trusting). No row =
 STOP 4.
 
-### C1 lock decision — FINAL (2026-08-19): per-host `flock`
+### C1 lock decision — per-host `flock`; **path UNVERIFIED pending L1**
 
 F0 is answered: **one Linux box per environment, no multi-host archiver anywhere**
 (operator-confirmed). With separate buckets (Branch C) and separate DB schemas, the two
@@ -311,7 +311,31 @@ is scoped to what it actually protects: two invocations on the *same* box — th
 firing while someone hand-runs the script, which is exactly the pattern staging's history
 shows. Behavior: **non-blocking, fail fast and loud** — if the lock is held, the new
 invocation logs an error and exits non-zero immediately; it never blocks and waits, so a
-long-running manual run cannot silently queue a cron fire behind it. Ships in the C1 slice.
+long-running manual run cannot silently queue a cron fire behind it.
+
+**Lock-path status (2026-08-19): tentative, held UNVERIFIED until L1 is answered.** The
+lock file is fixed at `/var/lock/traccar-archive.lock` and there is **no fallback path**:
+if the running identity cannot open it, the run fails loudly at startup — two identities
+resolving to two different lock files would mean no mutual exclusion at all, which is
+worse than refusing to run. Whether both identities (the cron's user and a human
+hand-run) can share that path is a host fact, not a design decision — L1 below answers
+it, and the path moves if the answers demand it. The lock is also unverified
+cross-process until the CI job's POSIX contention tests run (branch not yet pushed).
+
+### L1 — lock-path identities (Phase 0 addendum; run on BOTH hosts)
+
+```bash
+### L1 — who can lock where (staging AND prod; all read-only)
+ls -ld /var/lock /run/lock
+id
+stat -c '%U %G %a' /opt/traccar/scripts
+ls -l /var/lock/traccar-archive.lock 2>/dev/null || echo "no lock file yet"
+```
+
+Also answer in the local answers file, per host:
+- Which user owns the crontab that runs (or will run) the archiver? (Staging's is a user
+  crontab — F2 showed it; the owning identity matters.)
+- Which user would a human hand-run the script as (root? sudo? a personal account?)
 
 ---
 
