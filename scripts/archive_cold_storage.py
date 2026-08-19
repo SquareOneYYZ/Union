@@ -285,6 +285,81 @@ def copy_spaces_key(cfg, src_key: str, dst_key: str) -> bool:
     return True
 
 
+def download_key(cfg, spaces_key: str, local_path: str) -> bool:
+    """Download a key from Spaces to a local file."""
+    bucket = cfg.get("spaces", "bucket")
+    cmd = build_s3cmd_base(cfg) + ["get", "--force",
+                                   f"s3://{bucket}/{spaces_key}", local_path]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.error("  [S3] Download failed for %s: %s",
+                     spaces_key, result.stderr.strip())
+        return False
+    return True
+
+
+def merge_with_existing_final(cfg, spaces_key: str, df, temp_dir: str,
+                              table: str):
+    """Merge a fresh export into an already-existing final parquet (C6).
+
+    Additive-only: every id already in the archive must survive the merge and
+    the merged frame can never be smaller than the archived one; on id
+    collision the ARCHIVED row wins (the archive is the immutable record).
+    A column-set mismatch aborts instead of coercing -- older script versions
+    wrote the existing objects, and concat across schemas silently produces
+    null-filled columns that still pass a row-count check. Returns the merged
+    DataFrame, or None to abort the group with the final key untouched.
+    """
+    local_existing = os.path.join(
+        temp_dir, f"merge_{os.path.basename(spaces_key)}")
+    try:
+        if not download_key(cfg, spaces_key, local_existing):
+            logger.error("  [%s] Could not download existing final %s for "
+                         "merge -- aborting group (final key untouched).",
+                         table, spaces_key)
+            return None
+        try:
+            old_df = pd.read_parquet(local_existing)
+        except Exception as e:
+            logger.error("  [%s] Existing final %s unreadable (%s) -- "
+                         "aborting group (final key untouched).",
+                         table, spaces_key, e)
+            return None
+
+        old_cols, new_cols = set(old_df.columns), set(df.columns)
+        if old_cols != new_cols:
+            logger.error(
+                "  [%s] SCHEMA MISMATCH vs existing final %s -- aborting "
+                "group, no coercion. Only in archive: %s; only in export: %s.",
+                table, spaces_key,
+                sorted(old_cols - new_cols) or "none",
+                sorted(new_cols - old_cols) or "none")
+            return None
+
+        merged = pd.concat([old_df, df], ignore_index=True)
+        merged = merged.drop_duplicates(subset="id", keep="first")
+        merged = merged[list(df.columns)]  # order only; same set, no coercion
+
+        original_ids = set(int(i) for i in old_df["id"])
+        merged_ids   = set(int(i) for i in merged["id"])
+        if not original_ids.issubset(merged_ids) or len(merged) < len(old_df):
+            lost = sorted(original_ids - merged_ids)[:10]
+            logger.error(
+                "  [%s] MERGE NOT ADDITIVE for %s: archived rows would be "
+                "lost (%d -> %d rows; sample lost ids %s) -- aborting group "
+                "(final key untouched).",
+                table, spaces_key, len(old_df), len(merged), lost)
+            return None
+
+        logger.info("  [%s] Merged %d archived + %d exported -> %d rows "
+                    "(dedupe on id; archived rows win collisions).",
+                    table, len(old_df), len(df), len(merged))
+        return merged
+    finally:
+        if os.path.exists(local_existing):
+            os.remove(local_existing)
+
+
 def finalize_parquet(cfg, temp_key: str, spaces_key: str) -> bool:
     """Promote a verified temp upload to its final key.
 
@@ -506,10 +581,14 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
 
         logger.info("  [%s] device=%d period=%s rows=%d", table, device_id, label, g["cnt"])
 
+        # C6: a marker no longer skips the group. Discovery only returns
+        # groups that still have rows, so marker + rows = late-arriving data
+        # that the old skip starved forever (and even counted as archived).
         if verify_upload(cfg, marker_key):
-            logger.info("  [%s] Already archived (found .done marker) -- skipping.", table)
-            total += g["cnt"]
-            continue
+            logger.info(
+                "  [%s] .done marker present but the group still has %d "
+                "row(s) -- late-arriving data; merging into the existing "
+                "archive instead of skipping.", table, g["cnt"])
 
         if check_temp_key_exists(cfg, temp_key):
             # C5: a leftover tmp is EVIDENCE, never garbage. This code cannot
@@ -553,8 +632,19 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                     if col in df.columns:
                         df[col] = df[col].astype(str)
 
-            write_parquet(df, local_path)
-            logger.info("  [%s] Parquet written: %s (%d rows)", table, local_path, len(df))
+            # C6: never overwrite an existing final object blindly -- merge
+            # the fresh export into it (additive-only, schema-checked).
+            merged_df = df
+            if verify_upload(cfg, spaces_key):
+                merged_df = merge_with_existing_final(
+                    cfg, spaces_key, df, temp_dir, table)
+                if merged_df is None:
+                    failures += 1
+                    continue
+
+            write_parquet(merged_df, local_path)
+            logger.info("  [%s] Parquet written: %s (%d rows)",
+                        table, local_path, len(merged_df))
 
             if not do_upload(cfg, local_path, temp_key):
                 logger.error("  [%s] Upload to temp key failed -- skipping.", table)
@@ -566,7 +656,7 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                 failures += 1
                 continue
 
-            if not verify_row_count(cfg, temp_key, len(df)):
+            if not verify_row_count(cfg, temp_key, len(merged_df)):
                 logger.error("  [%s] Row count mismatch on temp key -- skipping.", table)
                 failures += 1
                 continue
@@ -596,6 +686,9 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                     failures += 1
                     continue
 
+                # C6: delete only the NEWLY-EXPORTED ids (df, never the
+                # merged frame) -- rows already in the archive were deleted
+                # from the DB by the prior run that archived them.
                 ids = [int(i) for i in df["id"].tolist()]
                 if id_exclusions:
                     keep = [i for i in ids if i not in id_exclusions]

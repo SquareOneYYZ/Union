@@ -23,6 +23,7 @@ def s3(monkeypatch):
     calls = {
         "uploads": [], "copies": [], "spaces_deletes": [], "events": [],
         "fail_copy": False, "fail_verify": set(), "tmp_exists": set(),
+        "final_exists": set(), "marker_exists": set(),
     }
 
     def do_upload(cfg, path, key):
@@ -34,14 +35,21 @@ def s3(monkeypatch):
         calls["events"].append(("verify", key))
         if key in calls["fail_verify"]:
             return False
-        return not key.endswith(".done")
+        if key.endswith(".done"):
+            return key in calls["marker_exists"]
+        if key.endswith(".parquet.tmp"):
+            return True
+        # Final .parquet existence: pre-seeded by the test, or created by a
+        # copy earlier in this run (C4 verifies the final key after copy).
+        return (key in calls["final_exists"]
+                or any(dst == key for _src, dst in calls["copies"]))
 
     def check_temp_key_exists(cfg, key):
         calls["events"].append(("check_tmp", key))
         return key in calls["tmp_exists"]
 
     def verify_row_count(cfg, key, n):
-        calls["events"].append(("rowcount", key))
+        calls["events"].append(("rowcount", key, n))
         return True
 
     def copy_spaces_key(cfg, src, dst):

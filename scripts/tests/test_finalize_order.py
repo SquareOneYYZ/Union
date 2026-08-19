@@ -28,16 +28,18 @@ def test_happy_path_ordering(tmp_path, s3):
 
     ev = s3["events"]
 
-    def idx(item):
+    def idx(item, last=False):
         matches = [i for i, e in enumerate(ev) if e[:len(item)] == item]
         assert matches, f"event {item} not found in {ev}"
-        return matches[0]
+        return matches[-1] if last else matches[0]
 
     upload_tmp = idx(("upload", TMP))
     verify_tmp = idx(("verify", TMP))
     rowcount = idx(("rowcount", TMP))
     copy = idx(("copy", TMP, FINAL))
-    verify_final = idx(("verify", FINAL))
+    # last=True: the first ("verify", FINAL) is C6's existence probe before
+    # the upload; the one that matters for ordering is the post-copy verify.
+    verify_final = idx(("verify", FINAL), last=True)
     del_tmp = idx(("delete", TMP))
     db_delete = idx(("db_delete",))
     marker = idx(("upload", MARKER))
