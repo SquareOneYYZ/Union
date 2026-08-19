@@ -388,29 +388,45 @@ def fetch_chunked(conn, query: str, params: tuple, chunk_size: int = 50000):
 
 
 # ---------------------------------------------------------------------------
-# Batched DELETE -- avoids long table locks (#5 fix)
+# Batched DELETE by exported ids (D2) -- never by time window
 # ---------------------------------------------------------------------------
 
-def batch_delete(conn, table: str, time_col: str, device_id: int,
-                 period_start: date, period_end: date,
-                 batch_size: int = 10000) -> int:
-    """Delete in small batches to prevent long table locks."""
+def batch_delete_by_ids(conn, table: str, ids: list,
+                        chunk_size: int = 10000) -> int:
+    """Delete exactly the given ids, in chunks of chunk_size.
+
+    Keyed by the exported ids, never by a time window, so a row the export
+    never saw (e.g. late-arriving data inserted mid-run) can never be
+    deleted. Committed per chunk to keep table locks short. Returns the
+    number of rows actually deleted; the caller compares it against the
+    exported count.
+    """
     total_deleted = 0
-    while True:
+    for start in range(0, len(ids), chunk_size):
+        chunk = ids[start:start + chunk_size]
+        placeholders = ", ".join(["%s"] * len(chunk))
         with conn.cursor() as cur:
             cur.execute(
-                f"DELETE FROM {table} "
-                f"WHERE deviceid = %s AND {time_col} >= %s AND {time_col} < %s "
-                f"LIMIT %s",
-                (device_id, period_start, period_end, batch_size),
+                f"DELETE FROM {table} WHERE id IN ({placeholders})",
+                tuple(chunk),
             )
             deleted = cur.rowcount
         conn.commit()
         total_deleted += deleted
         logger.info("    Deleted batch of %d rows...", deleted)
-        if deleted < batch_size:
-            break
     return total_deleted
+
+
+def fetch_protected_position_ids(conn) -> set:
+    """tc_devices.positionid values -- a device's latest position is never
+    deleted (D9). Fetched once per run and applied as a Python-side filter,
+    keeping the DELETE a plain id IN (...) instead of a correlated subquery
+    against a table that changes constantly.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT positionid FROM tc_devices WHERE positionid IS NOT NULL")
+        return {row["positionid"] for row in cur.fetchall()}
 
 
 # ---------------------------------------------------------------------------
@@ -420,16 +436,22 @@ def batch_delete(conn, table: str, time_col: str, device_id: int,
 def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                   spaces_prefix: str, cutoff: date, temp_dir: str,
                   dry_run: bool, datetime_cols: list = None,
-                  key_prefix: str = PROD_KEY_PREFIX, deleter=None) -> tuple:
+                  key_prefix: str = PROD_KEY_PREFIX, deleter=None,
+                  id_exclusions: set = None) -> tuple:
     """
     Archive rows older than cutoff for any time-series table.
     Returns (total_rows_archived, failure_count).
 
     The DB-delete capability is injected via `deleter` (main passes
-    batch_delete for a destructive run). With deleter=None (--archive-only)
-    the deleting branch is never entered: this function then holds no
-    reference to any delete code, so no flag check guards a delete call --
-    the capability simply is not there.
+    batch_delete_by_ids for a destructive run). With deleter=None
+    (--archive-only) the deleting branch is never entered: this function then
+    holds no reference to any delete code, so no flag check guards a delete
+    call -- the capability simply is not there.
+
+    `id_exclusions` (D9): ids never handed to the deleter even when exported
+    -- currently the tc_devices.positionid set, so a device's latest position
+    stays in the DB (still archived; it is deleted by a later run once the
+    device reports again and the pointer moves on).
     """
     total    = 0
     failures = 0
@@ -531,9 +553,29 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                 logger.info("  [%s] Archive-only: finalized %s "
                             "(no DB delete, no marker).", table, spaces_key)
             else:
-                deleted = deleter(conn, table, time_col,
-                                  device_id, period_start, period_end)
-                logger.info("  [%s] Deleted %d rows in batches.", table, deleted)
+                ids = [int(i) for i in df["id"].tolist()]
+                if id_exclusions:
+                    keep = [i for i in ids if i not in id_exclusions]
+                    excluded = len(ids) - len(keep)
+                    if excluded:
+                        logger.info(
+                            "  [%s] Excluding %d row(s) referenced as a "
+                            "device's latest position from deletion "
+                            "(still archived).", table, excluded)
+                    ids = keep
+                deleted = deleter(conn, table, ids)
+                if deleted != len(ids):
+                    logger.error(
+                        "  [%s] DELETE COUNT MISMATCH for device=%d %s: "
+                        "expected %d, deleted %d. Failing this group loudly: "
+                        "archive left intact (temp key %s preserved), no "
+                        "marker uploaded, no repair attempted -- reconcile "
+                        "manually.",
+                        table, device_id, label, len(ids), deleted, temp_key)
+                    failures += 1
+                    continue
+                logger.info("  [%s] Deleted %d rows by id in batches.",
+                            table, deleted)
 
                 if not copy_spaces_key(cfg, temp_key, spaces_key):
                     logger.error(
@@ -607,12 +649,13 @@ DEVICE_GEOFENCE_SEGMENT_COLUMNS = [
 # ---------------------------------------------------------------------------
 
 def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
-                      key_prefix: str = PROD_KEY_PREFIX, deleter=None) -> tuple:
+                      key_prefix: str = PROD_KEY_PREFIX, deleter=None,
+                      id_exclusions: set = None) -> tuple:
     return archive_table(
         conn, cfg, "tc_positions", "fixtime", POSITIONS_COLUMNS,
         "positions", cutoff, temp_dir, dry_run,
         datetime_cols=["servertime", "devicetime", "fixtime"],
-        key_prefix=key_prefix, deleter=deleter,
+        key_prefix=key_prefix, deleter=deleter, id_exclusions=id_exclusions,
     )
 
 
@@ -793,7 +836,7 @@ def main():
 
     # The only place the delete capability is granted. --archive-only runs
     # never receive it, so no code path in them can delete rows.
-    deleter = None if archive_only else batch_delete
+    deleter = None if archive_only else batch_delete_by_ids
 
     # #9 fix: timezone-aware datetime
     now    = dt.now(timezone.utc).replace(tzinfo=None)
@@ -825,10 +868,19 @@ def main():
     pos_total = evt_total = geo_total = drv_total = dev_total = seg_total = 0
 
     try:
+        protected_ids = set()
+        if deleter is not None:
+            # D9: fetched once per run; a device's latest position is never
+            # handed to the deleter.
+            protected_ids = fetch_protected_position_ids(conn)
+            logger.info("Protected latest-position ids (D9, excluded from "
+                        "deletion): %d", len(protected_ids))
+
         mode_note = "archive only, DB unchanged" if archive_only else "then delete"
         logger.info("\n--- Archiving POSITIONS (old rows -> Spaces, %s) ---", mode_note)
         pos_total, pf = archive_positions(conn, cfg, cutoff, temp_dir, dry_run,
-                                          key_prefix=key_prefix, deleter=deleter)
+                                          key_prefix=key_prefix, deleter=deleter,
+                                          id_exclusions=protected_ids)
         total_failures += pf
 
         logger.info("\n--- Archiving EVENTS (old rows -> Spaces, %s) ---", mode_note)
