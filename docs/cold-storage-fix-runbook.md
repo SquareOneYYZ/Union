@@ -24,6 +24,10 @@ from deletion; dependencies via `requirements.txt` + system pip in `setup.sh`.
   ever run against the same DB or the same bucket. Recorded under "C1 lock decision input"
   below once staging's config answers arrive.
 
+**Backup branch note:** `riq-cold-storage-hardening-preclean` is a LOCAL-ONLY backup of the
+pre-scrub history of this branch (kept so nothing is lost during the clean rebuild). It must
+**never be pushed** to any remote.
+
 **Data-handling rule for this document:** this repo is public. Raw Phase 0 output — listings,
 config entries, hostnames, device IDs, log excerpts — is logged ONLY in
 `docs/.phase0-answers.local.md` (gitignored, never committed). This committed runbook records
