@@ -53,7 +53,7 @@ contaminated.**
 | F4 bucket listing | shared | **INVALID first run** (placeholder taken as shell redirection; s3cmd never executed; counts were over an empty file) — moved to the staging block, re-collection required |
 | F5 versioning/lifecycle | shared | _pending_ |
 | F6 DB timezone | prod / staging | _pending both_ |
-| F7 table state + discovery | prod | _pending_ |
+| F7 table state + discovery | prod | _pending — discovery output will be an ESTIMATE keyed to assumed retention (prod has no configured `archive.retention.months`)_ |
 | F9 python/deps | prod / staging | _pending both_ |
 | F10 config keys | prod | **zero `archive.*` keys present** (database.* present) |
 | F10 config keys | staging | _pending — decides STOP 5_ |
@@ -108,6 +108,24 @@ last collection spans **more than 24 hours**, S-F4 (bucket listing) and P-F7d (g
 discovery) are stale relative to each other — re-take them together before any
 STOP-condition verdict is treated as final.
 
+### Measurement-validity rule (added 2026-08-18 after two invalid measurements)
+
+For every s3cmd-based item (S-F4, S-F4b, S-F5): **a zero count or empty output is only a
+valid answer when the recorded exit code is 0 and stderr is empty.** A non-zero exit or any
+stderr (access denied, no such bucket, bad config path) is an **invalid measurement**, not
+evidence of an empty prefix — record it as "invalid — <reason>" and re-take it. Staging's
+credentials may not be able to read `iotrides` at all; "denied" and "empty" must never be
+conflated.
+
+### Credential-hygiene note (2026-08-18)
+
+A prod credential was mishandled during Phase 0 collection (pasted unredacted into the
+local answers file). Verified same day: the local answers file has never been committed on
+any ref (`git log --all --full-history`), no commit content anywhere in history contains
+the credential (`git log --all -S`), the gitignore rule covers the file, and it is
+untracked. **Rotation of the affected credential is required regardless of the clean git
+result.**
+
 ### Command block A — STAGING (primary evidence; run first)
 
 ```bash
@@ -141,20 +159,33 @@ grep -n -E "Archive complete|WARNING|ERROR|CRITICAL|MISMATCH" /opt/traccar/logs/
 grep -n "archive\.\|database\." /opt/traccar/conf/traccar.xml
 
 ### S-F4 — bucket listing. VARIABLE FORM — do not paste a <placeholder> into the
-### command line (the first attempt became a shell redirection and never ran).
-S3CFG="/path/from/S-F10/archive.s3cmd.configFile"   # <- edit this line first
-s3cmd --config "$S3CFG" ls --recursive s3://iotrides/archive/ | tee /tmp/archive_listing.txt
+### command line (attempt #1 became a shell redirection and never ran). Exit code
+### and stderr are captured so "empty" is distinguishable from "denied"/"no such
+### bucket": a zero count is VALID ONLY when exit=0 and stderr is empty.
+S3CFG="/path/from/S-F10/archive.s3cmd.configFile"   # <- EDIT THIS LINE FIRST
+s3cmd --config "$S3CFG" ls --recursive s3://iotrides/archive/ > /tmp/archive_listing.txt 2>/tmp/archive_err.txt
+echo "exit=$?"
+cat /tmp/archive_err.txt
+wc -l /tmp/archive_listing.txt
 grep -c '\.parquet\.tmp$' /tmp/archive_listing.txt   # ANY hit => STOP 1
 grep -c '\.parquet$'      /tmp/archive_listing.txt
 grep -c '\.done$'         /tmp/archive_listing.txt
-# Whole listing goes into the local answers file, then:
-rm -f /tmp/archive_listing.txt
+# Record exit code + stderr + whole listing in the local answers file, then:
+rm -f /tmp/archive_listing.txt /tmp/archive_err.txt
 
-### S-F4b — ONLY if S-F10 shows a staging bucket other than iotrides:
-# s3cmd --config "$S3CFG" ls --recursive s3://<staging-bucket>/archive/  (same capture + rm)
+### S-F4b — ONLY if S-F10 shows a staging bucket other than iotrides (same
+### exit/stderr capture rule):
+# s3cmd --config "$S3CFG" ls --recursive s3://<staging-bucket>/archive/ > /tmp/archive_listing.txt 2>/tmp/archive_err.txt
+# echo "exit=$?"; cat /tmp/archive_err.txt; wc -l /tmp/archive_listing.txt
+# grep -c '\.parquet\.tmp$' /tmp/archive_listing.txt; grep -c '\.parquet$' /tmp/archive_listing.txt; grep -c '\.done$' /tmp/archive_listing.txt
+# rm -f /tmp/archive_listing.txt /tmp/archive_err.txt
 
-### S-F5 — versioning + lifecycle for iotrides (and the staging bucket if different)
-s3cmd --config "$S3CFG" info s3://iotrides
+### S-F5 — versioning + lifecycle for iotrides (and the staging bucket if
+### different). Same rule: output only counts with exit=0 and empty stderr.
+s3cmd --config "$S3CFG" info s3://iotrides 2>/tmp/info_err.txt
+echo "exit=$?"
+cat /tmp/info_err.txt
+rm -f /tmp/info_err.txt
 # Plus DO console -> Spaces -> Settings per bucket: versioning ON/OFF, every lifecycle rule.
 
 ### S-F9 — staging python + deps (the versions the script has actually RUN with)
@@ -224,8 +255,11 @@ SELECT id, name FROM tc_devices ORDER BY id;
 -- query (same shape the script runs: archive_cold_storage.py:355-360). If P-F7b
 -- shows no usable time-column index and the scan is unacceptable, DO NOT run
 -- it — "discovery cannot run safely" is itself a critical answer.
--- Cutoff = UTC run date − retention months (staging S-F10 value; script default
--- 6 — prod config has no retention key). Run date 2026-08-18 + 6 -> '2026-02-18'.
+-- CUTOFF IS PROVISIONAL: prod config has NO archive.retention.months, so 6 is
+-- the script default, not a configured prod value. Whatever retention gets set
+-- on prod at arming time determines the real cutoff — record this output as an
+-- ESTIMATE keyed to the assumed retention, not a fixed group inventory.
+-- Assumed retention 6, run date 2026-08-18 -> cutoff '2026-02-18'.
 SELECT deviceid, YEAR(fixtime) AS yr, MONTH(fixtime) AS mo, COUNT(*) AS cnt
 FROM tc_positions WHERE fixtime < '2026-02-18'
 GROUP BY deviceid, YEAR(fixtime), MONTH(fixtime)
