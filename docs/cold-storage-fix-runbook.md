@@ -42,8 +42,8 @@ contaminated.**
 
 | Item | Environment | Conclusion |
 |---|---|---|
-| F0 host inventory | prod | 1 prod archiver host — operator-attested, console verification still requested |
-| F0 host inventory | staging | 1 staging host observed; installed by the same 2026-07-07 installer run as prod. **Open question: archiver temp dir mtime 2026-08-13 with no bucket writes since 2026-05-04 — what ran on Aug 13?** Console droplet count still pending |
+| F0 host inventory | prod | **ANSWERED: 1 host** (operator-confirmed 2026-08-19; single Linux box per environment, no multi-host archiver) |
+| F0 host inventory | staging | **ANSWERED: 1 host**, installed by the same 2026-07-07 installer run as prod. **Open question A1: archiver temp dir mtime 2026-08-13 with no bucket writes since 2026-05-04 — what ran on Aug 13? Must be answered before the staging repoint (Branch C)** |
 | F1 deployed hash | prod | _pending — first collection came back empty, re-requested (file size matches staging's, which is current)_ |
 | F1 deployed hash | staging | **matches `a364cefc4` (= HEAD)** → STOP 4 clear for staging |
 | F2 archive cron | prod | **NOT INSTALLED** → no prod 2026-09-01 deadline (Branch A) |
@@ -302,15 +302,16 @@ Every version of `scripts/archive_cold_storage.py` ever committed
 Match `a364cefc4` = current. Older row = stale deploy (diff before trusting). No row =
 STOP 4.
 
-### C1 lock decision input — VERDICT (2026-08-19)
+### C1 lock decision — FINAL (2026-08-19): per-host `flock`
 
-The environments **share the bucket today** (STOP 5) and share the managed MySQL server
-(different schemas). Decision: **per-host `flock`**, contingent on the STOP 5 isolation
-landing first — after isolation each environment owns its bucket/key space and runs on a
-single host, so the only real overlap (cron vs. manual run on the same host) is exactly what
-`flock` guards. A Spaces lock object is not needed once no two hosts can write the same
-keys; the isolation itself is the cross-environment guard and is a precondition for
-everything else anyway.
+F0 is answered: **one Linux box per environment, no multi-host archiver anywhere**
+(operator-confirmed). With separate buckets (Branch C) and separate DB schemas, the two
+environments can never contend, so the Spaces lock-object design is **dropped**. `flock`
+is scoped to what it actually protects: two invocations on the *same* box — the cron
+firing while someone hand-runs the script, which is exactly the pattern staging's history
+shows. Behavior: **non-blocking, fail fast and loud** — if the lock is held, the new
+invocation logs an error and exits non-zero immediately; it never blocks and waits, so a
+long-running manual run cannot silently queue a cron fire behind it. Ships in the C1 slice.
 
 ---
 
@@ -338,31 +339,36 @@ everything else anyway.
 A valid S-F4 shows 15,177 objects. Full legacy disposition is required; the
 no-legacy-reconciliation shortcut does not apply.
 
-### Branch C — STOP 5 resolution → **ACTIVE: staging bucket = the shared bucket**
+### Branch C — STOP 5 resolution → **REVISED 2026-08-19: full bucket separation**
 
-Isolation is now the prerequisite to everything. Constraint that decides the direction:
-`ArchiveResource.java` hardcodes the `archive/...` key prefix (`:807-812`) and D7 forbids
-Java changes — so **prod must own `<shared-bucket>/archive/` and staging must vacate it**;
-"move prod to a different prefix" is not available.
+Prod and staging use **entirely separate storage — different buckets, no shared prefix**.
+Verified 2026-08-19 that this is a pure config change with no D7 collision: the bucket name
+is config-driven on both sides — Java reads only `archive.spaces.bucket`
+(`ArchiveResource.java:114-122` via `Keys.java:2096`), the script reads the same key
+(`archive_cold_storage.py:102`), and no literal bucket name appears anywhere in
+`src/main/java` or the script. The only fixed element is the `archive/` key *prefix*, which
+is identical per bucket and works unchanged in both environments.
 
-Recommended resolution (human executes all bucket writes; nothing here is run by Claude):
+Sequence (human executes all console/bucket actions; none are run by Claude):
 
-1. Create a **separate staging bucket**, same region, same `archive/` key layout — the
-   archive read path then works unchanged in both environments.
-2. **Relocate** (server-side copy, then delete originals only after a verified count match)
-   all 15,177 objects + 5 markers from the shared bucket's `archive/` to the staging
-   bucket. Relocate, do NOT delete: the 5 marker-months' parquet files are the only copies
-   of staging rows already deleted from the staging DB (STOP 2 evidence), and the rest is
-   staging's dev-era archive.
-3. Point staging's `archive.spaces.bucket` at the new bucket.
-4. Only after the shared bucket's `archive/` prefix lists **empty** (a valid, exit-0
-   measurement) does prod arming become possible, and staging becomes usable as the D5
-   rehearsal target.
-
-Until step 4 completes, any prod run — old code or new — would skip colliding device-months
-as "already archived" (markers on device ids recorded in the local answers file) and, under the C6 merge semantics,
-would merge prod rows into staging parquet files. Nothing arms prod before the prefix is
-verified empty.
+- **A0 — access-policy verification (first, blocking):** verify the bucket access
+  policy against the record in the local answers file (DO console).
+- **A1 — open question, answered before the staging repoint:** what touched the archiver
+  temp dir on 2026-08-13? No longer a data-safety issue, but if someone is mid-experiment,
+  changing the bucket under them is disruptive. Stays open until answered.
+- **A2 — versioning ON for the prod bucket** before anything writes to it (closes STOP 3
+  for the bucket that matters).
+- **A3 — repoint staging's `archive.spaces.bucket` to its own bucket.**
+- **A4 — legacy objects become cleanup, not a blocker:** with staging repointed, the 15,177
+  objects in the old shared prefix are inert. Both options stay open and are sequenced
+  AFTER the prod work: (a) copy across to the staging bucket, or (b) delete under
+  versioning. The 5 marker-months' parquet files remain the only copies of staging rows
+  already deleted from the staging DB — that fact weighs on the choice.
+- **A5 — prod arming gate:** the `archive/` prefix of **whichever bucket prod's config
+  names** must list EMPTY on a valid measurement (exit=0, empty stderr). Corollary: if prod
+  were ever pointed at the old shared bucket instead of a fresh one, the legacy objects
+  become a blocker again — the gate is stated against prod's configured bucket, not any
+  particular bucket name.
 
 ---
 
