@@ -72,10 +72,64 @@ def parse_args():
     parser.add_argument("--config",  default=default_config,
                         help="Path to traccar.xml or debug.xml")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Upload but skip DB deletion")
+                        help="Upload, verify, then delete the verification upload again; "
+                             "skips DB deletion and finalization. Leaves NO artifact in "
+                             "the bucket, so it cannot serve as verification -- use "
+                             "--archive-only for that.")
     parser.add_argument("--months",  type=int, default=None,
                         help="Override retention_months from config")
+    parser.add_argument("--archive-only", action="store_true",
+                        help="Export + verify + finalize only: no DB deletes, no .done "
+                             "markers. For rehearsals and pre-populating the archive.")
+    parser.add_argument("--prefix", default=None,
+                        help="Rehearsal key-space prefix replacing the leading 'archive'. "
+                             "Requires --archive-only; must not resolve into the "
+                             "production 'archive/' key space.")
     return parser.parse_args()
+
+
+# The production key space. The Java read path (ArchiveResource) constructs
+# keys under this prefix, so rehearsals must never write into it.
+PROD_KEY_PREFIX = "archive"
+
+
+def validate_prefix(prefix: str) -> str:
+    """Normalize and validate a rehearsal key prefix.
+
+    Rejects anything that would land keys in the production key space, and
+    path tricks that could resolve there: empty or absolute paths, '.'/'..'
+    segments, empty segments, characters outside [A-Za-z0-9._-].
+    """
+    cleaned = (prefix or "").strip().strip("/")
+    if not cleaned:
+        raise ValueError("prefix is empty")
+    for seg in cleaned.split("/"):
+        if seg in ("", ".", ".."):
+            raise ValueError(f"segment not allowed: {seg!r}")
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", seg):
+            raise ValueError(f"segment has unsupported characters: {seg!r}")
+    if cleaned.split("/")[0] == PROD_KEY_PREFIX:
+        raise ValueError(
+            f"prefix resolves into the production '{PROD_KEY_PREFIX}/' key space")
+    return cleaned
+
+
+def resolve_run_options(args):
+    """Cross-validate CLI flags. Returns (key_prefix, archive_only)."""
+    if args.archive_only and args.dry_run:
+        logger.error("--archive-only and --dry-run are mutually exclusive.")
+        sys.exit(2)
+    if args.prefix is not None and not args.archive_only:
+        logger.error("--prefix is a rehearsal option and requires --archive-only; "
+                     "a destructive run must write to the production key space.")
+        sys.exit(2)
+    if args.prefix is None:
+        return PROD_KEY_PREFIX, args.archive_only
+    try:
+        return validate_prefix(args.prefix), args.archive_only
+    except ValueError as e:
+        logger.error("Invalid --prefix: %s", e)
+        sys.exit(2)
 
 
 # ---------------------------------------------------------------------------
@@ -365,10 +419,17 @@ def batch_delete(conn, table: str, time_col: str, device_id: int,
 
 def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                   spaces_prefix: str, cutoff: date, temp_dir: str,
-                  dry_run: bool, datetime_cols: list = None) -> tuple:
+                  dry_run: bool, datetime_cols: list = None,
+                  key_prefix: str = PROD_KEY_PREFIX, deleter=None) -> tuple:
     """
     Archive rows older than cutoff for any time-series table.
     Returns (total_rows_archived, failure_count).
+
+    The DB-delete capability is injected via `deleter` (main passes
+    batch_delete for a destructive run). With deleter=None (--archive-only)
+    the deleting branch is never entered: this function then holds no
+    reference to any delete code, so no flag check guards a delete call --
+    the capability simply is not there.
     """
     total    = 0
     failures = 0
@@ -396,9 +457,9 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
         period_end   = date(yr + 1, 1, 1) if mo == 12 else date(yr, mo + 1, 1)
         label        = f"{yr}-{mo:02d}"
         local_path   = os.path.join(temp_dir, f"{table}_{device_id}_{label}.parquet")
-        spaces_key   = f"archive/{spaces_prefix}/{device_id}/{label}.parquet"
-        temp_key     = f"archive/{spaces_prefix}/{device_id}/{label}.parquet.tmp"
-        marker_key   = f"archive/{spaces_prefix}/{device_id}/{label}.done"
+        spaces_key   = f"{key_prefix}/{spaces_prefix}/{device_id}/{label}.parquet"
+        temp_key     = f"{key_prefix}/{spaces_prefix}/{device_id}/{label}.parquet.tmp"
+        marker_key   = f"{key_prefix}/{spaces_prefix}/{device_id}/{label}.done"
 
         logger.info("  [%s] device=%d period=%s rows=%d", table, device_id, label, g["cnt"])
 
@@ -452,11 +513,26 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                 continue
 
             if dry_run:
-                logger.info("  [%s] --dry-run: skipping DB deletion and finalization.", table)
+                logger.info("  [%s] --dry-run: skipping DB deletion and finalization. "
+                            "The temp upload is deleted again now -- dry-run leaves no "
+                            "artifact and cannot serve as verification (use "
+                            "--archive-only for that).", table)
                 delete_spaces_key(cfg, temp_key)
+            elif deleter is None:
+                # --archive-only: finalize the parquet and stop. No delete
+                # capability was injected, so this branch cannot touch the DB;
+                # no .done marker either (marker means "archived AND deleted").
+                if not copy_spaces_key(cfg, temp_key, spaces_key):
+                    logger.error("  [%s] Could not finalize parquet key -- "
+                                 "temp key left at %s.", table, temp_key)
+                    failures += 1
+                    continue
+                delete_spaces_key(cfg, temp_key)
+                logger.info("  [%s] Archive-only: finalized %s "
+                            "(no DB delete, no marker).", table, spaces_key)
             else:
-                deleted = batch_delete(conn, table, time_col,
-                                       device_id, period_start, period_end)
+                deleted = deleter(conn, table, time_col,
+                                  device_id, period_start, period_end)
                 logger.info("  [%s] Deleted %d rows in batches.", table, deleted)
 
                 if not copy_spaces_key(cfg, temp_key, spaces_key):
@@ -530,19 +606,23 @@ DEVICE_GEOFENCE_SEGMENT_COLUMNS = [
 # Archive wrappers (#8 fix: one-liners using generic function)
 # ---------------------------------------------------------------------------
 
-def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> tuple:
+def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
+                      key_prefix: str = PROD_KEY_PREFIX, deleter=None) -> tuple:
     return archive_table(
         conn, cfg, "tc_positions", "fixtime", POSITIONS_COLUMNS,
         "positions", cutoff, temp_dir, dry_run,
         datetime_cols=["servertime", "devicetime", "fixtime"],
+        key_prefix=key_prefix, deleter=deleter,
     )
 
 
-def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> tuple:
+def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
+                   key_prefix: str = PROD_KEY_PREFIX, deleter=None) -> tuple:
     return archive_table(
         conn, cfg, "tc_events", "eventtime", EVENTS_COLUMNS,
         "events", cutoff, temp_dir, dry_run,
         datetime_cols=["eventtime"],
+        key_prefix=key_prefix, deleter=deleter,
     )
 
 
@@ -552,7 +632,8 @@ def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> tup
 
 def snapshot_table(conn, cfg, table_name: str, columns: list,
                    spaces_prefix: str, temp_dir: str,
-                   datetime_cols: list = None) -> int:
+                   datetime_cols: list = None,
+                   key_prefix: str = PROD_KEY_PREFIX) -> int:
     """
     Snapshot all rows to Spaces. DB is NEVER modified.
     Uploads: timestamped copy + latest.parquet (overwritten each run).
@@ -563,8 +644,8 @@ def snapshot_table(conn, cfg, table_name: str, columns: list,
 
     local_ts     = os.path.join(temp_dir, f"{table_name}_{label}.parquet")
     local_latest = os.path.join(temp_dir, f"{table_name}_latest.parquet")
-    key_ts       = f"archive/{spaces_prefix}/{label}.parquet"
-    key_latest   = f"archive/{spaces_prefix}/latest.parquet"
+    key_ts       = f"{key_prefix}/{spaces_prefix}/{label}.parquet"
+    key_latest   = f"{key_prefix}/{spaces_prefix}/latest.parquet"
 
     logger.info("  [%s] Reading all rows...", table_name)
 
@@ -606,24 +687,28 @@ def snapshot_table(conn, cfg, table_name: str, columns: list,
                 os.remove(p)
 
 
-def snapshot_geofences(conn, cfg, temp_dir):
+def snapshot_geofences(conn, cfg, temp_dir, key_prefix=PROD_KEY_PREFIX):
     return snapshot_table(conn, cfg, "tc_geofences",
-                          GEOFENCES_COLUMNS, "geofences", temp_dir)
+                          GEOFENCES_COLUMNS, "geofences", temp_dir,
+                          key_prefix=key_prefix)
 
-def snapshot_drivers(conn, cfg, temp_dir):
+def snapshot_drivers(conn, cfg, temp_dir, key_prefix=PROD_KEY_PREFIX):
     return snapshot_table(conn, cfg, "tc_drivers",
-                          DRIVERS_COLUMNS, "drivers", temp_dir)
+                          DRIVERS_COLUMNS, "drivers", temp_dir,
+                          key_prefix=key_prefix)
 
-def snapshot_devices(conn, cfg, temp_dir):
+def snapshot_devices(conn, cfg, temp_dir, key_prefix=PROD_KEY_PREFIX):
     return snapshot_table(conn, cfg, "tc_devices",
                           DEVICES_COLUMNS, "devices", temp_dir,
-                          datetime_cols=["lastupdate", "expirationtime"])
+                          datetime_cols=["lastupdate", "expirationtime"],
+                          key_prefix=key_prefix)
 
-def snapshot_device_geofence_segments(conn, cfg, temp_dir):
+def snapshot_device_geofence_segments(conn, cfg, temp_dir, key_prefix=PROD_KEY_PREFIX):
     return snapshot_table(conn, cfg, "tc_device_geofence_segment",
                           DEVICE_GEOFENCE_SEGMENT_COLUMNS,
                           "device_geofence_segments", temp_dir,
-                          datetime_cols=["entertime", "exittime"])
+                          datetime_cols=["entertime", "exittime"],
+                          key_prefix=key_prefix)
 
 
 # ---------------------------------------------------------------------------
@@ -689,9 +774,20 @@ def acquire_run_lock():
 # ---------------------------------------------------------------------------
 
 def main():
-    args  = parse_args()
+    args = parse_args()
+    key_prefix, archive_only = resolve_run_options(args)
+
+    # First line on the record: where this run writes. A misdirected
+    # rehearsal must be obvious from the very top of the log.
+    logger.info("KEY PREFIX: %s/  (archive-only=%s, dry-run=%s)",
+                key_prefix, archive_only, args.dry_run)
+
     props = load_config_xml(args.config)
     cfg   = PropsConfig(props)
+
+    logger.info("KEY SPACE: s3://%s/%s/...",
+                cfg.get("spaces", "bucket") or "<no bucket configured>",
+                key_prefix)
 
     retention_months = (args.months if args.months is not None
                         else int(props.get("archive.retention.months", 6)))
@@ -700,6 +796,10 @@ def main():
 
     # Held via the returned handle until the process exits.
     run_lock = acquire_run_lock()  # noqa: F841
+
+    # The only place the delete capability is granted. --archive-only runs
+    # never receive it, so no code path in them can delete rows.
+    deleter = None if archive_only else batch_delete
 
     # #9 fix: timezone-aware datetime
     now    = dt.now(timezone.utc).replace(tzinfo=None)
@@ -717,6 +817,8 @@ def main():
                     cfg.get("spaces", "bucket") or "N/A")
     logger.info("  Temp dir : %s", temp_dir)
     logger.info("  Dry run  : %s", dry_run)
+    logger.info("  Archive-only : %s", archive_only)
+    logger.info("  Key prefix   : %s/", key_prefix)
     logger.info("=" * 60)
 
     try:
@@ -729,39 +831,46 @@ def main():
     pos_total = evt_total = geo_total = drv_total = dev_total = seg_total = 0
 
     try:
-        logger.info("\n--- Archiving POSITIONS (old rows -> Spaces, then delete) ---")
-        pos_total, pf = archive_positions(conn, cfg, cutoff, temp_dir, dry_run)
+        mode_note = "archive only, DB unchanged" if archive_only else "then delete"
+        logger.info("\n--- Archiving POSITIONS (old rows -> Spaces, %s) ---", mode_note)
+        pos_total, pf = archive_positions(conn, cfg, cutoff, temp_dir, dry_run,
+                                          key_prefix=key_prefix, deleter=deleter)
         total_failures += pf
 
-        logger.info("\n--- Archiving EVENTS (old rows -> Spaces, then delete) ---")
-        evt_total, ef = archive_events(conn, cfg, cutoff, temp_dir, dry_run)
+        logger.info("\n--- Archiving EVENTS (old rows -> Spaces, %s) ---", mode_note)
+        evt_total, ef = archive_events(conn, cfg, cutoff, temp_dir, dry_run,
+                                       key_prefix=key_prefix, deleter=deleter)
         total_failures += ef
 
         logger.info("\n--- Snapshotting GEOFENCES (store only, DB unchanged) ---")
-        geo_total = snapshot_geofences(conn, cfg, temp_dir)
+        geo_total = snapshot_geofences(conn, cfg, temp_dir, key_prefix)
 
         logger.info("\n--- Snapshotting DRIVERS (store only, DB unchanged) ---")
-        drv_total = snapshot_drivers(conn, cfg, temp_dir)
+        drv_total = snapshot_drivers(conn, cfg, temp_dir, key_prefix)
 
         logger.info("\n--- Snapshotting DEVICES (store only, DB unchanged) ---")
-        dev_total = snapshot_devices(conn, cfg, temp_dir)
+        dev_total = snapshot_devices(conn, cfg, temp_dir, key_prefix)
 
         logger.info("\n--- Snapshotting DEVICE GEOFENCE SEGMENTS (store only, DB unchanged) ---")
-        seg_total = snapshot_device_geofence_segments(conn, cfg, temp_dir)
+        seg_total = snapshot_device_geofence_segments(conn, cfg, temp_dir, key_prefix)
 
     finally:
         conn.close()
 
     logger.info("\n" + "=" * 60)
     logger.info("  Archive complete.")
-    logger.info("  Positions archived      : %d  (deleted from DB)", pos_total)
-    logger.info("  Events archived         : %d  (deleted from DB)", evt_total)
+    row_note = "(DB unchanged -- archive-only)" if archive_only else "(deleted from DB)"
+    logger.info("  Positions archived      : %d  %s", pos_total, row_note)
+    logger.info("  Events archived         : %d  %s", evt_total, row_note)
     logger.info("  Geofences snapshotted   : %d  (DB unchanged)", geo_total)
     logger.info("  Drivers snapshotted     : %d  (DB unchanged)", drv_total)
     logger.info("  Devices snapshotted     : %d  (DB unchanged)", dev_total)
     logger.info("  Geofence segs snap.     : %d  (DB unchanged)", seg_total)
     if dry_run:
-        logger.info("  NOTE: --dry-run -- no rows deleted from DB.")
+        logger.info("  NOTE: --dry-run -- no rows deleted from DB, and the "
+                    "verification uploads were removed again (no artifact left).")
+    if archive_only:
+        logger.info("  NOTE: --archive-only -- no rows deleted, no markers uploaded.")
     if total_failures > 0:
         logger.warning("  WARNING: %d group(s) failed.", total_failures)
     logger.info("=" * 60)
