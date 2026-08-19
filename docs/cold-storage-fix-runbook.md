@@ -38,26 +38,27 @@ config entries, hostnames, device IDs, log excerpts — is logged ONLY in
 behaviour); prod's questions have narrowed to: **is it armed, and is its key space already
 contaminated.**
 
-### Derived conclusions so far (prod partials collected 2026-08-18; raw output in the local answers file)
+### Derived conclusions (prod partials 2026-08-18; staging set 2026-08-19 — all staging measurements VALID; raw output in the local answers file)
 
 | Item | Environment | Conclusion |
 |---|---|---|
 | F0 host inventory | prod | 1 prod archiver host — operator-attested, console verification still requested |
-| F0 host inventory | staging | _pending_ |
-| F1 deployed hash | prod | _pending — first collection came back empty, re-requested_ |
-| F1 deployed hash | staging | _pending_ |
-| F2 archive cron | prod | **NOT INSTALLED** (no root/user crontab entry, nothing in `/etc/cron.d`) |
-| F2 archive cron | staging | _pending_ |
+| F0 host inventory | staging | 1 staging host observed; installed by the same 2026-07-07 installer run as prod. **Open question: archiver temp dir mtime 2026-08-13 with no bucket writes since 2026-05-04 — what ran on Aug 13?** Console droplet count still pending |
+| F1 deployed hash | prod | _pending — first collection came back empty, re-requested (file size matches staging's, which is current)_ |
+| F1 deployed hash | staging | **matches `a364cefc4` (= HEAD)** → STOP 4 clear for staging |
+| F2 archive cron | prod | **NOT INSTALLED** → no prod 2026-09-01 deadline (Branch A) |
+| F2 archive cron | staging | **armed but hand-parked to a yearly schedule** — next fire 2027-03-09; the parking postdates the 2026-07-07 installer run (which resets the cron to monthly, proving the rearm-by-installer risk is real on staging too). No staging 2026-09-01 deadline |
 | F3 archive.log | prod | **does not exist** — archiver has never run on prod |
-| F3 run history | staging | _pending_ |
-| F4 bucket listing | shared | **INVALID first run** (placeholder taken as shell redirection; s3cmd never executed; counts were over an empty file) — moved to the staging block, re-collection required |
-| F5 versioning/lifecycle | shared | _pending_ |
+| F3 run history | staging | **no archive.log exists** — run history comes from bucket object dates + markers instead: write bursts 2026-02-24→03-14 (dev era) and 2026-05-04; **5 `.done` markers prove real deleting runs against the staging DB** (2026-03-14 and 2026-05-04) |
+| F4 bucket listing | shared | **VALID (exit=0, empty stderr): 15,177 `.parquet`, 5 `.done`, 0 `.tmp`** — prefix NOT empty, all objects staging-provenance → STOP 1 clear, STOP 5 TRIGGERED. Clock-garbage months confirmed at scale (a ~1,179-device cluster in month 2000-01, plus 1980/2004/2008/2013 strays) |
+| F5 versioning/lifecycle | shared | **VALID: versioning OFF → STOP 3 TRIGGERED.** No lifecycle expiry rule. Bucket access-policy state is recorded in the local answers file and is verified under A0 (human, console) |
 | F6 DB timezone | prod / staging | _pending both_ |
-| F7 table state + discovery | prod | _pending — discovery output will be an ESTIMATE keyed to assumed retention (prod has no configured `archive.retention.months`)_ |
-| F9 python/deps | prod / staging | _pending both_ |
+| F7 table state + discovery | prod | _pending — discovery output will be an ESTIMATE keyed to assumed retention (prod has no configured `archive.retention.months`; staging's configured value is also 6)_ |
+| F9 python/deps | prod | _pending_ |
+| F9 python/deps | staging | **Python 3.12.7, all four deps import** — the proven-working version set is recorded locally as the candidate C8 pins |
 | F10 config keys | prod | **zero `archive.*` keys present** (database.* present) |
-| F10 config keys | staging | _pending — decides STOP 5_ |
-| Device-id overlap | both DBs | _pending_ |
+| F10 config keys | staging | **bucket = the shared bucket → STOP 5**; retention 6; no interpreter split (same python3 for script and s3cmd). **DB = same managed MySQL server as prod, different schema** — not the prod database (no full stop), but shared DB infrastructure |
+| Device-id overlap | both DBs | _pending — the 5 staging markers sit on device ids recorded in the local answers file; prod's autoincrement space almost certainly also contains them_ |
 
 **Consequences already in force:**
 
@@ -75,7 +76,17 @@ contaminated.**
    be handled, and the Phase 1 anomaly scan (`fixtime < '2015-01-01' OR fixtime IS NULL`)
    is not optional.
 
-### STOP conditions — if any is true, halt; no code gets written until it is resolved
+### STOP-condition status as of 2026-08-19
+
+| # | Condition | Status |
+|---|---|---|
+| 1 | `.tmp` residue | **CLEAR** (valid F4: zero `.tmp`) |
+| 2 | log vs `.done` reconciliation | **UNRESOLVABLE AS SPECIFIED** — no archive.log exists anywhere; deleting runs are evidenced by the 5 markers instead. Absorbed into the STOP 5 disposition: the 5 marker-months' parquet files are the only copies of staging rows already deleted from the staging DB, and must be preserved through any relocation |
+| 3 | versioning OFF | **TRIGGERED** — enabling versioning (Phase 1 item 1, human/console) must precede anything that writes to the bucket |
+| 4 | unknown deployed hash | **CLEAR for staging** (= HEAD); prod re-take pending |
+| 5 | shared bucket / key collision | **TRIGGERED** — staging's bucket IS the bucket prod will use; 15,177 staging objects + 5 markers occupy prod's future key space. Resolution path in Branch C below |
+
+### STOP conditions — definitions (if any is true, halt; no code ships until resolved)
 
 **STOP 5 — shared bucket / key collision (HIGHEST PRIORITY, new 2026-08-18).** Staging has
 produced real archive objects; prod has produced none. If staging's
@@ -291,11 +302,15 @@ Every version of `scripts/archive_cold_storage.py` ever committed
 Match `a364cefc4` = current. Older row = stale deploy (diff before trusting). No row =
 STOP 4.
 
-### C1 lock decision input (open — filled from S-F10 + the device-id cross-check)
+### C1 lock decision input — VERDICT (2026-08-19)
 
-Per-host `flock` suffices only if staging and prod can never run against the same DB or the
-same bucket. If they share (or could come to share) either, the lock must be a Spaces lock
-object in the shared key space. Verdict: _pending staging config._
+The environments **share the bucket today** (STOP 5) and share the managed MySQL server
+(different schemas). Decision: **per-host `flock`**, contingent on the STOP 5 isolation
+landing first — after isolation each environment owns its bucket/key space and runs on a
+single host, so the only real overlap (cron vs. manual run on the same host) is exactly what
+`flock` guards. A Spaces lock object is not needed once no two hosts can write the same
+keys; the isolation itself is the cross-environment guard and is a precondition for
+everything else anyway.
 
 ---
 
@@ -311,33 +326,43 @@ object in the shared key space. Verdict: _pending staging config._
 - Phase 1 re-sequences without calendar pressure: (1) bucket versioning — still first,
   gates any bucket write; (2) baseline queries — any time; (3) DB snapshot — deferred to
   immediately before the first destructive run in Phase 5.
-- **Staging caveat:** Branch A covers prod only. If S-F2 shows staging's cron armed,
-  staging fires the unfixed script on 2026-09-01 against staging's DB — and if STOP 5 shows
-  a shared bucket, that run grows the contamination. In that combination, disabling
-  staging's cron becomes the real deadline-bound action.
+- **Staging caveat (resolved 2026-08-19):** staging's cron is armed but hand-parked to a
+  yearly schedule (next fire 2027-03-09) — no 2026-09-01 deadline on staging either. The
+  parking postdates the 2026-07-07 installer run, which had reset the schedule to monthly:
+  live proof that `setup.sh:29-35` rearms the cron on every installer run. The standing
+  rule therefore extends to staging: an installer run there un-parks the cron to monthly,
+  so no `traccar.run` on staging either outside a planned sequence.
 
-### Branch B — `archive/` prefix empty or near-empty (pending a VALID S-F4)
+### Branch B — `archive/` prefix empty → **INACTIVE (ruled out 2026-08-19)**
 
-- The first F4 attempt was invalid (no listing ever ran). If a valid S-F4 shows an empty
-  prefix: no legacy objects exist under the old semantics, D3's semantics change needs no
-  legacy reconciliation, STOP 1/2 evaluate trivially, and the D8 tz caveat reduces to
-  "archive created entirely post-fix". But with staging known to have run, an empty listing
-  now has a second reading: **staging wrote its objects somewhere else** — S-F4b must then
-  locate them before Branch B is declared, and S-F3's log must reconcile against wherever
-  they are. A log showing deleting runs with NO objects anywhere findable = full stop,
-  severity-1, report immediately.
-- "Near-empty" is not "empty": every object that does exist gets individually accounted for
-  (key, provenance, whether its rows survive in the source DB) before any destructive run.
+A valid S-F4 shows 15,177 objects. Full legacy disposition is required; the
+no-legacy-reconciliation shortcut does not apply.
 
-### Branch C — STOP 5 resolution paths (filled once S-F10/S-F4 arrive)
+### Branch C — STOP 5 resolution → **ACTIVE: staging bucket = the shared bucket**
 
-- **Staging bucket = iotrides:** isolation fix is a prerequisite to everything — staging
-  must move to its own bucket or an isolated prefix prod never reads, and the shared
-  `archive/` prefix must be dispositioned object-by-object (staging provenance → move or
-  delete under human control; nothing of prod's exists to lose). Only then is staging
-  usable as the D5 rehearsal target.
-- **Staging bucket ≠ iotrides:** no collision; `iotrides/archive/` should be empty (prod
-  never ran) — any object there is unexplained residue and blocks until attributed.
+Isolation is now the prerequisite to everything. Constraint that decides the direction:
+`ArchiveResource.java` hardcodes the `archive/...` key prefix (`:807-812`) and D7 forbids
+Java changes — so **prod must own `<shared-bucket>/archive/` and staging must vacate it**;
+"move prod to a different prefix" is not available.
+
+Recommended resolution (human executes all bucket writes; nothing here is run by Claude):
+
+1. Create a **separate staging bucket**, same region, same `archive/` key layout — the
+   archive read path then works unchanged in both environments.
+2. **Relocate** (server-side copy, then delete originals only after a verified count match)
+   all 15,177 objects + 5 markers from the shared bucket's `archive/` to the staging
+   bucket. Relocate, do NOT delete: the 5 marker-months' parquet files are the only copies
+   of staging rows already deleted from the staging DB (STOP 2 evidence), and the rest is
+   staging's dev-era archive.
+3. Point staging's `archive.spaces.bucket` at the new bucket.
+4. Only after the shared bucket's `archive/` prefix lists **empty** (a valid, exit-0
+   measurement) does prod arming become possible, and staging becomes usable as the D5
+   rehearsal target.
+
+Until step 4 completes, any prod run — old code or new — would skip colliding device-months
+as "already archived" (markers on device ids recorded in the local answers file) and, under the C6 merge semantics,
+would merge prod rows into staging parquet files. Nothing arms prod before the prefix is
+verified empty.
 
 ---
 
