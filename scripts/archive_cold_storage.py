@@ -715,24 +715,18 @@ def snapshot_device_geofence_segments(conn, cfg, temp_dir, key_prefix=PROD_KEY_P
 # Run lock -- cron and a manual run must never overlap
 # ---------------------------------------------------------------------------
 
-def _lock_path() -> str:
-    """Fixed lock location, deliberately independent of any config value.
+# One fixed lock path -- no config derivation, no fallback. Deriving it from
+# archive.temp.dir would let a run with a different --config lock a different
+# file; a fallback path has the same flaw (two identities resolving to two
+# different files = no mutual exclusion). If the running identity cannot open
+# this path, the run fails loudly instead. Tentative pending the L1 host
+# answers (which identities run cron vs. hand-runs, and what /var/lock allows).
+LOCK_PATH = "/var/lock/traccar-archive.lock"
 
-    archive.temp.dir comes from --config, so deriving the lock from it would
-    let a manual run pointing at a different config lock a different file and
-    slip past the cron's lock -- the exact overlap the lock exists to stop.
-    /var/lock is host-wide; the fallback is the directory this script itself
-    lives in, which is identical for cron and manual runs of the installed
-    copy.
-    """
-    primary_dir = "/var/lock"
-    if os.path.isdir(primary_dir) and os.access(primary_dir, os.W_OK):
-        return os.path.join(primary_dir, "traccar-archive.lock")
-    fallback = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "archive_cold_storage.lock")
-    logger.warning("%s not writable -- using lock fallback %s",
-                   primary_dir, fallback)
-    return fallback
+
+def _lock_path() -> str:
+    """Fixed lock location, deliberately independent of any config value."""
+    return LOCK_PATH
 
 
 def acquire_run_lock():

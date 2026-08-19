@@ -8,8 +8,6 @@ problem on a real host, and downgrade to a warning ONLY when fcntl itself is
 absent (Windows dev boxes).
 """
 
-import os
-
 import pytest
 
 import archive_cold_storage as acs
@@ -19,15 +17,10 @@ posix_only = pytest.mark.skipif(
 )
 
 
-def test_lock_path_is_config_independent():
-    # Only two possible locations, neither influenced by any config value:
-    # the host-wide /var/lock, or the script's own directory.
-    p = acs._lock_path()
-    assert p in (
-        "/var/lock/traccar-archive.lock",
-        os.path.join(os.path.dirname(os.path.abspath(acs.__file__)),
-                     "archive_cold_storage.lock"),
-    )
+def test_lock_path_is_fixed_and_config_independent():
+    # Exactly one location, no config derivation, no fallback: two identities
+    # resolving to two different lock files would mean no mutual exclusion.
+    assert acs._lock_path() == acs.LOCK_PATH == "/var/lock/traccar-archive.lock"
 
 
 @posix_only
