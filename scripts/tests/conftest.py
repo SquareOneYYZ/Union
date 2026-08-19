@@ -22,7 +22,7 @@ def s3(monkeypatch):
 
     calls = {
         "uploads": [], "copies": [], "spaces_deletes": [], "events": [],
-        "fail_copy": False, "fail_verify": set(),
+        "fail_copy": False, "fail_verify": set(), "tmp_exists": set(),
     }
 
     def do_upload(cfg, path, key):
@@ -38,7 +38,7 @@ def s3(monkeypatch):
 
     def check_temp_key_exists(cfg, key):
         calls["events"].append(("check_tmp", key))
-        return False
+        return key in calls["tmp_exists"]
 
     def verify_row_count(cfg, key, n):
         calls["events"].append(("rowcount", key))

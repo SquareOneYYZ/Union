@@ -473,8 +473,9 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
     stays in the DB (still archived; it is deleted by a later run once the
     device reports again and the pointer moves on).
     """
-    total    = 0
-    failures = 0
+    total      = 0
+    failures   = 0
+    tmp_aborts = 0
 
     with conn.cursor() as cur:
         cur.execute(
@@ -511,11 +512,27 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
             continue
 
         if check_temp_key_exists(cfg, temp_key):
-            logger.warning(
-                "  [%s] Found leftover temp key %s — previous run was killed mid-delete. "
-                "Cleaning up and restarting this group.", table, temp_key
+            # C5: a leftover tmp is EVIDENCE, never garbage. This code cannot
+            # tell which history produced it, so it aborts the group and
+            # leaves the object exactly as found. Other groups continue.
+            logger.error(
+                "  [%s] ABORTING GROUP device=%d %s: leftover temp key %s. "
+                "Two possible histories and this script cannot tell them "
+                "apart: (a) written by THIS version (finalize-before-delete) "
+                "-- the run died before finalize, the DB still holds every "
+                "row, the tmp is redundant residue; (b) written by an OLDER "
+                "version (delete-before-finalize) -- the run died mid-delete "
+                "and the tmp may be the ONLY copy of rows already deleted "
+                "from the DB. Resolve before touching it: does the final key "
+                "%s exist, and does the DB still hold this device-month's "
+                "rows? Procedure: docs/cold-storage-fix-runbook.md, section "
+                "'Leftover tmp keys'. Other groups continue; this run will "
+                "exit non-zero.",
+                table, device_id, label, temp_key, spaces_key,
             )
-            delete_spaces_key(cfg, temp_key)
+            failures += 1
+            tmp_aborts += 1
+            continue
 
         try:
             cols  = ", ".join(columns)
@@ -623,6 +640,12 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
         finally:
             if os.path.exists(local_path):
                 os.remove(local_path)
+
+    if tmp_aborts:
+        logger.error(
+            "[%s] %d group(s) aborted on leftover temp keys -- resolve per "
+            "the runbook ('Leftover tmp keys') before their next run.",
+            table, tmp_aborts)
 
     return total, failures
 

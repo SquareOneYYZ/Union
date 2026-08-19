@@ -125,6 +125,38 @@ deletes prod rows: immediate full stop.
    host was hand-edited; diff before trusting anything it produced (for staging this taints
    the run-history evidence, not just the future).
 
+### Leftover tmp keys — resolution procedure (referenced by the C5 abort message)
+
+A leftover `.parquet.tmp` aborts its own group only — other groups continue, and the run
+exits non-zero at the end with a count of aborted groups. The code never deletes a tmp:
+it cannot know which semantics produced it.
+
+- **New semantics** (C4 onward, finalize-before-delete): the run died before finalize →
+  the DB still holds every row for that device-month; the tmp is redundant residue.
+- **Old semantics** (anything written before C4 deployed): the run died mid-delete → the
+  tmp may be the ONLY copy of rows already deleted from the DB.
+
+Resolution, read-only first, in order:
+
+1. **Date the object**: `s3cmd info` on the tmp key — written before or after the C4
+   deploy date on that host?
+2. **Does the final `.parquet` exist** for the same device-month key?
+3. **Does the DB still hold the rows?** Per-device count (index-safe — never a time-only
+   scan):
+   `SELECT COUNT(*) FROM <table> WHERE deviceid = <id> AND <timecol> >= '<month-start>'
+   AND <timecol> < '<next-month-start>';`
+
+Decision:
+
+- DB holds the full month → the tmp is redundant: a human may delete it (record it in the
+  local answers file first); the group re-runs normally next cycle.
+- DB is missing rows AND no final key exists → **the tmp is the only copy: PRESERVE IT**;
+  a restore is required before anything else touches that device-month.
+- DB is missing rows AND a final key exists → compare the tmp's and the final's row sets
+  before deciding anything; they were written by different attempts.
+
+Automation never deletes a tmp. Only a human, after steps 1–3, on the record.
+
 ### Collection-window rule
 
 Every answers-file section carries a `Collected:` UTC timestamp. If the window from first to
