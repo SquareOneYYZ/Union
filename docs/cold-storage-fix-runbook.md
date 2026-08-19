@@ -42,6 +42,14 @@ config entries, hostnames, device IDs, log excerpts — is logged ONLY in
 behaviour); prod's questions have narrowed to: **is it armed, and is its key space already
 contaminated.**
 
+**Outstanding as of 2026-08-19:** prod — P-F1 (hash re-take; first paste was empty), P-F9
+(python + deps), `SHOW INDEX FROM tc_events` (completes P-F7b), `SELECT
+@@system_time_zone;` (completes P-F6); both hosts — the L1 lock-identity checks; staging —
+S-F6 (optional, informs D8); console — droplet count, versioning/lifecycle confirmation,
+A0 access-policy verification; open question A1 (the 2026-08-13 temp-dir touch). Removed:
+P-F7c (deferred — no usable index), P-F7d (not run — unsafe), P-DEV/S-DEV (obsoleted by
+full bucket separation).
+
 ### Derived conclusions (prod partials 2026-08-18; staging set 2026-08-19 — all staging measurements VALID; raw output in the local answers file)
 
 | Item | Environment | Conclusion |
@@ -56,8 +64,9 @@ contaminated.**
 | F3 run history | staging | **no archive.log exists** — run history comes from bucket object dates + markers instead: write bursts 2026-02-24→03-14 (dev era) and 2026-05-04; **5 `.done` markers prove real deleting runs against the staging DB** (2026-03-14 and 2026-05-04) |
 | F4 bucket listing | shared | **VALID (exit=0, empty stderr): 15,177 `.parquet`, 5 `.done`, 0 `.tmp`** — prefix NOT empty, all objects staging-provenance → STOP 1 clear, STOP 5 TRIGGERED. Clock-garbage months confirmed at scale (a ~1,179-device cluster in month 2000-01, plus 1980/2004/2008/2013 strays) |
 | F5 versioning/lifecycle | shared | **VALID: versioning OFF → STOP 3 TRIGGERED.** No lifecycle expiry rule. Bucket access-policy state is recorded in the local answers file and is verified under A0 (human, console) |
-| F6 DB timezone | prod / staging | _pending both_ |
-| F7 table state + discovery | prod | _pending — discovery output will be an ESTIMATE keyed to assumed retention (prod has no configured `archive.retention.months`; staging's configured value is also 6)_ |
+| F6 DB timezone | prod | **COLLECTED: `SYSTEM`/`SYSTEM`, currently resolving to UTC — an observation, not a guarantee.** `@@system_time_zone` follow-up outstanding; explicit tz pinning is a required step everywhere (see below) |
+| F6 DB timezone | staging | _pending (optional — informs the D8 note on existing staging parquet; same server as prod)_ |
+| F7 table state + discovery | prod | **P-F7a COLLECTED: tc_positions ≈730.7M, tc_events ≈103.4M** (larger than the ~623M planning figure). **P-F7b partial: positions = PRIMARY(id) + (deviceid, fixtime); tc_events index inventory OUTSTANDING.** P-F7c deferred (no fixtime-led index). **P-F7d NOT RUN — unsafe (time-only filter cannot use the index; ~730M-row scan) — removed from the checklist** |
 | F9 python/deps | prod | _pending_ |
 | F9 python/deps | staging | **Python 3.12.7, all four deps import** — the proven-working version set is recorded locally as the candidate C8 pins |
 | F10 config keys | prod | **zero `archive.*` keys present** (database.* present) |
@@ -241,50 +250,75 @@ sha256sum /opt/traccar/scripts/archive_cold_storage.py
 ```
 
 ```sql
--- ### Prod managed MySQL (read-only). Sized for ~623M rows: no full-table
--- ### COUNT/MIN/MAX scans. P-F7d runs LAST, ALONE, OFF-PEAK.
+-- ### Prod managed MySQL (read-only). Estimates: tc_positions ~730.7M rows,
+-- ### tc_events ~103.4M rows (P-F7a, 2026-08-19). No time-only-filtered
+-- ### query is safe on tc_positions: the sole time-bearing index is
+-- ### (deviceid, fixtime), led by deviceid.
 
--- P-F6 — prod DB timezone
-SELECT @@global.time_zone, @@session.time_zone, NOW(), UTC_TIMESTAMP();
+-- P-F6 — COLLECTED: SYSTEM/SYSTEM; NOW() = UTC_TIMESTAMP() at collection.
+-- "Currently UTC" is an OBSERVATION, not a guarantee (SYSTEM follows the OS
+-- zone). One follow-up remains:
+SELECT @@system_time_zone;
 
--- P-F7a — approximate row counts (statistics read, no scan)
-SELECT table_name, table_rows
-FROM information_schema.tables
-WHERE table_schema = DATABASE() AND table_name IN ('tc_positions', 'tc_events');
+-- P-F7a — COLLECTED (estimates above).
 
--- P-F7b — index inventory FIRST (decides whether P-F7c is safe)
-SHOW INDEX FROM tc_positions;
+-- P-F7b — PARTIALLY COLLECTED: tc_positions = PRIMARY(id) +
+-- position_deviceid_fixtime(deviceid, fixtime). STILL NEEDED:
 SHOW INDEX FROM tc_events;
 
--- P-F7c — min/max, ONLY if P-F7b shows an index whose LEADING column is fixtime
--- (resp. eventtime). Otherwise SKIP and record "deferred — no index".
-SELECT fixtime   FROM tc_positions ORDER BY fixtime  ASC  LIMIT 1;
-SELECT fixtime   FROM tc_positions ORDER BY fixtime  DESC LIMIT 1;
-SELECT eventtime FROM tc_events    ORDER BY eventtime ASC  LIMIT 1;
-SELECT eventtime FROM tc_events    ORDER BY eventtime DESC LIMIT 1;
+-- P-F7c — DEFERRED per the recorded rule: no fixtime-led index exists, so a
+-- global ORDER BY fixtime LIMIT 1 is a full scan. Do not run. (Per-device
+-- min/max IS index-supported if ever needed.)
 
--- P-DEV — prod device-id inventory (STOP 5 collision cross-check vs staging)
-SELECT id, name FROM tc_devices ORDER BY id;
+-- P-F7d — REMOVED FROM THIS CHECKLIST: NOT RUN — no usable index; a
+-- time-only-filtered GROUP BY is a full scan of ~730M rows on an instance
+-- staging shares. If a group inventory is needed later, obtain it
+-- per-device (deviceid = ? AND fixtime < ? uses the index) or from
+-- information_schema estimates.
 
--- P-F7d — group discovery. LAST, ALONE, OFF-PEAK. The one unavoidably heavy
--- query (same shape the script runs: archive_cold_storage.py:355-360). If P-F7b
--- shows no usable time-column index and the scan is unacceptable, DO NOT run
--- it — "discovery cannot run safely" is itself a critical answer.
--- CUTOFF IS PROVISIONAL: prod config has NO archive.retention.months, so 6 is
--- the script default, not a configured prod value. Whatever retention gets set
--- on prod at arming time determines the real cutoff — record this output as an
--- ESTIMATE keyed to the assumed retention, not a fixed group inventory.
--- Assumed retention 6, run date 2026-08-18 -> cutoff '2026-02-18'.
-SELECT deviceid, YEAR(fixtime) AS yr, MONTH(fixtime) AS mo, COUNT(*) AS cnt
-FROM tc_positions WHERE fixtime < '2026-02-18'
-GROUP BY deviceid, YEAR(fixtime), MONTH(fixtime)
-ORDER BY deviceid, yr, mo;
-
-SELECT deviceid, YEAR(eventtime) AS yr, MONTH(eventtime) AS mo, COUNT(*) AS cnt
-FROM tc_events WHERE eventtime < '2026-02-18'
-GROUP BY deviceid, YEAR(eventtime), MONTH(eventtime)
-ORDER BY deviceid, yr, mo;
+-- P-DEV / S-DEV — OBSOLETED by Branch C full bucket separation (separate
+-- buckets cannot produce colliding keys; the A5 empty-prefix gate covers
+-- legacy objects). Optional background data only.
 ```
+
+### Required step (from P-F6): explicit tz pinning everywhere
+
+The DB server runs `time_zone = SYSTEM` and merely *happens* to resolve to UTC today. The
+script's own sessions are pinned by C1 (`init_command SET time_zone '+00:00'`). Every
+OTHER reader must pin explicitly too: the DuckDB/reconciliation sessions in Phase 5, any
+ad-hoc client used for verification queries, and any future partition DDL (out of scope
+here, D7). Record `@@system_time_zone` when collected. No step in this runbook may rely
+on the current coincidence.
+
+### Performance defect (distinct from the data-loss series) — decision pending
+
+The deployed script's group-discovery query (`archive_cold_storage.py:355-360`) filters on
+the time column alone (`WHERE fixtime < cutoff GROUP BY deviceid, year, month`). With the
+only time-bearing index led by `deviceid`, **every cron fire begins with a full scan of
+tc_positions (~730.7M rows), plus the analogous tc_events scan**, on a DB instance both
+environments share. Export and delete are unaffected (they filter `deviceid` + time,
+matching the index). Restructure options are recorded here; implementation waits for an
+explicit decision. Whether tc_events has a usable `(deviceid, eventtime)` index is still
+unknown (P-F7b outstanding) and affects the events side of any option.
+
+**Option A — device-iterated discovery (recommended).** Enumerate device ids first, then
+per device run `SELECT YEAR(t), MONTH(t), COUNT(*) ... WHERE deviceid = ? AND t < cutoff
+GROUP BY 1, 2` — an index range scan touching only that device's old rows. Device list via
+`SELECT DISTINCT deviceid FROM tc_positions` (a loose index scan on the leading column;
+also catches orphan rows a `tc_devices` join would miss). Total cost per run ≈ one
+distinct-scan + reads proportional to the actual backlog, instead of the whole table.
+Code cost: one commit — the discovery function changes shape, the group loop is untouched
+(same groups list), plus offline tests. Events side needs the tc_events index answer
+first; if events lacks a deviceid-led index, its discovery stays a scan and the option
+applies to positions only until that's known.
+
+**Option B — add a fixtime-led index.** Ruled out here: schema DDL is out of scope (D7),
+and an online index build on 730M rows is its own project.
+
+**Option C — leave as-is for now.** The cron is unarmed everywhere, so nothing fires
+unsupervised; the first supervised runs eat one full scan each, off-peak. Zero code cost,
+but the defect ships into production usage and the scan lands on the shared instance every
+monthly fire thereafter.
 
 ### Historical script hashes (for F1 on either host / STOP condition 4)
 
