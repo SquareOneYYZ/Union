@@ -166,10 +166,29 @@ STOP-condition verdict is treated as final.
 
 ### Measurement-validity rule (added 2026-08-18; ENFORCED IN CODE since the second review)
 
-**As of the 2026-08-20 review fixes the script enforces this rule itself:** every s3cmd
-call runs under a hard timeout (`archive.s3cmd.timeout`, default 300 s), existence probes
-are three-state, and a failed probe (non-zero exit, timeout, launch failure) fails the
-group — it is never read as absence.
+**Enforced by:** `run_s3cmd` (timeout/launch failure → None, never a result) and
+`probe_key` (three-state: present / absent / probe FAILED) in
+`scripts/archive_cold_storage.py`; every existence call site in `archive_table` fails its
+group on a failed probe. Hard timeout via `archive.s3cmd.timeout` (default 300 s).
+
+**Lesson, on the record:** this rule was written into this runbook on day one, after the
+Phase 0 placeholder incident — and the implementation then encoded its OPPOSITE in three
+places (marker, leftover-tmp, and final-exists probes all read "s3cmd failed" as "key
+absent"), surviving 90 green tests and a completed audit-closure mapping until an
+independent reviewer caught it. **A rule in a document is not a rule in the code.** Where
+a runbook rule has a code counterpart, this document must name the function that enforces
+it — and a rule with no code counterpart must say it is procedural. Enforcement pointers
+for the other safety rules: leftover-tmp-is-evidence → the tmp probe/abort in
+`archive_table` (C5); never-blind-overwrite → the final-exists probe + `merge_with_existing_final`
+(C6); finalize-before-delete → `finalize_parquet` + the destructive-branch ordering (C4);
+delete-only-exported-ids → `batch_delete_by_ids` + the count assertion (C3); latest-position
+exclusion → `fetch_protected_position_ids` + `id_exclusions` (D9); cutoff-month skip →
+the `cutoff_month_start` guard (C7); quarantine floor → `parse_quarantine_floor` + the
+`period_end <= floor` routing; overlap exclusion → `acquire_run_lock`/`_lock_path`;
+session bounding → `GroupBudget`; rehearsal isolation → `validate_prefix`;
+no-arming-without-verification → the selfcheck gate in `setup/setup.sh`. Procedural
+(no code counterpart, humans enforce): tz pinning for other readers, the collection-window
+rule, the A-step sequencing, and the standing second-review requirement.
 
 For every s3cmd-based item (S-F4, S-F4b, S-F5): **a zero count or empty output is only a
 valid answer when the recorded exit code is 0 and stderr is empty.** A non-zero exit or any
@@ -519,6 +538,28 @@ InnoDB files do not shrink on delete (Phase 5 expectation).
 verification), the Branch C A-steps, F12 (builds/ destination), A1 (Aug-13 temp-dir
 touch).
 
+## Standing requirement — independent second review before production contact
+
+**Before any change in this line of work touches production data — this series and every
+future one — a fresh reviewer with no context from the building session reviews the
+diff.** This is a permanent gate, not a one-off for this series.
+
+Why, on the record: at the point the 2026-08-20 second review ran, this branch had 90
+green tests, a clean self-audit, and a completed audit-closure mapping — and still
+carried a data-loss path (existence probes reading "s3cmd failed" as "key absent",
+bypassing the C5 tmp protection and C6's overwrite protection), plus a packaging leak the
+CI self-test could not see because the self-test exercised a fabrication of the packaging
+step rather than the step itself. The test fakes could not even EXPRESS the state that
+caused the worst bug — a probe that errors rather than answers — because builder and
+test-author shared one blind spot. That is a property of reviewing your own work, not of
+this particular series: the author's model of the system generates both the code and the
+tests, so a gap in the model is invisible to both. Only a reviewer who does not share the
+model finds it.
+
+Operationally: the reviewer gets the diff and the runbook, not the building session; their
+findings are applied and re-verified (including a removed-behavior audit of the
+safety-critical invariants) before the Phase 5 preconditions can be declared met.
+
 ## Phase 5 — cutover (REFRAMED 2026-08-19: two separate operations)
 
 The backlog inventory (collected 2026-08-19, per-device index-backed form, provisional
@@ -559,6 +600,8 @@ Never plan a batch from stale figures.**
    floor value chosen) alongside the bucket keys — unset floor means garbage months would
    archive normally into the main key space. Optional: `archive.s3cmd.timeout` (seconds,
    default 300) for hosts where transfers legitimately run long.
+9. **The independent second review (standing requirement above) has run on the final diff
+   and its findings are applied and re-verified.**
 
 **Batching axis — month-major, oldest month first; device-bounded within a month.**
 Justification: months are the unit the key layout, the reconciliation query, and the C7
