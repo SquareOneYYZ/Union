@@ -24,8 +24,10 @@ def test_leftover_tmp_aborts_group_and_is_never_deleted(tmp_path, s3, caplog):
     assert s3["spaces_deletes"] == []
     assert s3["uploads"] == []
     assert s3["copies"] == []
-    # The group aborted before the export SELECT: only discovery SQL ran.
-    assert len(conn.executed) == 1
+    # The group aborted before the export SELECT: only discovery SQL ran
+    # (device enumeration + one per-device group query).
+    assert len(conn.executed) == 2
+    assert not any("ORDER BY fixtime" in sql for sql, _ in conn.executed)
     # The 4am reader gets both readings and the pointer to the procedure.
     log = caplog.text
     assert "ABORTING GROUP" in log

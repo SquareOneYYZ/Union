@@ -529,6 +529,51 @@ def fetch_protected_position_ids(conn) -> set:
 
 
 # ---------------------------------------------------------------------------
+# Device-iterated group discovery -- replaces the time-only full scan
+# ---------------------------------------------------------------------------
+
+def discover_groups(conn, table: str, time_col: str, cutoff: date) -> list:
+    """Discover device/month groups older than cutoff, one device at a time.
+
+    The old single query (WHERE {time_col} < cutoff GROUP BY deviceid, ...)
+    filtered on time alone, which no index supports -- a full scan of the
+    table at the top of every run. Devices are enumerated from tc_devices
+    (small, cheap) and each device's groups come from an index range scan on
+    (deviceid, {time_col}) that touches only that device's pre-cutoff rows
+    (EXPLAIN-verified covering index on prod). Runs on the script's single
+    persistent connection.
+
+    Known gap, by decision: orphan rows whose deviceid no longer exists in
+    tc_devices are not discovered here -- they are handled by the documented
+    one-off orphan sweep in the runbook, never per-run.
+    """
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM tc_devices ORDER BY id")
+        device_ids = [row["id"] for row in cur.fetchall()]
+
+    groups = []
+    for device_id in device_ids:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT YEAR({time_col}) AS yr, MONTH({time_col}) AS mo, "
+                f"COUNT(*) AS cnt FROM {table} "
+                f"WHERE deviceid = %s AND {time_col} < %s "
+                f"GROUP BY YEAR({time_col}), MONTH({time_col}) "
+                f"ORDER BY yr, mo",
+                (device_id, cutoff),
+            )
+            for row in cur.fetchall():
+                groups.append({"deviceid": device_id, "yr": row["yr"],
+                               "mo": row["mo"], "cnt": row["cnt"]})
+
+    logger.info("[%s] Discovery: %d device(s) enumerated from tc_devices, "
+                "%d with archivable groups, %d device/month group(s) total.",
+                table, len(device_ids),
+                len({g["deviceid"] for g in groups}), len(groups))
+    return groups
+
+
+# ---------------------------------------------------------------------------
 # Generic archive function -- replaces duplicated archive_positions/events (#8 fix)
 # ---------------------------------------------------------------------------
 
@@ -556,15 +601,7 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
     failures   = 0
     tmp_aborts = 0
 
-    with conn.cursor() as cur:
-        cur.execute(
-            f"SELECT deviceid, YEAR({time_col}) AS yr, MONTH({time_col}) AS mo, COUNT(*) AS cnt "
-            f"FROM {table} WHERE {time_col} < %s "
-            f"GROUP BY deviceid, YEAR({time_col}), MONTH({time_col}) "
-            f"ORDER BY deviceid, yr, mo",
-            (cutoff,)
-        )
-        groups = cur.fetchall()
+    groups = discover_groups(conn, table, time_col, cutoff)
 
     if not groups:
         logger.info("[%s] Nothing to archive.", table)
@@ -759,6 +796,17 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
             "[%s] %d group(s) aborted on leftover temp keys -- resolve per "
             "the runbook ('Leftover tmp keys') before their next run.",
             table, tmp_aborts)
+
+    # A device that stops appearing here month over month is visible rather
+    # than silent (device-iterated discovery requirement).
+    per_device = {}
+    for g in groups:
+        per_device[g["deviceid"]] = per_device.get(g["deviceid"], 0) + 1
+    if per_device:
+        logger.info(
+            "[%s] End-of-run device summary: %d device(s) had groups this "
+            "run -- groups per device: %s", table, len(per_device),
+            ", ".join(f"{d}:{n}" for d, n in sorted(per_device.items())))
 
     return total, failures
 

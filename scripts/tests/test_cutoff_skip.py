@@ -51,7 +51,9 @@ def test_skip_happens_before_any_bucket_or_export_work(tmp_path, s3):
                                 cutoff=date(2026, 2, 18))
 
     assert (total, failures) == (0, 0)      # a skip is not a failure
-    assert len(conn.executed) == 1          # discovery only, no export SELECT
+    # Discovery only (device enumeration + per-device query), no export SELECT.
+    assert len(conn.executed) == 2
+    assert not any("ORDER BY fixtime" in sql for sql, _ in conn.executed)
     assert s3["uploads"] == []
     assert s3["events"] == []               # not even a marker/tmp s3 probe
 
