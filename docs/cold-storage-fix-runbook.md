@@ -42,13 +42,13 @@ config entries, hostnames, device IDs, log excerpts — is logged ONLY in
 behaviour); prod's questions have narrowed to: **is it armed, and is its key space already
 contaminated.**
 
-**Outstanding as of 2026-08-19:** prod — P-F1 (hash re-take; first paste was empty), P-F9
-(python + deps), `SHOW INDEX FROM tc_events` (completes P-F7b), `SELECT
-@@system_time_zone;` (completes P-F6); both hosts — the L1 lock-identity checks; staging —
-S-F6 (optional, informs D8); console — droplet count, versioning/lifecycle confirmation,
-A0 access-policy verification; open question A1 (the 2026-08-13 temp-dir touch). Removed:
-P-F7c (deferred — no usable index), P-F7d (not run — unsafe), P-DEV/S-DEV (obsoleted by
-full bucket separation).
+**COLLECTION COMPLETE (2026-08-19): every Phase 0 question is answered.** What remains are
+ACTIONS, not answers: the console items (versioning ON, A0 access-policy verification,
+droplet-count confirmation), the Branch C A-steps, the A1 answer (2026-08-13 temp-dir
+touch — still open as a courtesy check before the staging repoint), S-F6 (optional,
+informational only now that the server tz is known UTC), and **one late-opened question
+that blocks only the setup.sh commit: HOW staging's Python packages were installed**
+(pip/apt/venv — see the C8 consequences below).
 
 ### Derived conclusions (prod partials 2026-08-18; staging set 2026-08-19 — all staging measurements VALID; raw output in the local answers file)
 
@@ -56,30 +56,30 @@ full bucket separation).
 |---|---|---|
 | F0 host inventory | prod | **ANSWERED: 1 host** (operator-confirmed 2026-08-19; single Linux box per environment, no multi-host archiver) |
 | F0 host inventory | staging | **ANSWERED: 1 host**, installed by the same 2026-07-07 installer run as prod. **Open question A1: archiver temp dir mtime 2026-08-13 with no bucket writes since 2026-05-04 — what ran on Aug 13? Must be answered before the staging repoint (Branch C)** |
-| F1 deployed hash | prod | _pending — first collection came back empty, re-requested (file size matches staging's, which is current)_ |
-| F1 deployed hash | staging | **matches `a364cefc4` (= HEAD)** → STOP 4 clear for staging |
+| F1 deployed hash | prod | **matches `a364cefc4` (= HEAD)** → STOP 4 clear; no hand-edits |
+| F1 deployed hash | staging | **matches `a364cefc4` (= HEAD)** → STOP 4 clear; no hand-edits |
 | F2 archive cron | prod | **NOT INSTALLED** → no prod 2026-09-01 deadline (Branch A) |
 | F2 archive cron | staging | **armed but hand-parked to a yearly schedule** — next fire 2027-03-09; the parking postdates the 2026-07-07 installer run (which resets the cron to monthly, proving the rearm-by-installer risk is real on staging too). No staging 2026-09-01 deadline |
 | F3 archive.log | prod | **does not exist** — archiver has never run on prod |
 | F3 run history | staging | **no archive.log exists** — run history comes from bucket object dates + markers instead: write bursts 2026-02-24→03-14 (dev era) and 2026-05-04; **5 `.done` markers prove real deleting runs against the staging DB** (2026-03-14 and 2026-05-04) |
 | F4 bucket listing | shared | **VALID (exit=0, empty stderr): 15,177 `.parquet`, 5 `.done`, 0 `.tmp`** — prefix NOT empty, all objects staging-provenance → STOP 1 clear, STOP 5 TRIGGERED. Clock-garbage months confirmed at scale (a ~1,179-device cluster in month 2000-01, plus 1980/2004/2008/2013 strays) |
 | F5 versioning/lifecycle | shared | **VALID: versioning OFF → STOP 3 TRIGGERED.** No lifecycle expiry rule. Bucket access-policy state is recorded in the local answers file and is verified under A0 (human, console) |
-| F6 DB timezone | prod | **COLLECTED: `SYSTEM`/`SYSTEM`, currently resolving to UTC — an observation, not a guarantee.** `@@system_time_zone` follow-up outstanding; explicit tz pinning is a required step everywhere (see below) |
-| F6 DB timezone | staging | _pending (optional — informs the D8 note on existing staging parquet; same server as prod)_ |
-| F7 table state + discovery | prod | **P-F7a COLLECTED: tc_positions ≈730.7M, tc_events ≈103.4M** (larger than the ~623M planning figure). **P-F7b partial: positions = PRIMARY(id) + (deviceid, fixtime); tc_events index inventory OUTSTANDING.** P-F7c deferred (no fixtime-led index). P-F7d time-scan form withdrawn as unsafe; **BACKLOG INVENTORY COLLECTED 2026-08-19 via the per-device index-backed form: 11,345 device-months / 366.76M rows (~50% of table) / 2,076 devices / 45 months / largest group ~197.5k rows / oldest = 2000-01 clock garbage. Point-in-time — re-take before cutover (Phase 5)** |
-| F9 python/deps | prod | _pending_ |
-| F9 python/deps | staging | **Python 3.12.7, all four deps import** — the proven-working version set is recorded locally as the candidate C8 pins |
+| F6 DB timezone | prod/staging (same server) | **COLLECTED: `SYSTEM`/`SYSTEM` and `@@system_time_zone = UTC`.** The D8 concern about pre-C1 objects rendered in a non-UTC zone is closed in practice — the C1 pin matches what's on disk. Framing stays observation-not-guarantee (SYSTEM follows the OS); explicit tz pinning remains a required step everywhere |
+| F7 table state + discovery | prod | **P-F7a COLLECTED: tc_positions ≈730.7M, tc_events ≈103.4M** (larger than the ~623M planning figure). **P-F7b COMPLETE: positions = PRIMARY(id) + (deviceid, fixtime); tc_events = PRIMARY(id) + (deviceid, eventtime) + (deviceid, type, eventtime) — deviceid-led like positions, so device-iterated discovery applies to events too.** P-F7c deferred (no fixtime-led index). P-F7d time-scan form withdrawn as unsafe; **BACKLOG INVENTORY COLLECTED 2026-08-19 via the per-device index-backed form: 11,345 device-months / 366.76M rows (~50% of table) / 2,076 devices / 45 months / largest group ~197.5k rows / oldest = 2000-01 clock garbage. Point-in-time — re-take before cutover (Phase 5)** |
+| F9 python/deps | prod | **Python 3.12.7, NONE of the four packages installed — the archiver dies at import.** The FOURTH independent unarmed reason (no cron, no archive.* config, empty prefix, no deps); the setup.sh dependency install is load-bearing, not hygiene |
+| F9 python/deps | staging | **Python 3.12.7, all four deps import** — the measured working set IS the C8 pins (same interpreter version on both hosts, transfers cleanly). Open: HOW they were installed (pip/apt/venv) — blocks the setup.sh commit only |
 | F10 config keys | prod | **zero `archive.*` keys present** (database.* present) |
 | F10 config keys | staging | **bucket = the shared bucket → STOP 5**; retention 6; no interpreter split (same python3 for script and s3cmd). **DB = same managed MySQL server as prod, different schema** — not the prod database (no full stop), but shared DB infrastructure |
 | Device-id overlap | both DBs | _pending — the 5 staging markers sit on device ids recorded in the local answers file; prod's autoincrement space almost certainly also contains them_ |
 
 **Consequences already in force:**
 
-1. **The 2026-09-01 deadline is VOID — Branch A is active.** Prod has no archive cron, and
-   with zero `archive.*` keys in prod's config: an installer re-run today would NOT install
-   the cron (`setup/setup.sh:29-35` gates on `archive.spaces.bucket`), and a hand-run of the
-   deployed script could not upload (`do_upload` fails with no bucket and no
-   local_upload_dir). Prod is unarmed on both fronts.
+1. **The 2026-09-01 deadline is VOID — Branch A is active.** Prod is unarmed FOUR
+   independent ways (updated 2026-08-19): no archive cron; zero `archive.*` keys in its
+   config (so an installer re-run would not install the cron, and a hand-run could not
+   upload); an empty archive prefix in its future bucket; and **none of the four Python
+   dependencies installed — the script dies at import before doing anything.** The
+   unarmed verdict does not rest on the cron check alone.
 2. **Phase 1 gains item 0 (standing rule, already in effect):** nobody runs `traccar.run` on
    prod outside the Phase 5 sequence, and nobody adds `archive.*` keys to prod's config
    before cutover — either action is what arms prod.
@@ -96,7 +96,7 @@ full bucket separation).
 | 1 | `.tmp` residue | **CLEAR** (valid F4: zero `.tmp`) |
 | 2 | log vs `.done` reconciliation | **UNRESOLVABLE AS SPECIFIED** — no archive.log exists anywhere; deleting runs are evidenced by the 5 markers instead. Absorbed into the STOP 5 disposition: the 5 marker-months' parquet files are the only copies of staging rows already deleted from the staging DB, and must be preserved through any relocation |
 | 3 | versioning OFF | **TRIGGERED** — enabling versioning (Phase 1 item 1, human/console) must precede anything that writes to the bucket |
-| 4 | unknown deployed hash | **CLEAR for staging** (= HEAD); prod re-take pending |
+| 4 | unknown deployed hash | **CLEAR on BOTH hosts** (= HEAD, 2026-08-19); no hand-edits anywhere |
 | 5 | shared bucket / key collision | **TRIGGERED** — staging's bucket IS the bucket prod will use; 15,177 staging objects + 5 markers occupy prod's future key space. Resolution path in Branch C below |
 
 ### STOP conditions — definitions (if any is true, halt; no code ships until resolved)
@@ -356,15 +356,19 @@ that is why it is one-off, not per-run):
 SELECT p.deviceid, COUNT(*) AS cnt
 FROM tc_positions p LEFT JOIN tc_devices d ON d.id = p.deviceid
 WHERE d.id IS NULL GROUP BY p.deviceid;
--- (analogue for tc_events once its index inventory is known)
+
+SELECT e.deviceid, COUNT(*) AS cnt
+FROM tc_events e LEFT JOIN tc_devices d ON d.id = e.deviceid
+WHERE d.id IS NULL GROUP BY e.deviceid;
 ```
 
 Any orphans found get archived by targeted manual runs or an explicit decision — the
 device-iterated design must never silently stop archiving rows the old time-scan would
 have found, and the sweep is the mechanism that proves it hasn't.
 
-Events side still gated on the missing `SHOW INDEX FROM tc_events` answer; if tc_events
-lacks a deviceid-led index, the option applies to positions only until that is known.
+**Events caveat DROPPED (2026-08-19):** tc_events carries `(deviceid, eventtime)` — the
+same deviceid-led shape as positions — so device-iterated discovery applies to events too
+(and the shipped `discover_groups` already handles both tables generically).
 
 **Option B — add a fixtime-led index:** ruled out (D7 forbids DDL; an online index build
 on 730M rows is its own project). **Option C — leave as-is:** rejected with Option A's
@@ -390,7 +394,7 @@ Every version of `scripts/archive_cold_storage.py` ever committed
 Match `a364cefc4` = current. Older row = stale deploy (diff before trusting). No row =
 STOP 4.
 
-### C1 lock decision — per-host `flock`; **mechanism VERIFIED in CI; path identity pending L1**
+### C1 lock decision — per-host `flock`; **VERIFIED on mechanism (CI) AND identity (L1)**
 
 F0 is answered: **one Linux box per environment, no multi-host archiver anywhere**
 (operator-confirmed). With separate buckets (Branch C) and separate DB schemas, the two
@@ -401,14 +405,16 @@ shows. Behavior: **non-blocking, fail fast and loud** — if the lock is held, t
 invocation logs an error and exits non-zero immediately; it never blocks and waits, so a
 long-running manual run cannot silently queue a cron fire behind it.
 
-**Lock mechanism VERIFIED (2026-08-19):** the branch was pushed and CI ran green — all
-three POSIX `flock` contention tests passed on ubuntu (held lock → immediate exit 1;
-reacquire after release; unopenable path → loud exit 1). What remains open is **only the
-L1 identity question**: the lock file is fixed at `/var/lock/traccar-archive.lock` with
-**no fallback path** — if the running identity cannot open it, the run fails loudly at
-startup, because two identities resolving to two different lock files would mean no mutual
-exclusion at all. Whether the cron's user and a human hand-run can share that path is a
-host fact — L1 below answers it, and the path moves if the answers demand it.
+**Lock FULLY VERIFIED (2026-08-19).** Mechanism: CI green — all three POSIX `flock`
+contention tests passed on ubuntu (held lock → immediate exit 1; reacquire after release;
+unopenable path → loud exit 1). Identity (L1, both hosts): `/var/lock` → `/run/lock`, mode
+1777 (sticky, world-writable), and the archiver crontab is root's on both hosts — so the
+cron and sudo'd hand-runs converge on the same `/var/lock/traccar-archive.lock`. The
+design stands unchanged: fixed path, no fallback, fail-loud on unopenable. Operational
+note: a hand-run WITHOUT sudo would work (1777 permits creating the file) but is
+**discouraged for consistency** — once root's cron owns the lock file, a non-root run
+fails loudly at open rather than sharing the lock, which is the safe behavior but a
+confusing one; hand-runs should use sudo.
 
 ### L1 — lock-path identities (Phase 0 addendum; run on BOTH hosts)
 
