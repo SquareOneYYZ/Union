@@ -84,11 +84,12 @@ def make_conn():
 
 
 def run_table(conn, tmp_path, deleter, id_exclusions=None,
-              cutoff=date(2026, 2, 1), budget=None):
+              cutoff=date(2026, 2, 1), budget=None, quarantine_floor=None):
     return acs.archive_table(
         conn, acs.PropsConfig({}), "tc_positions", "fixtime",
         ["id", "deviceid", "fixtime"], "positions",
         cutoff=cutoff, temp_dir=str(tmp_path), dry_run=False,
         datetime_cols=["fixtime"], key_prefix="rehearsal",
         deleter=deleter, id_exclusions=id_exclusions, budget=budget,
+        quarantine_floor=quarantine_floor,
     )

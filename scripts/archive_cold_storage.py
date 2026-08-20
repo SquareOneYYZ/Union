@@ -122,6 +122,26 @@ def validate_prefix(prefix: str) -> str:
     return cleaned
 
 
+def parse_quarantine_floor(props):
+    """archive.quarantine.floor (YYYY-MM-DD) or None when unset.
+
+    Clock-garbage policy (decision: quarantine): a group whose month ends on
+    or before the floor is archived under '<prefix>-quarantine/' -- a sibling
+    of the normal key space the Java read path never serves -- and then
+    deleted from the live table like any other group. The floor is a config
+    value, never a code literal; a malformed value is fatal, not ignored.
+    """
+    raw = props.get("archive.quarantine.floor", "").strip()
+    if not raw:
+        return None
+    try:
+        return dt.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        logger.error("Invalid archive.quarantine.floor %r -- expected "
+                     "YYYY-MM-DD.", raw)
+        sys.exit(1)
+
+
 class GroupBudget:
     """Run-wide --max-groups budget, shared across tables.
 
@@ -611,7 +631,8 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                   spaces_prefix: str, cutoff: date, temp_dir: str,
                   dry_run: bool, datetime_cols: list = None,
                   key_prefix: str = PROD_KEY_PREFIX, deleter=None,
-                  id_exclusions: set = None, budget: GroupBudget = None) -> tuple:
+                  id_exclusions: set = None, budget: GroupBudget = None,
+                  quarantine_floor: date = None) -> tuple:
     """
     Archive rows older than cutoff for any time-series table.
     Returns (total_rows_archived, failure_count).
@@ -630,6 +651,8 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
     total      = 0
     failures   = 0
     tmp_aborts = 0
+    quarantined_groups = 0
+    quarantined_rows   = 0
 
     groups = discover_groups(conn, table, time_col, cutoff)
 
@@ -652,12 +675,27 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
         period_start = date(yr, mo, 1)
         period_end   = date(yr + 1, 1, 1) if mo == 12 else date(yr, mo + 1, 1)
         label        = f"{yr}-{mo:02d}"
+
+        # Clock-garbage quarantine: months ending on/before the floor go to
+        # a sibling key space the read path never serves.
+        group_prefix = key_prefix
+        quarantined_group = False
+        if quarantine_floor is not None and period_end <= quarantine_floor:
+            group_prefix = f"{key_prefix}-quarantine"
+            quarantined_group = True
+
         local_path   = os.path.join(temp_dir, f"{table}_{device_id}_{label}.parquet")
-        spaces_key   = f"{key_prefix}/{spaces_prefix}/{device_id}/{label}.parquet"
-        temp_key     = f"{key_prefix}/{spaces_prefix}/{device_id}/{label}.parquet.tmp"
-        marker_key   = f"{key_prefix}/{spaces_prefix}/{device_id}/{label}.done"
+        spaces_key   = f"{group_prefix}/{spaces_prefix}/{device_id}/{label}.parquet"
+        temp_key     = f"{group_prefix}/{spaces_prefix}/{device_id}/{label}.parquet.tmp"
+        marker_key   = f"{group_prefix}/{spaces_prefix}/{device_id}/{label}.done"
 
         logger.info("  [%s] device=%d period=%s rows=%d", table, device_id, label, g["cnt"])
+
+        if quarantined_group:
+            logger.info(
+                "  [%s] QUARANTINE: device=%d %s predates the floor (%s) -- "
+                "keys go under %s/.", table, device_id, label,
+                quarantine_floor, group_prefix)
 
         if period_end > cutoff_month_start:
             logger.info(
@@ -821,6 +859,9 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                         os.remove(marker_path)
 
             total += len(df)
+            if quarantined_group:
+                quarantined_groups += 1
+                quarantined_rows += len(df)
 
         except Exception as exc:
             logger.error("  [%s] ERROR device=%d %s: %s", table, device_id, label, exc)
@@ -835,6 +876,12 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
             "[%s] %d group(s) aborted on leftover temp keys -- resolve per "
             "the runbook ('Leftover tmp keys') before their next run.",
             table, tmp_aborts)
+
+    if quarantine_floor is not None:
+        logger.info(
+            "[%s] Quarantined groups this run: %d (%d rows) -- floor %s; "
+            "counted separately, never blended into normal archive totals.",
+            table, quarantined_groups, quarantined_rows, quarantine_floor)
 
     # A device that stops appearing here month over month is visible rather
     # than silent (device-iterated discovery requirement).
@@ -889,24 +936,27 @@ DEVICE_GEOFENCE_SEGMENT_COLUMNS = [
 
 def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
                       key_prefix: str = PROD_KEY_PREFIX, deleter=None,
-                      id_exclusions: set = None, budget: GroupBudget = None) -> tuple:
+                      id_exclusions: set = None, budget: GroupBudget = None,
+                      quarantine_floor: date = None) -> tuple:
     return archive_table(
         conn, cfg, "tc_positions", "fixtime", POSITIONS_COLUMNS,
         "positions", cutoff, temp_dir, dry_run,
         datetime_cols=["servertime", "devicetime", "fixtime"],
         key_prefix=key_prefix, deleter=deleter, id_exclusions=id_exclusions,
-        budget=budget,
+        budget=budget, quarantine_floor=quarantine_floor,
     )
 
 
 def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
                    key_prefix: str = PROD_KEY_PREFIX, deleter=None,
-                   budget: GroupBudget = None) -> tuple:
+                   budget: GroupBudget = None,
+                   quarantine_floor: date = None) -> tuple:
     return archive_table(
         conn, cfg, "tc_events", "eventtime", EVENTS_COLUMNS,
         "events", cutoff, temp_dir, dry_run,
         datetime_cols=["eventtime"],
         key_prefix=key_prefix, deleter=deleter, budget=budget,
+        quarantine_floor=quarantine_floor,
     )
 
 
@@ -1193,6 +1243,11 @@ def main():
     # Shared across both tables; None limit = unlimited.
     budget = GroupBudget(args.max_groups)
 
+    quarantine_floor = parse_quarantine_floor(props)
+    if quarantine_floor is not None:
+        logger.info("  Quarantine floor: months ending on/before %s archive "
+                    "to '%s-quarantine/'.", quarantine_floor, key_prefix)
+
     # #9 fix: timezone-aware datetime
     now    = dt.now(timezone.utc).replace(tzinfo=None)
     cutoff = (now - relativedelta(months=retention_months)).date()
@@ -1236,13 +1291,15 @@ def main():
         pos_total, pf = archive_positions(conn, cfg, cutoff, temp_dir, dry_run,
                                           key_prefix=key_prefix, deleter=deleter,
                                           id_exclusions=protected_ids,
-                                          budget=budget)
+                                          budget=budget,
+                                          quarantine_floor=quarantine_floor)
         total_failures += pf
 
         logger.info("\n--- Archiving EVENTS (old rows -> Spaces, %s) ---", mode_note)
         evt_total, ef = archive_events(conn, cfg, cutoff, temp_dir, dry_run,
                                        key_prefix=key_prefix, deleter=deleter,
-                                       budget=budget)
+                                       budget=budget,
+                                       quarantine_floor=quarantine_floor)
         total_failures += ef
 
         logger.info("\n--- Snapshotting GEOFENCES (store only, DB unchanged) ---")
