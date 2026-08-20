@@ -526,6 +526,9 @@ Never plan a batch from stale figures.**
 7. Rehearsal: `--archive-only` against a scratch `--prefix`, oldest real month, then the
    DuckDB Invariant-7 reconciliation (tz pinned per the required-step section) — every
    device OK, no one-sided rows.
+8. Prod arming config includes `archive.quarantine.floor` (the quarantine decision needs a
+   floor value chosen) alongside the bucket keys — unset floor means garbage months would
+   archive normally into the main key space.
 
 **Batching axis — month-major, oldest month first; device-bounded within a month.**
 Justification: months are the unit the key layout, the reconciliation query, and the C7
@@ -605,6 +608,89 @@ summary counts, `.tmp` sweep, and the dangling-pointer count — plus the end-of
 and group-count log (from the discovery restructure) reviewed for devices that stopped
 appearing.
 
-*(Phases 1–4 runbook procedure sections still to be appended: Phase 1 exact commands,
-deploy/upgrade procedure with rollback, `--selfcheck` usage. Pending: setup.sh changes
-(P-F9), discovery commit (EXPLAIN), C8.)*
+## Phase 1 — safety nets (exact commands; executor flagged per item)
+
+**Item 0 — standing rule (in effect since 2026-08-18, verified):** no `traccar.run` and no
+`archive.*` config keys on prod outside the Phase 5 sequence; no installer runs on staging
+outside a planned sequence either (an installer run re-arms the cron to monthly wherever
+`archive.spaces.bucket` is present — proven live on staging by the 2026-07-07 install).
+
+1. **Versioning ON for the prod bucket — HUMAN, DO console.** (Bucket name set at Branch C
+   A-steps; STOP 3 stays triggered until this lands.) Then verify from a host, exit/stderr
+   captured per the measurement-validity rule:
+   ```bash
+   S3CFG="/path/to/s3cmd.ini"
+   s3cmd --config "$S3CFG" info s3://<prod-bucket> 2>/tmp/e; echo "exit=$?"; cat /tmp/e; rm -f /tmp/e
+   ```
+   Also confirm in the console that no lifecycle rule expires anything under `archive/`.
+2. **DB snapshot — HUMAN, DO console.** Timed: taken IMMEDIATELY before the first
+   destructive bulk batch (Phase 5), not now — a snapshot taken today ages uselessly.
+3. **Cron neutralization — VERIFIED NOT NEEDED.** Prod has no archive cron; staging's is
+   hand-parked to a yearly schedule. Item 0 is what keeps it that way. To disable a cron
+   line if one ever appears: `crontab -l | sed 's|^\(.*archive_cold_storage.*\)$|#\1|' | crontab -`
+   and restore by removing the leading `#` the same way.
+4. **Baseline queries — SQL, human-run.** The first is cheap (small table + PK lookups);
+   the second and third are one-off full scans — run OFF-PEAK, same class as the orphan
+   sweep. Record all results in the local answers file:
+   ```sql
+   -- 4a. Dangling device pointers (cheap): should be 0 before, and unchanged after, runs
+   SELECT COUNT(*) FROM tc_devices d
+   LEFT JOIN tc_positions p ON p.id = d.positionid
+   WHERE d.positionid IS NOT NULL AND p.id IS NULL;
+
+   -- 4b. Events pointing at missing positions (HEAVY one-off, off-peak)
+   SELECT COUNT(*) FROM tc_events e
+   LEFT JOIN tc_positions p ON p.id = e.positionid
+   WHERE e.positionid IS NOT NULL AND p.id IS NULL;
+
+   -- 4c. Anomaly scan (HEAVY one-off, off-peak; the inventory already sized the
+   --     clock-garbage months — this adds the NULL count and exact totals)
+   SELECT COUNT(*) FROM tc_positions
+   WHERE fixtime < '2015-01-01' OR fixtime IS NULL;
+   ```
+
+## Phase 4 — deploy & upgrade procedure (D6: the last hop stays human, now provable)
+
+1. **Build:** dispatch `release.yml` with a version. Two independent gates must be green:
+   the `python-tests` workflow on the same commit (test suite + the packaging-verifier
+   self-test), and the release build's own "Verify packaged archive script against repo"
+   step — which extracts the makeself payload from the BUILT artifacts and blocks the
+   Spaces upload on any mismatch or missing file (script AND requirements.txt).
+2. **F12, one-time:** confirm in the console which bucket actually holds `builds/`
+   (`release.yml:53` names `s3://traccar/builds/` with `--host-bucket=iotrides`); record
+   the answer in the local answers file before relying on the download path.
+3. **Transfer:** download `traccar-linux-64-<version>.zip`, move it to the host by the
+   normal manual means. No transfer automation exists or gets added (D6).
+4. **Pre-install awareness:** `setup.sh` overwrites `/opt/traccar` IN PLACE (only
+   `conf/traccar.xml` is preserved) and re-installs the monthly cron wherever
+   `archive.spaces.bucket` is present in the config. On staging: re-park the cron after
+   any install. On prod: keep `archive.*` keys absent until the Phase 5 arming step.
+5. **Install:** `sudo ./traccar.run` (as root).
+6. **Prove the deploy:** on the host and locally, compare:
+   ```bash
+   sha256sum /opt/traccar/scripts/archive_cold_storage.py /opt/traccar/scripts/requirements.txt
+   # locally: git show <released-commit>:scripts/archive_cold_storage.py | sha256sum
+   #          git show <released-commit>:scripts/requirements.txt | sha256sum
+   ```
+7. **Dependencies:** install per `scripts/requirements.txt` — the exact `setup.sh`
+   mechanism is HELD pending the staging install-method answer (PEP 668 question); until
+   that lands, install manually by whatever method staging used.
+8. **`--selfcheck`, immediately after install** — a failed dependency install must surface
+   at deploy time, not at the first cron fire:
+   ```bash
+   sudo /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py \
+       --config /opt/traccar/conf/traccar.xml --selfcheck
+   # must exit 0; checks imports, config keys, temp dir, lock path for THIS
+   # identity, s3cmd reachability (ls only), DB connect (SELECT only)
+   ```
+9. **Cron state check:** `crontab -l | grep archive_cold_storage` — prod: must be absent
+   until cutover; staging: re-park if the installer reset it to monthly.
+
+**Rollback:** the only artifact history is the versioned installer zips in Spaces
+`builds/`. Download the previous version, run its `traccar.run` (same overwrite-in-place
+semantics, config preserved), then repeat steps 6–9 against that version's hashes. There
+are no versioned release directories on the host and no other rollback mechanism.
+
+*(Still held: the `setup.sh` commit — pip install matching staging's method + printing the
+selfcheck command — pending the install-method answer. After it lands, step 7 becomes
+"automatic on install" and this section gets updated.)*
