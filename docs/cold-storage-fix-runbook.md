@@ -333,35 +333,35 @@ matching the index). Restructure options are recorded here; implementation waits
 explicit decision. Whether tc_events has a usable `(deviceid, eventtime)` index is still
 unknown (P-F7b outstanding) and affects the events side of any option.
 
-**DECIDED (2026-08-19): Option A — device-iterated discovery, sequenced after C7**, with
-one design gate. Enumerate device ids first, then per device run `SELECT YEAR(t),
-MONTH(t), COUNT(*) ... WHERE deviceid = ? AND t < cutoff GROUP BY 1, 2` — an index range
-scan touching only that device's old rows. The group loop is untouched (same groups list).
+**CONFIRMED VIABLE (2026-08-19) — Option A goes ahead as a bulk-migration precondition.**
+Operator EXPLAIN + measurement on prod: the per-device group query runs as a `range` scan
+on `position_deviceid_fixtime` with `Using where; Using index; Using temporary` — a
+covering index that never touches row data. Measured 0.42 s for a 204k-row device with 13
+device-months; a full per-device sweep of ~3,600 devices completed in ~35 minutes wall
+clock on a single connection with no observed impact.
 
-**Design gate — device-list source needs an EXPLAIN before commitment.**
-`SELECT DISTINCT deviceid FROM tc_positions` is probably NOT cheap: MySQL/InnoDB does not
-reliably apply a loose index scan to DISTINCT on a secondary index, so it may full-scan
-the (deviceid, fixtime) index over ~730M rows at the top of every run. The operator runs
-(read-only, does not execute the query):
+Final design, as decided: **devices are enumerated from `tc_devices`** (small, cheap);
+discovery stays inside the script on its single persistent connection; each device's
+groups come from the index-backed `deviceid = ? AND t < cutoff` GROUP BY. The group loop
+is untouched (same groups list). The end of each run logs the device count and per-device
+group counts, so a device that stops appearing is visible rather than silent.
+
+**Known gap, by decision — orphan positions.** Rows whose deviceid no longer exists in
+`tc_devices` are not discovered by the per-run loop. Handled by a documented **one-off
+orphan sweep**, run manually and off-peak during cutover (this is a full index scan —
+that is why it is one-off, not per-run):
 
 ```sql
-EXPLAIN FORMAT=TREE SELECT DISTINCT deviceid FROM tc_positions;
-EXPLAIN             SELECT DISTINCT deviceid FROM tc_positions;
--- (loose scan shows as "Using index for group-by" in Extra / a skip-scan
---  node in TREE; a plain index scan over the whole index means: too costly)
-EXPLAIN             SELECT deviceid FROM tc_positions GROUP BY deviceid;
--- (equivalent GROUP BY form — the optimizer sometimes loose-scans this one
---  when it will not loose-scan the DISTINCT)
+-- ONE-OFF, OFF-PEAK: orphan positions (deviceid absent from tc_devices)
+SELECT p.deviceid, COUNT(*) AS cnt
+FROM tc_positions p LEFT JOIN tc_devices d ON d.id = p.deviceid
+WHERE d.id IS NULL GROUP BY p.deviceid;
+-- (analogue for tc_events once its index inventory is known)
 ```
 
-If EXPLAIN confirms the full index scan: enumerate devices from **`tc_devices`** (small,
-cheap) instead, and record this tradeoff explicitly — **orphan positions (rows whose
-deviceid no longer exists in tc_devices) would then never be discovered by the per-run
-loop.** That gap is handled by a documented **one-off orphan sweep** (run manually,
-off-peak, during cutover — not per-run), and the design must never silently stop
-archiving rows the old time-scan discovery would have found. Additionally, the
-restructure commit must **log the device count and per-device group counts at the end of
-each run**, so a device that stops appearing is visible rather than silent.
+Any orphans found get archived by targeted manual runs or an explicit decision — the
+device-iterated design must never silently stop archiving rows the old time-scan would
+have found, and the sweep is the mechanism that proves it hasn't.
 
 Events side still gated on the missing `SHOW INDEX FROM tc_events` answer; if tc_events
 lacks a deviceid-led index, the option applies to positions only until that is known.
@@ -570,17 +570,23 @@ commits is sustained purge and binlog load on a managed instance BOTH environmen
 5. DB health back to pre-batch baseline (history list drained, no lingering lag).
 Only then the next batch.
 
-**Clock-garbage policy — DECISION REQUIRED before batch 1** (rows dated 2000-01 etc. get
-archived-and-deleted first, having had zero live retention):
-- **(a) Archive normally:** they flow through like any month — preserved in the archive
-  under their (bogus) month keys, deleted from the DB; simplest, no code change.
-- **(b) Floor-date exclusion:** the script skips groups older than a floor (e.g.
-  2024-01); rows stay in the DB until a policy exists; small code change, backlog keeps
-  carrying them.
-- **(c) Quarantine:** archive them to a separate quarantine prefix and delete from the
-  DB; keeps the main archive free of bogus months (the Java read path would otherwise
-  serve them for date ranges nobody means); code change ≈ a prefix override per group
-  class.
+**Clock-garbage policy — DECIDED (2026-08-19): (c) QUARANTINE.** Bogus-dated groups are
+archived to a separate quarantine key space (built on the C2 prefix machinery: the run's
+key prefix + `-quarantine`, e.g. `archive-quarantine/…` — a sibling of `archive/`, so the
+Java read path never serves fabricated months) and deleted from the live table.
+Rationale: archiving them normally permanently pollutes the main archive with months the
+read path will serve for date ranges nobody means; floor-date exclusion defers rather
+than resolves. Two binding requirements: **the floor date defining "garbage" is a config
+value (`archive.quarantine.floor`, YYYY-MM-DD), never a literal in code** — a group whose
+month ends on or before the floor is quarantined; and **the run logs the count of
+quarantined groups (and their rows) separately**, so they never silently blend into the
+normal archive totals. No floor configured = quarantine disabled (everything archives
+normally); prod gets a floor set at arming time.
+
+**`--max-groups N` — APPROVED (2026-08-19)** for bounded supervised sessions. Binding
+requirements: stops only at a group boundary, never mid-group; logs clearly that it
+stopped on the limit rather than exhausting the work; and exits ZERO on a clean
+limit-stop so it is never confused with a failure exit.
 
 ### Operation 2 — steady-state monthly operation
 
