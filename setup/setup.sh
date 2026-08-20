@@ -53,8 +53,21 @@ systemctl enable traccar.service
 
 ARCHIVE_BUCKET=$(grep -o 'archive\.spaces\.bucket[^<]*</entry>' /opt/traccar/conf/traccar.xml 2>/dev/null | grep -o '>.*<' | tr -d '><')
 if [ -n "$ARCHIVE_BUCKET" ]; then
-    (crontab -l 2>/dev/null | grep -v "archive_cold_storage.py"; echo "0 4 1 * * /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml >> /opt/traccar/logs/archive.log 2>&1") | crontab -
-    echo "Archive cron job installed."
+    # The selfcheck GATES the cron: a host that cannot pass it (failed pip
+    # install, unreachable bucket/DB, unopenable lock path) must not be armed
+    # -- arming anyway would be the deploy equivalent of a fail-open probe.
+    echo "Running archiver selfcheck (gates the cron install)..."
+    if /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml --selfcheck; then
+        (crontab -l 2>/dev/null | grep -v "archive_cold_storage.py"; echo "0 4 1 * * /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml >> /opt/traccar/logs/archive.log 2>&1") | crontab -
+        echo "Archive cron job installed (selfcheck passed)."
+    else
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "!! Archiver selfcheck FAILED -- cron NOT installed or updated.  !!"
+        echo "!! An existing crontab was left untouched. Fix the failure(s)   !!"
+        echo "!! above, then re-run the installer (or run the selfcheck       !!"
+        echo "!! manually and install the cron line once it passes).          !!"
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    fi
 else
     echo "archive.spaces.bucket not configured — skipping cron install."
 fi

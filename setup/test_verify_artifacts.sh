@@ -1,91 +1,108 @@
 #!/usr/bin/env bash
 #
-# CI self-test for verify_artifacts.sh. release.yml only runs on manual
-# dispatch, so this fabricates minimal artifacts exactly the way package.sh
-# does (makeself --needroot --notemp of an out/ dir, zipped with -j; the
-# "other" artifact as a plain zip of out/*) and asserts four behaviors:
-#   1. faithful artifacts PASS
-#   2. a tampered script inside the makeself payload FAILS
-#   3. a carrier artifact missing the script entirely FAILS
-#   4. the script sneaking into the absent-by-design artifact FAILS
-# Runs on ubuntu (needs makeself, zip, unzip, sudo).
+# CI self-test for verify_artifacts.sh — against REAL package.sh artifacts.
+#
+# The original requirement is "extract from the built artifact, not out/";
+# an earlier version of this test fabricated its own payloads, which is
+# exactly why CI could not catch a package.sh bug (out/scripts leaking into
+# the "other" zip). This version stubs only the heavyweight inputs (server
+# jar, web build, JDK tarballs built from the runner's own $JAVA_HOME jmods)
+# and then runs the actual ./package.sh for ALL platforms, asserting the
+# verifier against the artifacts it really produced:
+#   1. faithful build PASSES (including: other-zip carries NO script — the
+#      leak regression)
+#   2. a repo-side script change makes the built artifacts FAIL (tamper)
+#   3. a carrier artifact missing the script FAILS (fabricated case — the
+#      only way to produce that state)
+#   4. the script sneaking into the absent-by-design zip FAILS (fabricated)
+#
+# Needs: makeself, zip, unzip, jlink on PATH, JAVA_HOME set (setup-java).
 
 set -eu
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$(dirname "$0")"
+REPO_ROOT="$(cd .. && pwd)"
 V="selftest"
-WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
-cd "$WORK"
+
+cleanup() {
+    # Restore anything we stubbed or tampered.
+    if [ -f "$REPO_ROOT/scripts/archive_cold_storage.py.orig" ]; then
+        mv -f "$REPO_ROOT/scripts/archive_cold_storage.py.orig" \
+              "$REPO_ROOT/scripts/archive_cold_storage.py"
+    fi
+    rm -f traccar-linux-64-$V.zip traccar-linux-arm-$V.zip traccar-other-$V.zip
+    rm -f OpenJDK-selftest_x64_linux.tar.gz OpenJDK-selftest_aarch64_linux.tar.gz
+    rm -rf jdk-selftest out
+}
+trap cleanup EXIT
+
+# --- stub the heavyweight prerequisites package.sh expects ----------------
+mkdir -p "$REPO_ROOT/target/lib"
+[ -f "$REPO_ROOT/target/tracker-server.jar" ] || echo dummy > "$REPO_ROOT/target/tracker-server.jar"
+[ -n "$(ls -A "$REPO_ROOT/target/lib" 2>/dev/null)" ] || echo dummy > "$REPO_ROOT/target/lib/dummy.jar"
+mkdir -p "$REPO_ROOT/traccar-web/build"
+[ -n "$(ls -A "$REPO_ROOT/traccar-web/build" 2>/dev/null)" ] || echo '<html></html>' > "$REPO_ROOT/traccar-web/build/index.html"
+
+# JDK tarballs: real jmods from the runner's JDK, top dir named jdk-* as
+# package.sh expects. Same jmods serve both platform names — jlink output
+# content is irrelevant to what this test asserts.
+rm -rf jdk-selftest
+mkdir jdk-selftest
+cp -r "$JAVA_HOME/jmods" jdk-selftest/
+tar czf OpenJDK-selftest_x64_linux.tar.gz jdk-selftest
+cp OpenJDK-selftest_x64_linux.tar.gz OpenJDK-selftest_aarch64_linux.tar.gz
+rm -rf jdk-selftest
+
+# --- build ALL platforms with the real packaging script -------------------
+./package.sh "$V"
 
 verify() {
-    bash "$REPO_ROOT/setup/verify_artifacts.sh" "$V" "$WORK"
+    bash "$REPO_ROOT/setup/verify_artifacts.sh" "$V" "$(pwd)"
 }
 
-mk_payload() {  # $1 = dir; faithful payload mirroring package.sh's out/
-    mkdir -p "$1/scripts"
-    cp "$REPO_ROOT/scripts/archive_cold_storage.py" "$1/scripts/"
-    if [ -f "$REPO_ROOT/scripts/requirements.txt" ]; then
-        cp "$REPO_ROOT/scripts/requirements.txt" "$1/scripts/"
-    fi
-    printf '#!/bin/sh\ntrue\n' > "$1/setup.sh"
-    chmod +x "$1/setup.sh"
-}
-
-build_carrier_zip() {  # $1 = payload dir, $2 = zip name
-    rm -f traccar.run "$2"
-    makeself --needroot --quiet --notemp "$1" traccar.run "traccar" ./setup.sh
-    zip -qj "$2" traccar.run
-}
-
-# --- faithful set ----------------------------------------------------------
-mk_payload out
-build_carrier_zip out "traccar-linux-64-$V.zip"
-cp "traccar-linux-64-$V.zip" "traccar-linux-arm-$V.zip"
-mkdir -p other/web && echo x > other/web/index.html
-( cd other && zip -qr "../traccar-other-$V.zip" . )
-
+# --- 1. faithful real artifacts PASS (includes the other-zip leak check) --
 if verify; then
-    echo "PASS 1: faithful artifacts verify"
+    echo "PASS 1: real package.sh artifacts verify (and 'other' carries no script)"
 else
-    echo "FAIL 1: faithful artifacts were rejected"; exit 1
+    echo "FAIL 1: faithful real artifacts were rejected"; exit 1
 fi
 
-# --- tampered script in the payload ---------------------------------------
-mk_payload out_tampered
-echo "# tampered" >> out_tampered/scripts/archive_cold_storage.py
-build_carrier_zip out_tampered "traccar-linux-64-$V.zip"
-
+# --- 2. tamper: repo copy changes AFTER the build -> built artifacts FAIL -
+cp "$REPO_ROOT/scripts/archive_cold_storage.py" "$REPO_ROOT/scripts/archive_cold_storage.py.orig"
+echo "# tampered" >> "$REPO_ROOT/scripts/archive_cold_storage.py"
 if verify; then
-    echo "FAIL 2: tampered artifact passed"; exit 1
+    echo "FAIL 2: artifact/repo mismatch passed"; exit 1
 else
-    echo "PASS 2: tampered artifact rejected"
+    echo "PASS 2: artifact/repo mismatch rejected"
 fi
-build_carrier_zip out "traccar-linux-64-$V.zip"   # restore faithful
+mv -f "$REPO_ROOT/scripts/archive_cold_storage.py.orig" "$REPO_ROOT/scripts/archive_cold_storage.py"
 
-# --- carrier missing the script entirely ----------------------------------
-mkdir -p out_missing
-printf '#!/bin/sh\ntrue\n' > out_missing/setup.sh
-chmod +x out_missing/setup.sh
-build_carrier_zip out_missing "traccar-linux-64-$V.zip"
-
+# --- 3. carrier missing the script (fabricated: only way to produce it) ---
+WORK=$(mktemp -d)
+mkdir -p "$WORK/payload"
+printf '#!/bin/sh\ntrue\n' > "$WORK/payload/setup.sh"
+chmod +x "$WORK/payload/setup.sh"
+( cd "$WORK" && makeself --needroot --quiet --notemp payload traccar.run "traccar" ./setup.sh )
+cp "traccar-linux-64-$V.zip" "traccar-linux-64-$V.zip.orig"
+zip -qj "traccar-linux-64-$V.zip" "$WORK/traccar.run"
 if verify; then
     echo "FAIL 3: carrier without the script passed"; exit 1
 else
     echo "PASS 3: carrier without the script rejected"
 fi
-build_carrier_zip out "traccar-linux-64-$V.zip"   # restore faithful
+mv -f "traccar-linux-64-$V.zip.orig" "traccar-linux-64-$V.zip"
+rm -rf "$WORK"
 
-# --- script sneaking into the absent-by-design artifact --------------------
-mkdir -p other/scripts
-cp "$REPO_ROOT/scripts/archive_cold_storage.py" other/scripts/
-rm -f "traccar-other-$V.zip"
-( cd other && zip -qr "../traccar-other-$V.zip" . )
-
+# --- 4. script sneaking into the absent-by-design zip (fabricated) --------
+SNEAK=$(mktemp -d)
+mkdir -p "$SNEAK/scripts"
+cp "$REPO_ROOT/scripts/archive_cold_storage.py" "$SNEAK/scripts/"
+( cd "$SNEAK" && zip -qr "$OLDPWD/traccar-other-$V.zip" scripts )
 if verify; then
     echo "FAIL 4: script sneaking into the 'other' artifact passed"; exit 1
 else
     echo "PASS 4: sneak into the absent-by-design artifact rejected"
 fi
+rm -rf "$SNEAK"
 
-echo "verify_artifacts.sh self-test: all four behaviors confirmed."
+echo "verify_artifacts.sh self-test: all four behaviors confirmed against real artifacts."

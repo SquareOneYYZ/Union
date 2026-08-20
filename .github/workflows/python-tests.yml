@@ -18,8 +18,8 @@ jobs:
         python-version: '3.12'
     - name: Syntax gate
       run: python -m py_compile scripts/archive_cold_storage.py
-    - name: Install test dependencies
-      run: pip install pytest pymysql pandas pyarrow python-dateutil
+    - name: Install pinned runtime deps plus pytest
+      run: pip install pytest -r scripts/requirements.txt
     - name: Run tests
       run: python -m pytest scripts/tests/ -v
 
@@ -29,7 +29,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 21
     - name: Install packaging tools
       run: sudo apt-get update && sudo apt-get install -y makeself zip unzip
-    - name: Self-test the artifact verifier (faithful, tampered, missing, sneak)
+    - name: Self-test the artifact verifier against REAL package.sh artifacts
       run: bash setup/test_verify_artifacts.sh

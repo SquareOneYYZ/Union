@@ -60,3 +60,31 @@ def test_setup_sh_prints_the_selfcheck_command():
     with open(SETUP_SH, encoding="utf-8") as f:
         content = f.read()
     assert "--selfcheck" in content
+
+
+def test_setup_sh_gates_cron_install_on_selfcheck():
+    # The deploy equivalent of a fail-open probe: the cron must never be
+    # armed on a host that cannot pass the selfcheck.
+    with open(SETUP_SH, encoding="utf-8") as f:
+        content = f.read()
+    gate = content.index(
+        "if /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py "
+        "--config /opt/traccar/conf/traccar.xml --selfcheck; then")
+    cron = content.index("0 4 1 * *")
+    assert gate < cron
+
+
+def test_package_sh_removes_scripts_dir_before_other_zip():
+    # out/scripts surviving package_linux leaked the archiver into the
+    # "other" zip built afterwards from out/*.
+    with open(PACKAGE_SH, encoding="utf-8") as f:
+        content = f.read()
+    assert "rm -r out/scripts" in content
+
+
+def test_ci_installs_the_pinned_requirements():
+    workflow = os.path.join(HERE, "..", "..", ".github", "workflows",
+                            "python-tests.yml")
+    with open(workflow, encoding="utf-8") as f:
+        content = f.read()
+    assert "-r scripts/requirements.txt" in content
