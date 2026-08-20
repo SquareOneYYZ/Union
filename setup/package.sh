@@ -107,6 +107,7 @@ package_linux () {
 
     mkdir -p out/scripts
     cp ../scripts/archive_cold_storage.py out/scripts
+    cp ../scripts/requirements.txt out/scripts
 
   tar -xf OpenJDK*$2_linux*.tar.gz
   jlink --module-path jdk-*/jmods --add-modules java.se,jdk.charsets,jdk.crypto.ec,jdk.unsupported --output out/jre
