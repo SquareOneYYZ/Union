@@ -42,3 +42,21 @@ def test_package_sh_ships_requirements_next_to_the_script():
     with open(PACKAGE_SH, encoding="utf-8") as f:
         content = f.read()
     assert "cp ../scripts/requirements.txt out/scripts" in content
+
+
+SETUP_SH = os.path.join(HERE, "..", "..", "setup", "setup.sh")
+
+
+def test_setup_sh_installs_pins_for_the_cron_interpreter():
+    # Must be the exact interpreter the cron line invokes, with the PEP 668
+    # override that matches how the existing working host was provisioned.
+    with open(SETUP_SH, encoding="utf-8") as f:
+        content = f.read()
+    assert ("/usr/bin/python3 -m pip install --break-system-packages "
+            "-r /opt/traccar/scripts/requirements.txt") in content
+
+
+def test_setup_sh_prints_the_selfcheck_command():
+    with open(SETUP_SH, encoding="utf-8") as f:
+        content = f.read()
+    assert "--selfcheck" in content
