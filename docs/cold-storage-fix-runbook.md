@@ -164,7 +164,12 @@ last collection spans **more than 24 hours**, S-F4 (bucket listing) and P-F7d (g
 discovery) are stale relative to each other — re-take them together before any
 STOP-condition verdict is treated as final.
 
-### Measurement-validity rule (added 2026-08-18 after two invalid measurements)
+### Measurement-validity rule (added 2026-08-18; ENFORCED IN CODE since the second review)
+
+**As of the 2026-08-20 review fixes the script enforces this rule itself:** every s3cmd
+call runs under a hard timeout (`archive.s3cmd.timeout`, default 300 s), existence probes
+are three-state, and a failed probe (non-zero exit, timeout, launch failure) fails the
+group — it is never read as absence.
 
 For every s3cmd-based item (S-F4, S-F4b, S-F5): **a zero count or empty output is only a
 valid answer when the recorded exit code is 0 and stderr is empty.** A non-zero exit or any
@@ -552,7 +557,8 @@ Never plan a batch from stale figures.**
    device OK, no one-sided rows.
 8. Prod arming config includes `archive.quarantine.floor` (the quarantine decision needs a
    floor value chosen) alongside the bucket keys — unset floor means garbage months would
-   archive normally into the main key space.
+   archive normally into the main key space. Optional: `archive.s3cmd.timeout` (seconds,
+   default 300) for hosts where transfers legitimately run long.
 
 **Batching axis — month-major, oldest month first; device-bounded within a month.**
 Justification: months are the unit the key layout, the reconciliation query, and the C7
@@ -610,8 +616,10 @@ Java read path never serves fabricated months) and deleted from the live table.
 Rationale: archiving them normally permanently pollutes the main archive with months the
 read path will serve for date ranges nobody means; floor-date exclusion defers rather
 than resolves. Two binding requirements: **the floor date defining "garbage" is a config
-value (`archive.quarantine.floor`, YYYY-MM-DD), never a literal in code** — a group whose
-month ends on or before the floor is quarantined; and **the run logs the count of
+value (`archive.quarantine.floor`, YYYY-MM-DD), never a literal in code** — a group is
+quarantined when its ENTIRE calendar month lies strictly before the floor date (the
+comparison is exclusive-month-end <= floor; set the floor to the first day of a month,
+e.g. floor 2024-01-01 quarantines through 2023-12); and **the run logs the count of
 quarantined groups (and their rows) separately**, so they never silently blend into the
 normal archive totals. No floor configured = quarantine disabled (everything archives
 normally); prod gets a floor set at arming time.
@@ -716,7 +724,10 @@ outside a planned sequence either (an installer run re-arms the cron to monthly 
    # identity, s3cmd reachability (ls only), DB connect (SELECT only)
    ```
 9. **Cron state check:** `crontab -l | grep archive_cold_storage` — prod: must be absent
-   until cutover; staging: re-park if the installer reset it to monthly.
+   until cutover; staging: re-park if the installer reset it to monthly. Note (second
+   review): `setup.sh` now runs the selfcheck itself and **installs/updates the cron only
+   when it passes** — a host that cannot pass the selfcheck is never armed; a selfcheck
+   failure leaves any existing crontab untouched and prints how to proceed.
 
 **Rollback:** the only artifact history is the versioned installer zips in Spaces
 `builds/`. Download the previous version, run its `traccar.run` (same overwrite-in-place

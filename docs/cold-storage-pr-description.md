@@ -74,12 +74,38 @@ named — instead of crashing the whole run).
   matches the existing host (system pip, PEP 668, `--break-system-packages`; dateutil is
   apt-managed — mixed provenance noted).
 
+## Second-review fixes (post-`66f9b5c20`)
+
+A second review found seven defects, all applied (`3a78425a5`, `9843c76ef`):
+
+- **Fail-closed probes:** three existence probes (marker, leftover-tmp, final-exists)
+  read "s3cmd failed" as "key absent" — respectively a C5 bypass and a C6 bypass
+  enabling a blind overwrite. Probes are now three-state; a failed probe fails the
+  group. The test fakes gained the error mode whose absence hid this.
+- **Timeouts on every s3cmd call** (`archive.s3cmd.timeout`, default 300 s); expiry is a
+  group failure — a hung transfer can no longer hold the run lock.
+- **Packaging leak:** `out/scripts` survived into the `traccar-other` zip; fixed, and the
+  CI self-test now runs the real `package.sh` for all platforms and asserts against the
+  artifacts it actually produced.
+- Four one-liners: `--months < 1` refused; `--prefix` rejects any first segment
+  *starting with* the production prefix; quarantine-floor semantics documented exactly
+  (entire month strictly before the floor); lock file opened without truncation so a
+  running instance's pid survives a losing contender.
+- **CI installs the pinned requirements** (was: unpinned latest — defeating C8).
+- **`setup.sh` gates the cron on a passing `--selfcheck`** (was: armed on config
+  presence alone, even after a failed dependency install).
+
+Post-fix removed-behavior audit: delete-by-ids (sole DELETE is id-keyed),
+finalize-before-delete (ordering tests green; finalize now also fails closed on a failed
+tmp-delete), exact-match verification, and the deleter capability injection are all
+intact — none weakened.
+
 ## Verification
 
-- Offline pytest suite (`scripts/tests/`, no network/DB/bucket): **85 passed, 3
+- Offline pytest suite (`scripts/tests/`, no network/DB/bucket): **106 passed, 3
   platform-skipped locally**; the skipped POSIX flock contention tests run green in CI.
-- CI on push/PR: `py_compile` gate + test suite + packaging-verifier self-test
-  (faithful/tampered/missing/sneak artifacts).
+- CI on push/PR: `py_compile` gate + test suite against the **pinned** requirements +
+  packaging self-test running the real `package.sh` (faithful/tamper/missing/sneak).
 - Release builds verify the built artifacts against the repo before uploading.
 
 ## Not in this PR (operator actions, sequenced in the runbook)
