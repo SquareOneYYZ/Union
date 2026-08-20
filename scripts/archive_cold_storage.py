@@ -85,6 +85,10 @@ def parse_args():
                         help="Rehearsal key-space prefix replacing the leading 'archive'. "
                              "Requires --archive-only; must not resolve into the "
                              "production 'archive/' key space.")
+    parser.add_argument("--selfcheck", action="store_true",
+                        help="Read-only environment check (imports, config parse, lock "
+                             "path, s3cmd reachability, DB connect) -- uploads nothing, "
+                             "deletes nothing, writes nothing, then exits (0 = all OK).")
     return parser.parse_args()
 
 
@@ -903,6 +907,113 @@ def snapshot_device_geofence_segments(conn, cfg, temp_dir, key_prefix=PROD_KEY_P
 
 
 # ---------------------------------------------------------------------------
+# Selfcheck -- read-only post-install verification (Phase 4)
+# ---------------------------------------------------------------------------
+
+def run_selfcheck(args) -> int:
+    """Read-only environment check: imports, config parse, lock-path access,
+    s3cmd reachability (ls only), DB connect (SELECT only). Uploads nothing,
+    deletes nothing, writes nothing to the DB or the bucket. Returns 0 only
+    if every check passed.
+    """
+    ok = True
+
+    def report(name, passed, detail=""):
+        nonlocal ok
+        logger.log(logging.INFO if passed else logging.ERROR,
+                   "SELFCHECK %-12s %s%s", name,
+                   "OK" if passed else "FAIL",
+                   f" -- {detail}" if detail else "")
+        if not passed:
+            ok = False
+
+    missing = []
+    for pkg in ("pymysql", "pandas", "pyarrow", "dateutil"):
+        try:
+            __import__(pkg)
+        except ImportError:
+            missing.append(pkg)
+    report("imports", not missing,
+           ", ".join(missing) if missing else f"python {sys.version.split()[0]}")
+
+    try:
+        props = load_config_xml(args.config)
+    except SystemExit:
+        report("config", False, f"cannot load {args.config}")
+        return 1
+    cfg = PropsConfig(props)
+    needed = {
+        "archive.spaces.bucket": cfg.get("spaces", "bucket"),
+        "archive.s3cmd.configFile": cfg.get("spaces", "s3cmd_config"),
+        "archive.python.exe": cfg.get("spaces", "python_exe"),
+        "archive.s3cmd.script": cfg.get("spaces", "s3cmd_script"),
+        "database.url": props.get("database.url", ""),
+    }
+    absent = sorted(k for k, v in needed.items() if not v)
+    report("config", not absent,
+           ("missing: " + ", ".join(absent)) if absent else args.config)
+
+    temp_dir = os.path.expanduser(
+        props.get("archive.temp.dir", "/tmp/traccar-archive"))
+    report("temp-dir",
+           os.path.isdir(temp_dir) and os.access(temp_dir, os.W_OK),
+           temp_dir)
+
+    if fcntl is None:
+        report("lock-path", True, "no fcntl on this platform (dev box)")
+    else:
+        lock_path = _lock_path()
+        try:
+            # "a" so a running instance's pid content is never truncated.
+            handle = open(lock_path, "a")
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(handle, fcntl.LOCK_UN)
+                report("lock-path", True, f"{lock_path} openable and free")
+            except OSError:
+                report("lock-path", True,
+                       f"{lock_path} openable; held by a running instance")
+            finally:
+                handle.close()
+        except OSError as e:
+            report("lock-path", False,
+                   f"{lock_path} not openable by this identity: {e}")
+
+    bucket = cfg.get("spaces", "bucket")
+    if not bucket:
+        report("s3cmd", False, "no bucket configured")
+    else:
+        try:
+            cmd = build_s3cmd_base(cfg) + ["ls", f"s3://{bucket}"]
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    timeout=60)
+            report("s3cmd", result.returncode == 0,
+                   f"ls s3://{bucket} exit={result.returncode}"
+                   + ("" if result.returncode == 0
+                      else f" stderr: {result.stderr.strip()[:200]}"))
+        except SystemExit:
+            report("s3cmd", False, "s3cmd invocation not configured")
+        except Exception as e:
+            report("s3cmd", False, str(e))
+
+    try:
+        conn = get_connection(props)
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 AS one, @@session.time_zone AS tz")
+                row = cur.fetchone()
+            report("db", True,
+                   f"connected; session time_zone={row['tz'] if row else '?'}")
+        finally:
+            conn.close()
+    except Exception as e:
+        report("db", False, str(e))
+
+    logger.info("SELFCHECK result: %s", "ALL OK" if ok else "FAILURES ABOVE")
+    return 0 if ok else 1
+
+
+# ---------------------------------------------------------------------------
 # Run lock -- cron and a manual run must never overlap
 # ---------------------------------------------------------------------------
 
@@ -960,6 +1071,10 @@ def acquire_run_lock():
 
 def main():
     args = parse_args()
+
+    if args.selfcheck:
+        sys.exit(run_selfcheck(args))
+
     key_prefix, archive_only = resolve_run_options(args)
 
     # First line on the record: where this run writes. A misdirected
