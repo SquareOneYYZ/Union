@@ -85,6 +85,10 @@ def parse_args():
                         help="Rehearsal key-space prefix replacing the leading 'archive'. "
                              "Requires --archive-only; must not resolve into the "
                              "production 'archive/' key space.")
+    parser.add_argument("--max-groups", type=int, default=None,
+                        help="Stop cleanly after N device/month groups (shared across "
+                             "tables). Stops only at a group boundary and exits 0 -- for "
+                             "bounded supervised bulk-migration sessions.")
     parser.add_argument("--selfcheck", action="store_true",
                         help="Read-only environment check (imports, config parse, lock "
                              "path, s3cmd reachability, DB connect) -- uploads nothing, "
@@ -118,10 +122,36 @@ def validate_prefix(prefix: str) -> str:
     return cleaned
 
 
+class GroupBudget:
+    """Run-wide --max-groups budget, shared across tables.
+
+    take() grants one group and returns True until the limit is spent; the
+    first refused take marks exhausted_hit so the run can say it stopped on
+    the limit rather than exhausting the work. No limit = unlimited.
+    """
+
+    def __init__(self, limit):
+        self.limit = limit
+        self.used = 0
+        self.exhausted_hit = False
+
+    def take(self) -> bool:
+        if self.limit is None:
+            return True
+        if self.used >= self.limit:
+            self.exhausted_hit = True
+            return False
+        self.used += 1
+        return True
+
+
 def resolve_run_options(args):
     """Cross-validate CLI flags. Returns (key_prefix, archive_only)."""
     if args.archive_only and args.dry_run:
         logger.error("--archive-only and --dry-run are mutually exclusive.")
+        sys.exit(2)
+    if getattr(args, "max_groups", None) is not None and args.max_groups < 1:
+        logger.error("--max-groups must be a positive integer.")
         sys.exit(2)
     if args.prefix is not None and not args.archive_only:
         logger.error("--prefix is a rehearsal option and requires --archive-only; "
@@ -581,7 +611,7 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                   spaces_prefix: str, cutoff: date, temp_dir: str,
                   dry_run: bool, datetime_cols: list = None,
                   key_prefix: str = PROD_KEY_PREFIX, deleter=None,
-                  id_exclusions: set = None) -> tuple:
+                  id_exclusions: set = None, budget: GroupBudget = None) -> tuple:
     """
     Archive rows older than cutoff for any time-series table.
     Returns (total_rows_archived, failure_count).
@@ -636,6 +666,15 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                 "period stay live until a later run.",
                 table, device_id, label, cutoff_month_start)
             continue
+
+        # --max-groups: consume budget only for groups actually attempted
+        # (skips above cost nothing). Stops strictly at a group boundary.
+        if budget is not None and not budget.take():
+            logger.info(
+                "[%s] --max-groups limit (%d) reached -- stopping cleanly at "
+                "a group boundary; the remaining groups run next time (this "
+                "is a clean stop, not a failure).", table, budget.limit)
+            break
 
         # C6: a marker no longer skips the group. Discovery only returns
         # groups that still have rows, so marker + rows = late-arriving data
@@ -850,22 +889,24 @@ DEVICE_GEOFENCE_SEGMENT_COLUMNS = [
 
 def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
                       key_prefix: str = PROD_KEY_PREFIX, deleter=None,
-                      id_exclusions: set = None) -> tuple:
+                      id_exclusions: set = None, budget: GroupBudget = None) -> tuple:
     return archive_table(
         conn, cfg, "tc_positions", "fixtime", POSITIONS_COLUMNS,
         "positions", cutoff, temp_dir, dry_run,
         datetime_cols=["servertime", "devicetime", "fixtime"],
         key_prefix=key_prefix, deleter=deleter, id_exclusions=id_exclusions,
+        budget=budget,
     )
 
 
 def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
-                   key_prefix: str = PROD_KEY_PREFIX, deleter=None) -> tuple:
+                   key_prefix: str = PROD_KEY_PREFIX, deleter=None,
+                   budget: GroupBudget = None) -> tuple:
     return archive_table(
         conn, cfg, "tc_events", "eventtime", EVENTS_COLUMNS,
         "events", cutoff, temp_dir, dry_run,
         datetime_cols=["eventtime"],
-        key_prefix=key_prefix, deleter=deleter,
+        key_prefix=key_prefix, deleter=deleter, budget=budget,
     )
 
 
@@ -1149,6 +1190,9 @@ def main():
     # never receive it, so no code path in them can delete rows.
     deleter = None if archive_only else batch_delete_by_ids
 
+    # Shared across both tables; None limit = unlimited.
+    budget = GroupBudget(args.max_groups)
+
     # #9 fix: timezone-aware datetime
     now    = dt.now(timezone.utc).replace(tzinfo=None)
     cutoff = (now - relativedelta(months=retention_months)).date()
@@ -1191,12 +1235,14 @@ def main():
         logger.info("\n--- Archiving POSITIONS (old rows -> Spaces, %s) ---", mode_note)
         pos_total, pf = archive_positions(conn, cfg, cutoff, temp_dir, dry_run,
                                           key_prefix=key_prefix, deleter=deleter,
-                                          id_exclusions=protected_ids)
+                                          id_exclusions=protected_ids,
+                                          budget=budget)
         total_failures += pf
 
         logger.info("\n--- Archiving EVENTS (old rows -> Spaces, %s) ---", mode_note)
         evt_total, ef = archive_events(conn, cfg, cutoff, temp_dir, dry_run,
-                                       key_prefix=key_prefix, deleter=deleter)
+                                       key_prefix=key_prefix, deleter=deleter,
+                                       budget=budget)
         total_failures += ef
 
         logger.info("\n--- Snapshotting GEOFENCES (store only, DB unchanged) ---")
@@ -1228,6 +1274,10 @@ def main():
                     "verification uploads were removed again (no artifact left).")
     if archive_only:
         logger.info("  NOTE: --archive-only -- no rows deleted, no markers uploaded.")
+    if budget.exhausted_hit:
+        logger.info("  NOTE: run stopped on --max-groups=%d after %d group(s) "
+                    "-- work remains; this is a CLEAN stop (exit 0), not a "
+                    "failure.", budget.limit, budget.used)
     if total_failures > 0:
         logger.warning("  WARNING: %d group(s) failed.", total_failures)
     logger.info("=" * 60)
