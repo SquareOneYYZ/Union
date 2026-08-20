@@ -66,7 +66,7 @@ full bucket separation).
 | F5 versioning/lifecycle | shared | **VALID: versioning OFF → STOP 3 TRIGGERED.** No lifecycle expiry rule. Bucket access-policy state is recorded in the local answers file and is verified under A0 (human, console) |
 | F6 DB timezone | prod | **COLLECTED: `SYSTEM`/`SYSTEM`, currently resolving to UTC — an observation, not a guarantee.** `@@system_time_zone` follow-up outstanding; explicit tz pinning is a required step everywhere (see below) |
 | F6 DB timezone | staging | _pending (optional — informs the D8 note on existing staging parquet; same server as prod)_ |
-| F7 table state + discovery | prod | **P-F7a COLLECTED: tc_positions ≈730.7M, tc_events ≈103.4M** (larger than the ~623M planning figure). **P-F7b partial: positions = PRIMARY(id) + (deviceid, fixtime); tc_events index inventory OUTSTANDING.** P-F7c deferred (no fixtime-led index). **P-F7d NOT RUN — unsafe (time-only filter cannot use the index; ~730M-row scan) — removed from the checklist** |
+| F7 table state + discovery | prod | **P-F7a COLLECTED: tc_positions ≈730.7M, tc_events ≈103.4M** (larger than the ~623M planning figure). **P-F7b partial: positions = PRIMARY(id) + (deviceid, fixtime); tc_events index inventory OUTSTANDING.** P-F7c deferred (no fixtime-led index). P-F7d time-scan form withdrawn as unsafe; **BACKLOG INVENTORY COLLECTED 2026-08-19 via the per-device index-backed form: 11,345 device-months / 366.76M rows (~50% of table) / 2,076 devices / 45 months / largest group ~197.5k rows / oldest = 2000-01 clock garbage. Point-in-time — re-take before cutover (Phase 5)** |
 | F9 python/deps | prod | _pending_ |
 | F9 python/deps | staging | **Python 3.12.7, all four deps import** — the proven-working version set is recorded locally as the candidate C8 pins |
 | F10 config keys | prod | **zero `archive.*` keys present** (database.* present) |
@@ -484,4 +484,115 @@ Sequence (human executes all console/bucket actions; none are run by Claude):
 
 ---
 
-*(Phases 1–5 sections to be appended after the Phase 0 gate clears.)*
+## Phase 5 — cutover (REFRAMED 2026-08-19: two separate operations)
+
+The backlog inventory (collected 2026-08-19, per-device index-backed form, provisional
+cutoff 2026-02-18) shows this is not "a large first monthly run":
+
+| Metric | Value |
+|---|---|
+| Device-months older than cutoff | 11,345 |
+| Rows older than cutoff | 366,756,138 (~50% of the ~730.7M-row table) |
+| Distinct devices with backlog | 2,076 of ~3,600 |
+| Calendar months spanned | 45 |
+| Largest single device-month | ~197,542 rows (≈20 delete chunks) |
+| Average device-month | ~32.3k rows (≈3–4 delete chunks) |
+| Oldest groups | clock garbage (2000-01, small counts) |
+
+**These figures are point-in-time and drift monthly (a new month crosses the cutoff every
+month). Re-take the inventory with the same per-device query IMMEDIATELY before cutover.
+Never plan a batch from stale figures.**
+
+### Operation 1 — one-time bulk migration (~half the table)
+
+**Preconditions, all of them, before batch 1:**
+1. Phase 1 safety nets in place (versioning ON for the prod bucket, DB snapshot procedure
+   agreed, baseline queries recorded).
+2. Branch C A0–A5 complete: prod's configured bucket's `archive/` prefix lists empty on a
+   valid measurement.
+3. Fixed script deployed and proven: P4 artifact assertion green in the release build,
+   host-side sha256 matches the repo, `--selfcheck` passes (once it lands).
+4. **Discovery restructure landed** — otherwise every batch run opens with a full scan of
+   the 730.7M-row table (the known performance defect), once per supervised session.
+5. **Clock-garbage policy decided** (below) — oldest-first batching reaches those groups
+   first.
+6. Inventory re-taken (same query), batch plan sized from the fresh numbers.
+7. Rehearsal: `--archive-only` against a scratch `--prefix`, oldest real month, then the
+   DuckDB Invariant-7 reconciliation (tz pinned per the required-step section) — every
+   device OK, no one-sided rows.
+
+**Batching axis — month-major, oldest month first; device-bounded within a month.**
+Justification: months are the unit the key layout, the reconciliation query, and the C7
+guard already think in, so each batch gets a natural, month-scoped verify step; oldest
+months are smallest (gentle ramp, calibration on cheap batches) and their late-arrival risk
+is nil; and the clock-garbage groups surface in batch 1, immediately after the policy
+decision rather than mid-migration. Mechanically, month-major batching needs NO new code:
+run with `--months N` counting DOWN (e.g. 24, 23, … 6) — each run's cutoff admits exactly
+one more month, and C7 keeps partial months out. Within the large recent months (a single
+month can approach ~2,000 device-months), a bounded supervised session needs a clean stop
+point: **proposed small addition, pending approval — a `--max-groups N` flag that stops
+cleanly after N groups** (markers + merge make re-runs idempotent, so the next session
+resumes where the last stopped). Without it the only mid-month stop is interrupting between
+groups, and an interrupt that lands mid-group leaves a tmp for C5 to abort on.
+
+**Sizing (estimates — the FIRST batch is the calibration batch; recalibrate from its
+measured throughput before sizing the rest):**
+- Per average group (~32k rows): export range-scan + parquet write ≈ seconds; upload +
+  listing-verify + verify-download + copy + tmp-delete + marker ≈ 5–10 s of S3 round
+  trips; 3–4 delete chunks ≈ seconds. Estimate **~10–20 s per average group**.
+- Per largest group (~197k rows): larger export/upload/verify-download plus ~20 delete
+  chunks — estimate **1.5–3 min**.
+- Throughput ≈ **200–350 groups/hour**; a 4-hour supervised session ≈ **800–1,400 groups
+  ≈ 25–45M rows**. Whole backlog ≈ **8–14 such sessions**. Old months are much faster
+  than these averages; the recent months dominate.
+
+**DB-side impact — what to watch, when to stop.** Deleting ~366M rows in 10k-chunk
+commits is sustained purge and binlog load on a managed instance BOTH environments share:
+- Watch during every batch: InnoDB history list length (`SHOW ENGINE INNODB STATUS`) —
+  pause the batch if it exceeds ~1M and keeps climbing; DO console disk usage (row-based
+  binlog logs every deleted row — expect tens of GB of binlog across the migration; stop
+  if disk headroom falls below the agreed floor); replica lag if any replica exists;
+  instance CPU/IOPS; and application-facing symptoms on BOTH prod and staging (shared
+  instance) — ingestion latency, API responsiveness.
+- Stop rules: halt only at batch boundaries under normal conditions; halt immediately
+  mid-batch on disk-floor breach or app-facing degradation (the abort is safe at any
+  point: C4 ordering means a kill costs at most one group's tmp, with the DB intact).
+- Expectation to state up front: **deleting rows does not shrink the table files** —
+  InnoDB reuses freed pages internally. The wins are query performance, backup size, and
+  future partitioning headroom, not immediate disk reclaim.
+
+**Stop-and-verify between batches (success criteria per batch):**
+1. Zero failed groups in the run log (exit code 0).
+2. `.tmp` sweep of the prod bucket's `archive/` prefix: empty (valid measurement).
+3. DuckDB Invariant-7 reconciliation for the batch's months: every device `OK`, no
+   one-sided rows (tz pinned explicitly on the DB session).
+4. Dangling-`positionid` count unchanged from baseline.
+5. DB health back to pre-batch baseline (history list drained, no lingering lag).
+Only then the next batch.
+
+**Clock-garbage policy — DECISION REQUIRED before batch 1** (rows dated 2000-01 etc. get
+archived-and-deleted first, having had zero live retention):
+- **(a) Archive normally:** they flow through like any month — preserved in the archive
+  under their (bogus) month keys, deleted from the DB; simplest, no code change.
+- **(b) Floor-date exclusion:** the script skips groups older than a floor (e.g.
+  2024-01); rows stay in the DB until a policy exists; small code change, backlog keeps
+  carrying them.
+- **(c) Quarantine:** archive them to a separate quarantine prefix and delete from the
+  DB; keeps the main archive free of bogus months (the Java read path would otherwise
+  serve them for date ranges nobody means); code change ≈ a prefix override per group
+  class.
+
+### Operation 2 — steady-state monthly operation
+
+Begins only after the bulk migration completes and reconciles. One calendar month per
+run (~8M rows at current volumes, ~250–2,000 device-months), minutes-to-an-hour of work,
+not sessions. First steady-state month runs SUPERVISED with the cron still disabled, with
+the same five success criteria as a bulk batch; the cron is re-enabled (installer or
+manual line) only after that month is clean. Monthly checks thereafter: exit code, run
+summary counts, `.tmp` sweep, and the dangling-pointer count — plus the end-of-run device
+and group-count log (from the discovery restructure) reviewed for devices that stopped
+appearing.
+
+*(Phases 1–4 runbook procedure sections still to be appended: Phase 1 exact commands,
+deploy/upgrade procedure with rollback, `--selfcheck` usage. Pending: setup.sh changes
+(P-F9), discovery commit (EXPLAIN), C8.)*
