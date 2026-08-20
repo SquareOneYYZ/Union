@@ -34,12 +34,14 @@ def test_happy_path_ordering(tmp_path, s3):
         return matches[-1] if last else matches[0]
 
     upload_tmp = idx(("upload", TMP))
-    verify_tmp = idx(("verify", TMP))
+    # last=True: the first ("probe", TMP) is C5's leftover check before the
+    # upload; the one that matters here is the post-upload verification.
+    verify_tmp = idx(("probe", TMP), last=True)
     rowcount = idx(("rowcount", TMP))
     copy = idx(("copy", TMP, FINAL))
-    # last=True: the first ("verify", FINAL) is C6's existence probe before
-    # the upload; the one that matters for ordering is the post-copy verify.
-    verify_final = idx(("verify", FINAL), last=True)
+    # last=True: the first ("probe", FINAL) is C6's existence probe before
+    # the upload; the one that matters is the post-copy verification.
+    verify_final = idx(("probe", FINAL), last=True)
     del_tmp = idx(("delete", TMP))
     db_delete = idx(("db_delete",))
     marker = idx(("upload", MARKER))

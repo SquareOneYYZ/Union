@@ -33,6 +33,9 @@ class TestValidatePrefix:
         "archive/scratch",    # resolves inside it
         "archive/",           # normalizes to it
         "/archive",           # normalizes to it
+        "archive2",           # startswith: sits beside the production space
+        "archive-mine",       # startswith: collides with the -quarantine sibling pattern
+        "archives/x",         # startswith in the first segment
         "",                   # empty
         "/",                  # empty after normalization
         "..",                 # traversal
@@ -72,4 +75,12 @@ class TestResolveRunOptions:
     def test_archive_only_and_dry_run_mutually_exclusive(self):
         with pytest.raises(SystemExit) as exc:
             acs.resolve_run_options(make_args(archive_only=True, dry_run=True))
+        assert exc.value.code == 2
+
+    @pytest.mark.parametrize("months", [0, -3])
+    def test_nonpositive_months_refused(self, months):
+        args = make_args()
+        args.months = months
+        with pytest.raises(SystemExit) as exc:
+            acs.resolve_run_options(args)
         assert exc.value.code == 2

@@ -116,20 +116,29 @@ def validate_prefix(prefix: str) -> str:
             raise ValueError(f"segment not allowed: {seg!r}")
         if not re.fullmatch(r"[A-Za-z0-9._-]+", seg):
             raise ValueError(f"segment has unsupported characters: {seg!r}")
-    if cleaned.split("/")[0] == PROD_KEY_PREFIX:
+    if cleaned.split("/")[0].startswith(PROD_KEY_PREFIX):
+        # startswith, not equality: 'archive2' or 'archive-mine' would sit
+        # beside the production key space and its quarantine sibling in
+        # listings and tooling globs -- rehearsals stay visibly apart.
         raise ValueError(
-            f"prefix resolves into the production '{PROD_KEY_PREFIX}/' key space")
+            f"prefix must not begin with '{PROD_KEY_PREFIX}' "
+            f"(the production key space and its siblings)")
     return cleaned
 
 
 def parse_quarantine_floor(props):
     """archive.quarantine.floor (YYYY-MM-DD) or None when unset.
 
-    Clock-garbage policy (decision: quarantine): a group whose month ends on
-    or before the floor is archived under '<prefix>-quarantine/' -- a sibling
-    of the normal key space the Java read path never serves -- and then
-    deleted from the live table like any other group. The floor is a config
-    value, never a code literal; a malformed value is fatal, not ignored.
+    Clock-garbage policy (decision: quarantine): a group is quarantined when
+    its ENTIRE calendar month lies strictly before the floor date -- the
+    comparison is period_end <= floor, where period_end is the exclusive
+    month end (first day of the next month). Set the floor to the first day
+    of a month: with floor 2024-01-01, every month up to and including
+    2023-12 quarantines and 2024-01 onward archives normally. Quarantined
+    groups go under '<prefix>-quarantine/' -- a sibling the Java read path
+    never serves -- and are deleted from the live table like any other
+    group. The floor is a config value, never a code literal; a malformed
+    value is fatal, not ignored.
     """
     raw = props.get("archive.quarantine.floor", "").strip()
     if not raw:
@@ -172,6 +181,11 @@ def resolve_run_options(args):
         sys.exit(2)
     if getattr(args, "max_groups", None) is not None and args.max_groups < 1:
         logger.error("--max-groups must be a positive integer.")
+        sys.exit(2)
+    if getattr(args, "months", None) is not None and args.months < 1:
+        logger.error("--months must be a positive integer (a zero or "
+                     "negative retention would put the cutoff at or past "
+                     "now and archive live data).")
         sys.exit(2)
     if args.prefix is not None and not args.archive_only:
         logger.error("--prefix is a rehearsal option and requires --archive-only; "
@@ -259,6 +273,49 @@ def get_connection(props: dict):
 # s3cmd helpers
 # ---------------------------------------------------------------------------
 
+# Hard timeout for EVERY s3cmd subprocess (seconds); overridable via the
+# archive.s3cmd.timeout config key. A hung transfer must never hold the run
+# lock indefinitely across a multi-session migration.
+DEFAULT_S3_TIMEOUT_SECONDS = 300
+S3_TIMEOUT = {"seconds": DEFAULT_S3_TIMEOUT_SECONDS}
+
+
+def configure_s3_timeout(props) -> int:
+    raw = str(props.get("archive.s3cmd.timeout", "")).strip()
+    if not raw:
+        S3_TIMEOUT["seconds"] = DEFAULT_S3_TIMEOUT_SECONDS
+        return S3_TIMEOUT["seconds"]
+    try:
+        value = int(raw)
+        if value < 1:
+            raise ValueError(raw)
+    except ValueError:
+        logger.error("Invalid archive.s3cmd.timeout %r -- expected a "
+                     "positive integer of seconds.", raw)
+        sys.exit(1)
+    S3_TIMEOUT["seconds"] = value
+    return value
+
+
+def run_s3cmd(cmd):
+    """Run one s3cmd subprocess, bounded by the configured timeout.
+
+    Returns the CompletedProcess, or None when the command timed out or could
+    not be launched. Callers MUST treat None as a failed measurement -- never
+    as evidence about the bucket (the runbook's measurement-validity rule,
+    enforced in code).
+    """
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=S3_TIMEOUT["seconds"])
+    except subprocess.TimeoutExpired:
+        logger.error("  [S3] TIMED OUT after %ds: %s ...",
+                     S3_TIMEOUT["seconds"], " ".join(cmd[:4]))
+        return None
+    except OSError as e:
+        logger.error("  [S3] Could not launch s3cmd: %s", e)
+        return None
+
 def build_s3cmd_base(cfg) -> list:
     python_exe   = cfg.get("spaces", "python_exe")
     s3cmd_script = cfg.get("spaces", "s3cmd_script")
@@ -294,34 +351,51 @@ def key_in_listing(stdout: str, dest: str) -> bool:
     return False
 
 
-def verify_upload(cfg, spaces_key: str) -> bool:
-    """Verify file landed in Spaces after upload. (#4 fix: no delete without verify)"""
+def probe_key(cfg, spaces_key: str):
+    """Three-state existence probe: True (present), False (absent), None
+    (the probe itself FAILED -- non-zero exit, timeout, or launch failure).
+
+    The measurement-validity rule, enforced: a failed probe must NEVER be
+    read as absence. Callers fail their group on None.
+    """
     bucket = cfg.get("spaces", "bucket")
     dest   = f"s3://{bucket}/{spaces_key}"
     cmd    = build_s3cmd_base(cfg) + ["ls", dest]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    exists = result.returncode == 0 and key_in_listing(result.stdout, dest)
-    if not exists:
-        logger.warning("Verification failed -- file not found at %s", dest)
-    return exists
-
-def check_temp_key_exists(cfg, temp_spaces_key: str) -> bool:
-    """Check if a previous run left a temp upload behind."""
-    bucket = cfg.get("spaces", "bucket")
-    dest   = f"s3://{bucket}/{temp_spaces_key}"
-    cmd    = build_s3cmd_base(cfg) + ["ls", dest]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.returncode == 0 and key_in_listing(result.stdout, dest)
+    result = run_s3cmd(cmd)
+    if result is None:
+        return None
+    if result.returncode != 0:
+        logger.error("  [S3] Probe FAILED for %s (exit=%d, stderr: %s) -- "
+                     "unknown, not absent.", dest, result.returncode,
+                     result.stderr.strip()[:200])
+        return None
+    return key_in_listing(result.stdout, dest)
 
 
-def delete_spaces_key(cfg, spaces_key: str):
+def verify_upload(cfg, spaces_key: str) -> bool:
+    """Verify a key is confirmably present (#4 fix: no delete without verify).
+
+    Strict: a failed probe counts as NOT verified (fail-closed).
+    """
+    state = probe_key(cfg, spaces_key)
+    if state is not True:
+        logger.warning("Verification failed -- %s not confirmed present "
+                       "(%s).", spaces_key,
+                       "absent" if state is False else "probe failed")
+    return state is True
+
+
+def delete_spaces_key(cfg, spaces_key: str) -> bool:
     """Delete a key from Spaces (used for temp key cleanup)."""
     bucket = cfg.get("spaces", "bucket")
     dest   = f"s3://{bucket}/{spaces_key}"
     cmd    = build_s3cmd_base(cfg) + ["del", dest]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        logger.warning("  [S3] Could not delete temp key %s: %s", spaces_key, result.stderr.strip())
+    result = run_s3cmd(cmd)
+    if result is None or result.returncode != 0:
+        logger.warning("  [S3] Could not delete temp key %s: %s", spaces_key,
+                       result.stderr.strip() if result else "timeout/launch failure")
+        return False
+    return True
 
 
 def copy_spaces_key(cfg, src_key: str, dst_key: str) -> bool:
@@ -332,9 +406,10 @@ def copy_spaces_key(cfg, src_key: str, dst_key: str) -> bool:
         f"s3://{bucket}/{src_key}",
         f"s3://{bucket}/{dst_key}",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        logger.error("  [S3] Copy failed %s -> %s: %s", src_key, dst_key, result.stderr.strip())
+    result = run_s3cmd(cmd)
+    if result is None or result.returncode != 0:
+        logger.error("  [S3] Copy failed %s -> %s: %s", src_key, dst_key,
+                     result.stderr.strip() if result else "timeout/launch failure")
         return False
     return True
 
@@ -344,10 +419,10 @@ def download_key(cfg, spaces_key: str, local_path: str) -> bool:
     bucket = cfg.get("spaces", "bucket")
     cmd = build_s3cmd_base(cfg) + ["get", "--force",
                                    f"s3://{bucket}/{spaces_key}", local_path]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        logger.error("  [S3] Download failed for %s: %s",
-                     spaces_key, result.stderr.strip())
+    result = run_s3cmd(cmd)
+    if result is None or result.returncode != 0:
+        logger.error("  [S3] Download failed for %s: %s", spaces_key,
+                     result.stderr.strip() if result else "timeout/launch failure")
         return False
     return True
 
@@ -430,7 +505,14 @@ def finalize_parquet(cfg, temp_key: str, spaces_key: str) -> bool:
         logger.error("  [S3] Final key %s not verifiable after copy; temp key "
                      "preserved at %s.", spaces_key, temp_key)
         return False
-    delete_spaces_key(cfg, temp_key)
+    if not delete_spaces_key(cfg, temp_key):
+        # Fail-closed: the final is verified in place and no rows have been
+        # deleted yet; the leftover tmp aborts via C5 next run, so nothing
+        # destructive proceeds on top of an unconfirmed cleanup.
+        logger.error("  [S3] Could not delete tmp after finalize -- failing "
+                     "the group before any DB delete; final %s is in place.",
+                     spaces_key)
+        return False
     return True
 
 
@@ -444,10 +526,10 @@ def verify_row_count(cfg, spaces_key: str, expected_rows: int) -> bool:
                                     f"s3://{bucket}/{spaces_key}",
                                     local_path]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
+        result = run_s3cmd(cmd)
+        if result is None or result.returncode != 0:
             logger.warning("  [VERIFY] Could not download for row count check: %s",
-                           result.stderr.strip())
+                           result.stderr.strip() if result else "timeout/launch failure")
             return False
 
         df           = pd.read_parquet(local_path)
@@ -477,9 +559,10 @@ def s3cmd_upload(cfg, local_file: str, bucket: str, key: str) -> bool:
     dest   = f"s3://{bucket}/{key}"
     cmd    = build_s3cmd_base(cfg) + ["put", "--acl-private", local_file, dest]
     logger.info("  [S3] Uploading %s -> %s", os.path.basename(local_file), dest)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        logger.error("  [S3 ERROR] %s", result.stderr.strip())
+    result = run_s3cmd(cmd)
+    if result is None or result.returncode != 0:
+        logger.error("  [S3 ERROR] %s",
+                     result.stderr.strip() if result else "timeout/launch failure")
         return False
     return True
 
@@ -729,14 +812,29 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
         # C6: a marker no longer skips the group. Discovery only returns
         # groups that still have rows, so marker + rows = late-arriving data
         # that the old skip starved forever (and even counted as archived).
-        if verify_upload(cfg, marker_key):
+        # All probes are three-state: a FAILED probe fails the group -- it is
+        # never read as absence.
+        marker_state = probe_key(cfg, marker_key)
+        if marker_state is None:
+            logger.error("  [%s] Marker probe FAILED for device=%d %s -- "
+                         "failing this group.", table, device_id, label)
+            failures += 1
+            continue
+        if marker_state:
             logger.info(
                 "  [%s] .done marker present but the group still has %d "
                 "row(s) -- late-arriving data; proceeding instead of "
                 "skipping (the export merges with the final object if it "
                 "still exists).", table, g["cnt"])
 
-        if check_temp_key_exists(cfg, temp_key):
+        tmp_state = probe_key(cfg, temp_key)
+        if tmp_state is None:
+            logger.error("  [%s] Leftover-tmp probe FAILED for device=%d %s "
+                         "-- failing this group (an unseen leftover tmp must "
+                         "never be processed over).", table, device_id, label)
+            failures += 1
+            continue
+        if tmp_state:
             # C5: a leftover tmp is EVIDENCE, never garbage. This code cannot
             # tell which history produced it, so it aborts the group and
             # leaves the object exactly as found. Other groups continue.
@@ -779,9 +877,18 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                         df[col] = df[col].astype(str)
 
             # C6: never overwrite an existing final object blindly -- merge
-            # the fresh export into it (additive-only, schema-checked).
+            # the fresh export into it (additive-only, schema-checked). A
+            # FAILED existence probe fails the group BEFORE any upload: an
+            # unknown final must never be blind-overwritten.
             merged_df = df
-            if verify_upload(cfg, spaces_key):
+            final_state = probe_key(cfg, spaces_key)
+            if final_state is None:
+                logger.error("  [%s] Final-key probe FAILED for device=%d %s "
+                             "-- failing group before upload.",
+                             table, device_id, label)
+                failures += 1
+                continue
+            if final_state:
                 merged_df = merge_with_existing_final(
                     cfg, spaces_key, df, temp_dir, table)
                 if merged_df is None:
@@ -1130,17 +1237,19 @@ def run_selfcheck(args) -> int:
             report("lock-path", False,
                    f"{lock_path} not openable by this identity: {e}")
 
+    configure_s3_timeout(props)
     bucket = cfg.get("spaces", "bucket")
     if not bucket:
         report("s3cmd", False, "no bucket configured")
     else:
         try:
             cmd = build_s3cmd_base(cfg) + ["ls", f"s3://{bucket}"]
-            result = subprocess.run(cmd, capture_output=True, text=True,
-                                    timeout=60)
-            report("s3cmd", result.returncode == 0,
-                   f"ls s3://{bucket} exit={result.returncode}"
-                   + ("" if result.returncode == 0
+            result = run_s3cmd(cmd)
+            ok_s3 = result is not None and result.returncode == 0
+            report("s3cmd", ok_s3,
+                   f"ls s3://{bucket} "
+                   + (f"exit={result.returncode}" if result else "TIMED OUT/failed to launch")
+                   + ("" if ok_s3 or result is None
                       else f" stderr: {result.stderr.strip()[:200]}"))
         except SystemExit:
             report("s3cmd", False, "s3cmd invocation not configured")
@@ -1199,7 +1308,11 @@ def acquire_run_lock():
         return None
     lock_path = _lock_path()
     try:
-        handle = open(lock_path, "w")
+        # O_CREAT without truncation: opening with "w" would wipe a RUNNING
+        # instance's pid from the file before our flock attempt fails --
+        # the same reason run_selfcheck probes with "a".
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+        handle = os.fdopen(fd, "r+")
     except OSError as e:
         logger.error("Cannot open lock file %s: %s -- refusing to run "
                      "without overlap protection.", lock_path, e)
@@ -1211,6 +1324,8 @@ def acquire_run_lock():
         logger.error("Another archiver instance already holds the lock (%s) "
                      "-- aborting this run.", lock_path)
         sys.exit(1)
+    handle.seek(0)
+    handle.truncate()
     handle.write(str(os.getpid()))
     handle.flush()
     return handle
@@ -1255,6 +1370,7 @@ def main():
     # Shared across both tables; None limit = unlimited.
     budget = GroupBudget(args.max_groups)
 
+    configure_s3_timeout(props)
     quarantine_floor = parse_quarantine_floor(props)
     if quarantine_floor is not None:
         logger.info("  Quarantine floor: months ending on/before %s archive "

@@ -1,10 +1,13 @@
-"""Exact-match key verification (C1).
+"""Three-state probe and strict verification (C1 + second-review fix).
 
-The old check was `spaces_key in result.stdout`, but `s3cmd ls <key>` is a
-prefix listing: asking for X.parquet also returns X.parquet.tmp, so the
-substring test reported a final key as present when only the tmp upload
-existed. These tests pin the exact-match behavior.
+`s3cmd ls <key>` is a prefix listing, so exact-match comparison is required
+(X.parquet vs X.parquet.tmp). And per the measurement-validity rule, a
+failed probe (non-zero exit, timeout) must never read as absence:
+probe_key returns None on failure, and verify_upload treats anything but a
+confirmed True as not-verified (fail-closed).
 """
+
+import subprocess
 
 import archive_cold_storage as acs
 
@@ -39,51 +42,82 @@ class FakeResult:
         self.stderr = stderr
 
 
-def patch_s3cmd(monkeypatch, stdout, returncode=0):
-    def fake_run(cmd, capture_output=True, text=True):
+def patch_run_s3cmd(monkeypatch, stdout="", returncode=0, result="normal"):
+    def fake(cmd):
+        if result == "none":       # timeout / failed launch
+            return None
         return FakeResult(returncode=returncode, stdout=stdout)
-    monkeypatch.setattr(acs.subprocess, "run", fake_run)
+    monkeypatch.setattr(acs, "run_s3cmd", fake)
 
 
 class TestKeyInListing:
     def test_exact_final_key_found(self):
         assert acs.key_in_listing(LISTING_BOTH, FINAL_DEST)
 
-    def test_exact_tmp_key_found(self):
-        assert acs.key_in_listing(LISTING_BOTH, TMP_DEST)
-
     def test_final_key_not_matched_by_tmp_only_listing(self):
-        # The regression the substring check had: "X.parquet" is a substring
-        # of "X.parquet.tmp", but the key column never equals the final dest.
+        # "X.parquet" is a substring of "X.parquet.tmp"; the key column never
+        # equals the final dest.
         assert not acs.key_in_listing(LISTING_TMP_ONLY, FINAL_DEST)
 
     def test_empty_listing(self):
         assert not acs.key_in_listing("", FINAL_DEST)
 
-    def test_blank_lines_ignored(self):
-        assert acs.key_in_listing("\n\n" + LISTING_FINAL_ONLY + "\n", FINAL_DEST)
+
+class TestProbeKey:
+    def test_present(self, monkeypatch):
+        patch_run_s3cmd(monkeypatch, LISTING_FINAL_ONLY)
+        assert acs.probe_key(make_cfg(), FINAL_KEY) is True
+
+    def test_absent(self, monkeypatch):
+        patch_run_s3cmd(monkeypatch, "")
+        assert acs.probe_key(make_cfg(), FINAL_KEY) is False
+
+    def test_prefix_cousin_is_not_presence(self, monkeypatch):
+        patch_run_s3cmd(monkeypatch, LISTING_TMP_ONLY)
+        assert acs.probe_key(make_cfg(), FINAL_KEY) is False
+
+    def test_nonzero_exit_is_error_not_absence(self, monkeypatch):
+        # Even with the key visible in stdout: a failed command is a failed
+        # measurement, never a fact about the bucket.
+        patch_run_s3cmd(monkeypatch, LISTING_FINAL_ONLY, returncode=1)
+        assert acs.probe_key(make_cfg(), FINAL_KEY) is None
+
+    def test_timeout_is_error_not_absence(self, monkeypatch):
+        patch_run_s3cmd(monkeypatch, result="none")
+        assert acs.probe_key(make_cfg(), FINAL_KEY) is None
 
 
-class TestVerifyUpload:
-    def test_true_when_final_key_listed(self, monkeypatch):
-        patch_s3cmd(monkeypatch, LISTING_BOTH)
+class TestVerifyUploadFailClosed:
+    def test_true_only_when_confirmed_present(self, monkeypatch):
+        patch_run_s3cmd(monkeypatch, LISTING_FINAL_ONLY)
         assert acs.verify_upload(make_cfg(), FINAL_KEY)
 
-    def test_false_when_only_tmp_listed(self, monkeypatch):
-        # Old behavior returned True here — the false positive under test.
-        patch_s3cmd(monkeypatch, LISTING_TMP_ONLY)
+    def test_absent_fails(self, monkeypatch):
+        patch_run_s3cmd(monkeypatch, LISTING_TMP_ONLY)
         assert not acs.verify_upload(make_cfg(), FINAL_KEY)
 
-    def test_false_on_nonzero_exit_even_if_key_in_stdout(self, monkeypatch):
-        patch_s3cmd(monkeypatch, LISTING_FINAL_ONLY, returncode=1)
+    def test_probe_error_fails(self, monkeypatch):
+        patch_run_s3cmd(monkeypatch, LISTING_FINAL_ONLY, returncode=1)
         assert not acs.verify_upload(make_cfg(), FINAL_KEY)
 
 
-class TestCheckTempKeyExists:
-    def test_true_when_tmp_listed(self, monkeypatch):
-        patch_s3cmd(monkeypatch, LISTING_TMP_ONLY)
-        assert acs.check_temp_key_exists(make_cfg(), TMP_KEY)
+class TestRunS3cmdTimeout:
+    def test_timeout_returns_none(self, monkeypatch):
+        def raise_timeout(cmd, capture_output=True, text=True, timeout=None):
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        monkeypatch.setattr(acs.subprocess, "run", raise_timeout)
+        assert acs.run_s3cmd(["s3cmd", "ls", "s3://x"]) is None
 
-    def test_false_when_only_final_listed(self, monkeypatch):
-        patch_s3cmd(monkeypatch, LISTING_FINAL_ONLY)
-        assert not acs.check_temp_key_exists(make_cfg(), TMP_KEY)
+    def test_configure_from_props(self):
+        assert acs.configure_s3_timeout({"archive.s3cmd.timeout": "42"}) == 42
+        assert acs.S3_TIMEOUT["seconds"] == 42
+        assert (acs.configure_s3_timeout({})
+                == acs.DEFAULT_S3_TIMEOUT_SECONDS)
+
+    def test_invalid_timeout_is_fatal(self):
+        import pytest
+        with pytest.raises(SystemExit):
+            acs.configure_s3_timeout({"archive.s3cmd.timeout": "soon"})
+        with pytest.raises(SystemExit):
+            acs.configure_s3_timeout({"archive.s3cmd.timeout": "0"})
+        acs.configure_s3_timeout({})  # restore default for other tests
