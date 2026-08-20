@@ -66,8 +66,8 @@ that blocks only the setup.sh commit: HOW staging's Python packages were install
 | F5 versioning/lifecycle | shared | **VALID: versioning OFF → STOP 3 TRIGGERED.** No lifecycle expiry rule. Bucket access-policy state is recorded in the local answers file and is verified under A0 (human, console) |
 | F6 DB timezone | prod/staging (same server) | **COLLECTED: `SYSTEM`/`SYSTEM` and `@@system_time_zone = UTC`.** The D8 concern about pre-C1 objects rendered in a non-UTC zone is closed in practice — the C1 pin matches what's on disk. Framing stays observation-not-guarantee (SYSTEM follows the OS); explicit tz pinning remains a required step everywhere |
 | F7 table state + discovery | prod | **P-F7a COLLECTED: tc_positions ≈730.7M, tc_events ≈103.4M** (larger than the ~623M planning figure). **P-F7b COMPLETE: positions = PRIMARY(id) + (deviceid, fixtime); tc_events = PRIMARY(id) + (deviceid, eventtime) + (deviceid, type, eventtime) — deviceid-led like positions, so device-iterated discovery applies to events too.** P-F7c deferred (no fixtime-led index). P-F7d time-scan form withdrawn as unsafe; **BACKLOG INVENTORY COLLECTED 2026-08-19 via the per-device index-backed form: 11,345 device-months / 366.76M rows (~50% of table) / 2,076 devices / 45 months / largest group ~197.5k rows / oldest = 2000-01 clock garbage. Point-in-time — re-take before cutover (Phase 5)** |
-| F9 python/deps | prod | **Python 3.12.7, NONE of the four packages installed — the archiver dies at import.** The FOURTH independent unarmed reason (no cron, no archive.* config, empty prefix, no deps); the setup.sh dependency install is load-bearing, not hygiene |
-| F9 python/deps | staging | **Python 3.12.7, all four deps import** — the measured working set IS the C8 pins (same interpreter version on both hosts, transfers cleanly). Open: HOW they were installed (pip/apt/venv) — blocks the setup.sh commit only |
+| F9 python/deps | prod | **Python 3.12.7, none of the three pip packages installed (apt's python3-dateutil IS present) — the archiver dies at import.** The FOURTH independent unarmed reason; the setup.sh install (now shipped) fetches three of the four on prod's first install |
+| F9 python/deps | staging | **Python 3.12.7, all four deps import** — the measured working set IS the C8 pins. Install method ANSWERED: system pip in /usr/local (PEP 668 marker present, no venv), dateutil apt-managed (mixed provenance) — setup.sh matches it with `--break-system-packages` |
 | F10 config keys | prod | **zero `archive.*` keys present** (database.* present) |
 | F10 config keys | staging | **bucket = the shared bucket → STOP 5**; retention 6; no interpreter split (same python3 for script and s3cmd). **DB = same managed MySQL server as prod, different schema** — not the prod database (no full stop), but shared DB infrastructure |
 | Device-id overlap | both DBs | _pending — the 5 staging markers sit on device ids recorded in the local answers file; prod's autoincrement space almost certainly also contains them_ |
@@ -490,6 +490,30 @@ Sequence (human executes all console/bucket actions; none are run by Claude):
 
 ---
 
+## Audit-closure mapping (post-C8; against the 2026-08-14 audit's ranked list)
+
+| # | Audit violation (rank) | Status | Closed by / disposition |
+|---|---|---|---|
+| 1 | Inv. 4 — resume path deletes the sole copy of already-deleted rows | **CLOSED** | C4 `eb94ff3db` (finalize-before-delete: for all new runs a leftover tmp means the DB is intact, never the sole copy) + C5 `ce08f3e36` (no tmp is EVER auto-deleted — old-semantics tmps included; abort-group, dual-reading error, runbook procedure) |
+| 2 | Inv. 2/4 — final-parquet overwrite destroys the only copy | **CLOSED** | C6 `8067bd366` (existing finals are merged, additive-only asserted BEFORE the copy, schema mismatch aborts; an abort leaves the final untouched) |
+| 3 | Inv. 1a — mid-run late-arrival race (window delete kills unexported rows) | **CLOSED** | C3 `5dbed01e6` (delete keyed to exported ids in 10k chunks; a row the export never saw cannot be deleted; count mismatch fails the group loudly, no repair) |
+| 4 | Inv. 2 — marker-skip starves late rows (and miscounts them as archived) | **CLOSED** | C6 `8067bd366` (marker no longer skips; marker + rows = late data, merged and correctly counted) |
+| 5 | Inv. 6 — dangling `positionid` | **PARTIALLY CLOSED** | C3/D9 `5dbed01e6`: `tc_devices.positionid` is fetched once per run and excluded from deletion (positions only; bounded residue ≤1 row/device, self-healing). **Open by design:** a live `tc_events.positionid` can reference a deleted position for up to a month (events keyed by eventtime, positions by fixtime) — bounded, self-resolving when the event itself ages out; measured by Phase 1 baseline 4b. Also open by design (D7, no Java changes): no coordination with the manual `DELETE /api/positions` endpoint — the flock guards archiver self-overlap only |
+| 6 | Inv. 3 — cutoff/full-month mismatch; unpinned session tz | **CLOSED (code)** | C7 `c2fe7e225` (groups extending past the cutoff month start are skipped) + C1a `e2fce1108` (UTC pinned via init_command). Residual, procedural: every OTHER reader pins tz explicitly (runbook required step); server tz stays SYSTEM — observation, not guarantee |
+| 7 | Inv. 5 — far-past (clock-garbage) rows leave the live DB within a month | **CLOSED PER DECISION** | Quarantine `5d60a5b06`: garbage months archive to `<prefix>-quarantine/` (invisible to the read path) and leave the DB — the zero-live-retention aspect accepted by decision (c), with floor + separate counts. **OPEN FINDING, fix proposed but NOT implemented (awaiting approval):** with prod's permissive SQL mode, a zero-date row would give discovery an invalid (yr, mo); `date(yr, mo, 1)` is computed OUTSIDE the per-group try, so one such row would crash the WHOLE run rather than failing its group. Proposed hardening: validate (yr, mo) per group and fail the group loudly instead |
+| — | F8 hygiene (substring verify, no lock, no count alert) | **CLOSED** | C1a `e2fce1108` (exact-match verify), C1b+fixes `3be4afe69`/`6561c20f5`/`9848aa38f` (flock — verified in CI and on identity via L1), C3 (deleted-vs-exported assertion) |
+| — | F9 — partition-drop job gated on the archiver | **OUT OF SCOPE BY DESIGN** | D7 forbids partition DDL; recorded for the future partitioning project: any DROP PARTITION must require markers for every device-month in the window AND a zero live count |
+
+**Accepted behaviors, documented rather than changed:** `--dry-run` still deletes its own
+upload and cannot serve as verification (help text and logs now say so; `--archive-only`
+is the verification mode, per the task). The `.done`-marker upload failure stays warn-only:
+under C6 a missing marker is harmless — the group re-merges and no overwrite is possible.
+InnoDB files do not shrink on delete (Phase 5 expectation).
+
+**Open items that are actions, not code:** STOP 3 (versioning ON), A0 (access-policy
+verification), the Branch C A-steps, F12 (builds/ destination), A1 (Aug-13 temp-dir
+touch), and the zero-date hardening decision (finding #7 above).
+
 ## Phase 5 — cutover (REFRAMED 2026-08-19: two separate operations)
 
 The backlog inventory (collected 2026-08-19, per-device index-backed form, provisional
@@ -672,9 +696,17 @@ outside a planned sequence either (an installer run re-arms the cron to monthly 
    # locally: git show <released-commit>:scripts/archive_cold_storage.py | sha256sum
    #          git show <released-commit>:scripts/requirements.txt | sha256sum
    ```
-7. **Dependencies:** install per `scripts/requirements.txt` — the exact `setup.sh`
-   mechanism is HELD pending the staging install-method answer (PEP 668 question); until
-   that lands, install manually by whatever method staging used.
+7. **Dependencies: automatic on install.** `setup.sh` runs
+   `/usr/bin/python3 -m pip install --break-system-packages -r
+   /opt/traccar/scripts/requirements.txt` — the cron's interpreter, the method matching
+   the existing working host (system pip, PEP 668 environment, no venv). Idempotent;
+   a failure prints an unmissable warning but does not abort the traccar upgrade —
+   step 8 is the gate. Provenance note: `python-dateutil` is apt-managed on the
+   existing host (the other three are pip-managed); apt's 2.9.0 satisfies the pin
+   today, and if apt ever drifts, the next installer run shadows it with the pinned
+   version in `/usr/local` (which precedes dist-packages on sys.path). **Prod today
+   has none of the three pip packages but does have apt's dateutil — its first
+   install fetches three of the four.**
 8. **`--selfcheck`, immediately after install** — a failed dependency install must surface
    at deploy time, not at the first cron fire:
    ```bash
@@ -691,6 +723,5 @@ outside a planned sequence either (an installer run re-arms the cron to monthly 
 semantics, config preserved), then repeat steps 6–9 against that version's hashes. There
 are no versioned release directories on the host and no other rollback mechanism.
 
-*(Still held: the `setup.sh` commit — pip install matching staging's method + printing the
-selfcheck command — pending the install-method answer. After it lands, step 7 becomes
-"automatic on install" and this section gets updated.)*
+*(All held items in this section have landed: `setup.sh` installs the pins and prints the
+selfcheck command on every install.)*
