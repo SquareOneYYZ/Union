@@ -25,7 +25,9 @@ contains. No Java, schema, or partition changes (per scope). Full operational de
 | — | No post-install verification | `47fa1736e` `--selfcheck` (read-only; printed by setup.sh after every install) |
 
 Operational additions: `f2d52557d` `--max-groups` (clean group-boundary session bounding
-for the bulk migration, exit 0 on limit-stop).
+for the bulk migration, exit 0 on limit-stop); zero-date hardening (a malformed
+device-month from a garbage-dated row fails its own group — counted, device and month
+named — instead of crashing the whole run).
 
 ## Known limitations left open (by design or awaiting decision)
 
@@ -34,9 +36,6 @@ for the bulk migration, exit 0 on limit-stop).
   self-resolving; measured by the Phase 1 baseline. No Java changes permitted.
 - **Manual `DELETE /api/positions` is uncoordinated** with the archiver (the flock guards
   archiver self-overlap only). No Java changes permitted.
-- **Zero-date rows crash the run, not the group** (prod's permissive sql_mode allows
-  them; `date(yr, mo, 1)` is computed outside the per-group try). One-line hardening
-  proposed in the runbook, awaiting approval.
 - **`--dry-run` semantics unchanged**: uploads, verifies, then deletes its own upload —
   cannot serve as verification (documented; `--archive-only` is the verification mode).
 - **Marker upload stays warn-only**: harmless under C6 (a missing marker re-merges; no

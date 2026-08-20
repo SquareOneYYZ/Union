@@ -500,7 +500,7 @@ Sequence (human executes all console/bucket actions; none are run by Claude):
 | 4 | Inv. 2 — marker-skip starves late rows (and miscounts them as archived) | **CLOSED** | C6 `8067bd366` (marker no longer skips; marker + rows = late data, merged and correctly counted) |
 | 5 | Inv. 6 — dangling `positionid` | **PARTIALLY CLOSED** | C3/D9 `5dbed01e6`: `tc_devices.positionid` is fetched once per run and excluded from deletion (positions only; bounded residue ≤1 row/device, self-healing). **Open by design:** a live `tc_events.positionid` can reference a deleted position for up to a month (events keyed by eventtime, positions by fixtime) — bounded, self-resolving when the event itself ages out; measured by Phase 1 baseline 4b. Also open by design (D7, no Java changes): no coordination with the manual `DELETE /api/positions` endpoint — the flock guards archiver self-overlap only |
 | 6 | Inv. 3 — cutoff/full-month mismatch; unpinned session tz | **CLOSED (code)** | C7 `c2fe7e225` (groups extending past the cutoff month start are skipped) + C1a `e2fce1108` (UTC pinned via init_command). Residual, procedural: every OTHER reader pins tz explicitly (runbook required step); server tz stays SYSTEM — observation, not guarantee |
-| 7 | Inv. 5 — far-past (clock-garbage) rows leave the live DB within a month | **CLOSED PER DECISION** | Quarantine `5d60a5b06`: garbage months archive to `<prefix>-quarantine/` (invisible to the read path) and leave the DB — the zero-live-retention aspect accepted by decision (c), with floor + separate counts. **OPEN FINDING, fix proposed but NOT implemented (awaiting approval):** with prod's permissive SQL mode, a zero-date row would give discovery an invalid (yr, mo); `date(yr, mo, 1)` is computed OUTSIDE the per-group try, so one such row would crash the WHOLE run rather than failing its group. Proposed hardening: validate (yr, mo) per group and fail the group loudly instead |
+| 7 | Inv. 5 — far-past (clock-garbage) rows leave the live DB within a month | **CLOSED PER DECISION** | Quarantine `5d60a5b06`: garbage months archive to `<prefix>-quarantine/` (invisible to the read path) and leave the DB — the zero-live-retention aspect accepted by decision (c), with floor + separate counts. **Zero-date finding CLOSED (approved 2026-08-19):** a malformed (yr, mo) from discovery — zero dates permitted by prod's permissive SQL mode — now fails its own group (counted, logged with device and month named, run exits non-zero at the end) instead of crashing the whole run partway through an 11,345-group migration |
 | — | F8 hygiene (substring verify, no lock, no count alert) | **CLOSED** | C1a `e2fce1108` (exact-match verify), C1b+fixes `3be4afe69`/`6561c20f5`/`9848aa38f` (flock — verified in CI and on identity via L1), C3 (deleted-vs-exported assertion) |
 | — | F9 — partition-drop job gated on the archiver | **OUT OF SCOPE BY DESIGN** | D7 forbids partition DDL; recorded for the future partitioning project: any DROP PARTITION must require markers for every device-month in the window AND a zero live count |
 
@@ -512,7 +512,7 @@ InnoDB files do not shrink on delete (Phase 5 expectation).
 
 **Open items that are actions, not code:** STOP 3 (versioning ON), A0 (access-policy
 verification), the Branch C A-steps, F12 (builds/ destination), A1 (Aug-13 temp-dir
-touch), and the zero-date hardening decision (finding #7 above).
+touch).
 
 ## Phase 5 — cutover (REFRAMED 2026-08-19: two separate operations)
 

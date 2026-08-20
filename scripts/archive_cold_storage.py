@@ -670,11 +670,23 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
     cutoff_month_start = date(cutoff.year, cutoff.month, 1)
 
     for g in groups:
-        device_id    = g["deviceid"]
-        yr, mo       = g["yr"], g["mo"]
-        period_start = date(yr, mo, 1)
-        period_end   = date(yr + 1, 1, 1) if mo == 12 else date(yr, mo + 1, 1)
-        label        = f"{yr}-{mo:02d}"
+        device_id = g["deviceid"]
+        yr, mo    = g["yr"], g["mo"]
+        try:
+            # Zero/garbage dates (permitted by a permissive sql_mode) yield
+            # groups like year=0 month=0; date() rejecting them must fail
+            # THIS group, never the whole run.
+            period_start = date(yr, mo, 1)
+            period_end   = date(yr + 1, 1, 1) if mo == 12 else date(yr, mo + 1, 1)
+        except (ValueError, TypeError) as e:
+            logger.error(
+                "  [%s] MALFORMED GROUP device=%s year=%r month=%r (%s) -- "
+                "failing this group and continuing; its rows stay in the DB "
+                "until the dates are repaired or a policy exists (see the "
+                "Phase 1 anomaly scan).", table, device_id, yr, mo, e)
+            failures += 1
+            continue
+        label = f"{yr}-{mo:02d}"
 
         # Clock-garbage quarantine: months ending on/before the floor go to
         # a sibling key space the read path never serves.
