@@ -126,6 +126,38 @@ def validate_prefix(prefix: str) -> str:
     return cleaned
 
 
+def resolve_retention_months(args, props) -> int:
+    """Resolve retention from --months or archive.retention.months (default 6),
+    validated at the RESOLUTION point so the config path -- the one every
+    cron run takes -- is covered, not just the CLI argument.
+
+    Non-numeric config is a clear fatal error, never an uncaught ValueError
+    under cron. Non-positive is fatal with the failure mode named: 0
+    collapses retention to zero (the cutoff lands at now, archiving months
+    of recent history early); negative puts the cutoff in the FUTURE, which
+    would sweep the current month.
+    """
+    if args.months is not None:
+        value, source = args.months, "--months"
+    else:
+        raw = str(props.get("archive.retention.months", "6")).strip() or "6"
+        try:
+            value = int(raw)
+        except ValueError:
+            logger.error("Invalid archive.retention.months %r -- expected a "
+                         "positive integer of months. Refusing to run.", raw)
+            sys.exit(1)
+        source = "archive.retention.months"
+    if value < 1:
+        logger.error(
+            "%s=%d is not a valid retention: 0 collapses retention to zero "
+            "and archives recent history early; a negative value puts the "
+            "cutoff in the future and would sweep the current month. "
+            "Refusing to run.", source, value)
+        sys.exit(1)
+    return value
+
+
 def parse_quarantine_floor(props):
     """archive.quarantine.floor (YYYY-MM-DD) or None when unset.
 
@@ -181,11 +213,6 @@ def resolve_run_options(args):
         sys.exit(2)
     if getattr(args, "max_groups", None) is not None and args.max_groups < 1:
         logger.error("--max-groups must be a positive integer.")
-        sys.exit(2)
-    if getattr(args, "months", None) is not None and args.months < 1:
-        logger.error("--months must be a positive integer (a zero or "
-                     "negative retention would put the cutoff at or past "
-                     "now and archive live data).")
         sys.exit(2)
     if args.prefix is not None and not args.archive_only:
         logger.error("--prefix is a rehearsal option and requires --archive-only; "
@@ -280,24 +307,31 @@ DEFAULT_S3_TIMEOUT_SECONDS = 300
 S3_TIMEOUT = {"seconds": DEFAULT_S3_TIMEOUT_SECONDS}
 
 
-def configure_s3_timeout(props) -> int:
+def parse_s3_timeout(props) -> int:
+    """Parse archive.s3cmd.timeout; raises ValueError on a malformed or
+    non-positive value so callers choose their failure mode (main: fatal;
+    selfcheck: report-and-continue)."""
     raw = str(props.get("archive.s3cmd.timeout", "")).strip()
     if not raw:
-        S3_TIMEOUT["seconds"] = DEFAULT_S3_TIMEOUT_SECONDS
-        return S3_TIMEOUT["seconds"]
-    try:
-        value = int(raw)
-        if value < 1:
-            raise ValueError(raw)
-    except ValueError:
-        logger.error("Invalid archive.s3cmd.timeout %r -- expected a "
-                     "positive integer of seconds.", raw)
-        sys.exit(1)
-    S3_TIMEOUT["seconds"] = value
+        return DEFAULT_S3_TIMEOUT_SECONDS
+    value = int(raw)  # ValueError propagates
+    if value < 1:
+        raise ValueError(f"non-positive timeout {raw!r}")
     return value
 
 
-def run_s3cmd(cmd):
+def configure_s3_timeout(props) -> int:
+    try:
+        S3_TIMEOUT["seconds"] = parse_s3_timeout(props)
+    except ValueError:
+        logger.error("Invalid archive.s3cmd.timeout %r -- expected a "
+                     "positive integer of seconds.",
+                     props.get("archive.s3cmd.timeout"))
+        sys.exit(1)
+    return S3_TIMEOUT["seconds"]
+
+
+def run_s3cmd(cmd, timeout_override=None):
     """Run one s3cmd subprocess, bounded by the configured timeout.
 
     Returns the CompletedProcess, or None when the command timed out or could
@@ -305,12 +339,11 @@ def run_s3cmd(cmd):
     as evidence about the bucket (the runbook's measurement-validity rule,
     enforced in code).
     """
+    t = timeout_override if timeout_override is not None else S3_TIMEOUT["seconds"]
     try:
-        return subprocess.run(cmd, capture_output=True, text=True,
-                              timeout=S3_TIMEOUT["seconds"])
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=t)
     except subprocess.TimeoutExpired:
-        logger.error("  [S3] TIMED OUT after %ds: %s ...",
-                     S3_TIMEOUT["seconds"], " ".join(cmd[:4]))
+        logger.error("  [S3] TIMED OUT after %ds: %s ...", t, " ".join(cmd[:4]))
         return None
     except OSError as e:
         logger.error("  [S3] Could not launch s3cmd: %s", e)
@@ -919,7 +952,13 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                             "The temp upload is deleted again now -- dry-run leaves no "
                             "artifact and cannot serve as verification (use "
                             "--archive-only for that).", table)
-                delete_spaces_key(cfg, temp_key)
+                if not delete_spaces_key(cfg, temp_key):
+                    logger.error(
+                        "  [%s] --dry-run could not remove its own temp "
+                        "upload %s -- the leftover tmp will abort this group "
+                        "next run (C5); counting as a failure.",
+                        table, temp_key)
+                    failures += 1
             elif deleter is None:
                 # --archive-only: finalize the parquet and stop. No delete
                 # capability was injected, so this branch cannot touch the DB;
@@ -1168,6 +1207,11 @@ def snapshot_device_geofence_segments(conn, cfg, temp_dir, key_prefix=PROD_KEY_P
 # Selfcheck -- read-only post-install verification (Phase 4)
 # ---------------------------------------------------------------------------
 
+# Fixed bound for the selfcheck's own s3cmd calls: it runs on the installer
+# critical path and must not inherit an operator-raisable archive.s3cmd.timeout.
+SELFCHECK_S3_TIMEOUT = 60
+
+
 def run_selfcheck(args) -> int:
     """Read-only environment check: imports, config parse, lock-path access,
     s3cmd reachability (ls only), DB connect (SELECT only). Uploads nothing,
@@ -1237,20 +1281,47 @@ def run_selfcheck(args) -> int:
             report("lock-path", False,
                    f"{lock_path} not openable by this identity: {e}")
 
-    configure_s3_timeout(props)
+    # Report-and-continue, never exit: this function runs EVERY check.
+    try:
+        S3_TIMEOUT["seconds"] = parse_s3_timeout(props)
+        report("timeout", True, f"s3cmd timeout {S3_TIMEOUT['seconds']}s "
+                                f"(selfcheck itself uses {SELFCHECK_S3_TIMEOUT}s)")
+    except ValueError as e:
+        report("timeout", False, f"invalid archive.s3cmd.timeout: {e}")
+
     bucket = cfg.get("spaces", "bucket")
     if not bucket:
         report("s3cmd", False, "no bucket configured")
     else:
         try:
+            # Fixed short bound: the selfcheck sits on the installer critical
+            # path and must not inherit an operator-raised run timeout.
             cmd = build_s3cmd_base(cfg) + ["ls", f"s3://{bucket}"]
-            result = run_s3cmd(cmd)
+            result = run_s3cmd(cmd, timeout_override=SELFCHECK_S3_TIMEOUT)
             ok_s3 = result is not None and result.returncode == 0
             report("s3cmd", ok_s3,
                    f"ls s3://{bucket} "
                    + (f"exit={result.returncode}" if result else "TIMED OUT/failed to launch")
                    + ("" if ok_s3 or result is None
                       else f" stderr: {result.stderr.strip()[:200]}"))
+
+            # Probe-premise check: the entire fail-closed design rests on the
+            # deployed s3cmd exiting 0 with an EMPTY listing for an absent
+            # key. Verify that against a key that cannot exist, at install
+            # time, rather than trusting it.
+            absent = (f"selfcheck-premise/{os.getpid()}-"
+                      f"{os.urandom(4).hex()}.absent")
+            cmd = build_s3cmd_base(cfg) + ["ls", f"s3://{bucket}/{absent}"]
+            result = run_s3cmd(cmd, timeout_override=SELFCHECK_S3_TIMEOUT)
+            premise_ok = (result is not None and result.returncode == 0
+                          and not key_in_listing(result.stdout,
+                                                 f"s3://{bucket}/{absent}"))
+            report("probe-premise", premise_ok,
+                   "absent key -> exit 0 + empty listing"
+                   if premise_ok else
+                   "deployed s3cmd violates the absence premise (nonzero "
+                   "exit or unexpected listing for a known-absent key) -- "
+                   "every existence probe would fail closed")
         except SystemExit:
             report("s3cmd", False, "s3cmd invocation not configured")
         except Exception as e:
@@ -1355,8 +1426,7 @@ def main():
                 cfg.get("spaces", "bucket") or "<no bucket configured>",
                 key_prefix)
 
-    retention_months = (args.months if args.months is not None
-                        else int(props.get("archive.retention.months", 6)))
+    retention_months = resolve_retention_months(args, props)
     temp_dir = ensure_temp_dir(props.get("archive.temp.dir", "/tmp/traccar-archive"))
     dry_run  = args.dry_run
 

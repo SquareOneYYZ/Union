@@ -63,6 +63,33 @@ def test_final_probe_error_fails_group_before_upload(tmp_path, s3, caplog):
     assert "Final-key probe FAILED" in caplog.text
 
 
+def test_dry_run_checks_its_own_tmp_delete(tmp_path, s3):
+    # Not a regression: the delete_spaces_key contract (return checked) was
+    # established by the probe fix and this call site was missed by it.
+    s3["fail_delete"].add(TMP)
+    conn = make_conn()
+    total, failures = run_table(conn, tmp_path, deleter=None, dry_run=True)
+    assert failures == 1                      # leftover tmp is not silent
+    assert s3["copies"] == []                 # dry-run never finalizes
+    assert MARKER not in s3["uploads"]
+
+
+def test_every_delete_spaces_key_call_site_checks_the_return():
+    # The contract, enforced structurally: no call site may ignore the
+    # return — including ones added later.
+    import inspect
+    import re
+    import archive_cold_storage as acs
+    src = inspect.getsource(acs)
+    for m in re.finditer(r"^\s*(.+delete_spaces_key\()", src, re.M):
+        stmt = m.group(1).strip()
+        if stmt.startswith("def delete_spaces_key("):
+            continue
+        assert (stmt.startswith("if not delete_spaces_key(")
+                or re.match(r"^\w+\s*=\s*delete_spaces_key\(", stmt)), (
+            f"unchecked delete_spaces_key call: {stmt!r}")
+
+
 def test_tmp_delete_failure_after_finalize_fails_group_before_db_delete(
         tmp_path, s3):
     s3["fail_delete"].add(TMP)
