@@ -563,25 +563,58 @@ touch).
 
 ### Follow-ups (filed 2026-08-21 — post-staging; no further review rounds before staging)
 
-1. **Marker-probe strictness:** the marker's only remaining use is an informational log,
+Item 1 is the exception to "post-staging": it is scheduled **before Phase 5 batch 1**, for
+the reason stated in it. Items 2–6 are genuinely post-staging.
+
+1. **Reconciliation value-checking gap — AFFECTS PHASE 5 DIRECTLY; do it before batch 1.**
+   (Surfaced by the merge-collision limitation.) The DuckDB Invariant-7 query compares row
+   counts, id min/max, and id sums. All three are *identity* checks: they prove the same
+   set of ids exists on both sides. None of them compares the row's **contents**, so a row
+   whose values diverged between archive and DB — the merge-collision case, where
+   `drop_duplicates(keep="first")` retains the stale archived copy and the newer DB row is
+   then deleted — reconciles as `OK`.
+
+   Why this is a Phase 5 problem and not a cosmetic one: Invariant-7 is the per-batch gate
+   (stop-and-verify criterion 3 below) and the rehearsal gate (precondition 7). Phase 5
+   treats a green reconciliation as "this batch is verified"; what it actually establishes
+   today is "no rows were lost or duplicated". That is a weaker statement than the gate is
+   relied on for, and the gap is invisible in the output.
+
+   **The asymmetry that sets the timing:** once a batch's rows are deleted from the live
+   table there is nothing left to compare against, so a value check added after batch *N*
+   protects only batch *N+1* onward — every earlier batch stays permanently unverifiable at
+   value level, with no way to go back. A weak gate is recoverable while it is still ahead
+   of you and unrecoverable once it is behind you.
+
+   **What the remedy costs:** one extra aggregate expression on each side of the existing
+   query — a hash/checksum over a stable column subset, per device, compared exactly like
+   the id-sum column already is. No extra scan and no second pass: both sides already read
+   these rows to compute counts and id sums, so the marginal cost is the hash function over
+   columns already in flight. The real work is *choosing* the column subset and making the
+   two sides agree on representation — the exporter stringifies datetime columns
+   (`astype(str)`), so any column crossing that boundary must be normalised identically in
+   the MySQL-side expression, and the subset should be columns the write path does not
+   legitimately update. Excluding volatile columns is fine; the check only needs to be
+   sensitive to the divergence class it exists to catch.
+
+   **Verdict: worth doing before batch 1.** The cost lands while precondition 7's rehearsal
+   is already exercising and validating the query for the first time — the one moment the
+   marginal cost is close to zero — and it buys a gate that means what Phase 5 assumes it
+   means for every batch rather than for every batch after the retrofit.
+2. **Marker-probe strictness:** the marker's only remaining use is an informational log,
    yet a failed marker probe fails the whole group — uniform strictness vs. downgrading
    that one probe to warn-and-continue (the final-exists probe is the load-bearing one).
-2. **C5 abort message's third history:** the message describes two tmp histories
+3. **C5 abort message's third history:** the message describes two tmp histories
    (pre-C4 mid-delete / post-C4 pre-finalize); a third now exists — a tmp left by a
    failed tmp-delete *after* a successful finalize (final present, DB intact), and
    dry-run's failed self-cleanup is a fourth of the same benign shape. Extend the
    message and the "Leftover tmp keys" procedure.
-3. **Unanchored greps in `verify_artifacts.sh`:** the NOCARRY and leak checks match
+4. **Unanchored greps in `verify_artifacts.sh`:** the NOCARRY and leak checks match
    substrings of `unzip -l` output; anchor them to the exact entry path so an unrelated
    filename containing the pattern can't false-positive (or false-negative a rename).
-4. **Non-uniform exit codes:** CLI validation exits 2, config fatals exit 1, selfcheck
+5. **Non-uniform exit codes:** CLI validation exits 2, config fatals exit 1, selfcheck
    0/1, limit-stop 0 — document the scheme or unify it, so wrapper scripts can
    distinguish operator error from environment failure.
-5. **Reconciliation value-checking gap** (from the merge-collision limitation): the
-   DuckDB Invariant-7 query compares row counts, id min/max, and id sums — it would not
-   surface a value-level divergence between an archived row and its since-modified DB
-   counterpart. Consider adding a value hash (e.g. per-device checksum over a stable
-   column subset) to the reconciliation.
 6. **Selfcheck temp-dir gate** (held from the third review): fix per the F10
    `archive.temp.dir` answer once it arrives — do not guess.
 
@@ -696,7 +729,11 @@ commits is sustained purge and binlog load on a managed instance BOTH environmen
 1. Zero failed groups in the run log (exit code 0).
 2. `.tmp` sweep of the prod bucket's `archive/` prefix: empty (valid measurement).
 3. DuckDB Invariant-7 reconciliation for the batch's months: every device `OK`, no
-   one-sided rows (tz pinned explicitly on the DB session).
+   one-sided rows (tz pinned explicitly on the DB session). **Scope of this gate as it
+   stands: identity only** — counts, id min/max, id sums prove no row was lost or
+   duplicated, NOT that archived and live values agree (see follow-up 1, scheduled before
+   batch 1). Until the value check lands, read a green Invariant-7 as "no rows lost", not
+   "batch verified".
 4. Dangling-`positionid` count unchanged from baseline.
 5. DB health back to pre-batch baseline (history list drained, no lingering lag).
 Only then the next batch.
