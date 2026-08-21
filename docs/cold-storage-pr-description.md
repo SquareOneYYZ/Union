@@ -40,6 +40,14 @@ named — instead of crashing the whole run).
   cannot serve as verification (documented; `--archive-only` is the verification mode).
 - **Marker upload stays warn-only**: harmless under C6 (a missing marker re-merges; no
   overwrite is possible).
+- **Merge collisions keep the archived copy** (`drop_duplicates(keep="first")`): if a row
+  was modified in the DB *after* it was archived, the merge retains the stale archived
+  copy and the newer DB row is then deleted — silently. Accepted because the archive is
+  the immutable record and in-place position updates are not expected in this write
+  path. What would surface it: a reconciliation mismatch on **values**, not counts — and
+  the DuckDB Invariant-7 query does not currently check values (it compares row counts,
+  id min/max, and id sums). That gap is filed as a follow-up on the reconciliation
+  query.
 - **Server tz is `SYSTEM`** (currently resolving UTC): the script pins UTC per session;
   every other reader must pin explicitly (runbook required step).
 - **Pre-C1 staging objects are probably-UTC, not provably** (D8 note); merges against

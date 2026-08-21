@@ -130,6 +130,19 @@ def test_invalid_timeout_reports_and_every_other_check_still_runs(
     acs.configure_s3_timeout({})             # restore default
 
 
+def test_malformed_quarantine_floor_reports_and_checks_continue(
+        tmp_path, monkeypatch, caplog):
+    # A malformed floor fails the gate at install, not a run later — and the
+    # selfcheck still runs every other check.
+    code, seen = run_selfcheck(
+        tmp_path, monkeypatch,
+        **{"archive.quarantine.floor": "January 2024"})
+    assert code == 1
+    assert "archive.quarantine.floor" in caplog.text
+    assert seen["conn"] is not None
+    assert seen["cmds"]
+
+
 def test_probe_premise_violation_fails(tmp_path, monkeypatch):
     # The absence premise: ls of an absent key exits 0 with an EMPTY listing.
     # An s3cmd that echoes the key back for an absent target violates it.

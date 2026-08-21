@@ -95,8 +95,14 @@ class TestParseQuarantineFloor:
         assert acs.parse_quarantine_floor(
             {"archive.quarantine.floor": "  "}) is None
 
-    def test_malformed_is_fatal(self):
-        with pytest.raises(SystemExit) as exc:
+    def test_malformed_raises_for_caller_choice(self):
+        # main-fatal / selfcheck-report pattern: the parser raises.
+        with pytest.raises(ValueError):
             acs.parse_quarantine_floor(
+                {"archive.quarantine.floor": "January 2024"})
+
+    def test_malformed_is_fatal_on_the_run_path(self):
+        with pytest.raises(SystemExit) as exc:
+            acs.configure_quarantine_floor(
                 {"archive.quarantine.floor": "January 2024"})
         assert exc.value.code == 1

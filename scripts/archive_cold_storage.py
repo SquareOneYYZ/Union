@@ -169,8 +169,10 @@ def parse_quarantine_floor(props):
     2023-12 quarantines and 2024-01 onward archives normally. Quarantined
     groups go under '<prefix>-quarantine/' -- a sibling the Java read path
     never serves -- and are deleted from the live table like any other
-    group. The floor is a config value, never a code literal; a malformed
-    value is fatal, not ignored.
+    group. The floor is a config value, never a code literal. Raises
+    ValueError on a malformed value so callers choose their failure mode
+    (main: fatal via configure_quarantine_floor; selfcheck:
+    report-and-continue) -- the same pattern as archive.s3cmd.timeout.
     """
     raw = props.get("archive.quarantine.floor", "").strip()
     if not raw:
@@ -178,8 +180,15 @@ def parse_quarantine_floor(props):
     try:
         return dt.strptime(raw, "%Y-%m-%d").date()
     except ValueError:
-        logger.error("Invalid archive.quarantine.floor %r -- expected "
-                     "YYYY-MM-DD.", raw)
+        raise ValueError(
+            f"invalid archive.quarantine.floor {raw!r} -- expected YYYY-MM-DD")
+
+
+def configure_quarantine_floor(props):
+    try:
+        return parse_quarantine_floor(props)
+    except ValueError as e:
+        logger.error("%s. Refusing to run.", e)
         sys.exit(1)
 
 
@@ -1289,6 +1298,13 @@ def run_selfcheck(args) -> int:
     except ValueError as e:
         report("timeout", False, f"invalid archive.s3cmd.timeout: {e}")
 
+    try:
+        floor = parse_quarantine_floor(props)
+        report("quarantine", True,
+               f"floor {floor}" if floor else "unset (quarantine disabled)")
+    except ValueError as e:
+        report("quarantine", False, str(e))
+
     bucket = cfg.get("spaces", "bucket")
     if not bucket:
         report("s3cmd", False, "no bucket configured")
@@ -1441,7 +1457,7 @@ def main():
     budget = GroupBudget(args.max_groups)
 
     configure_s3_timeout(props)
-    quarantine_floor = parse_quarantine_floor(props)
+    quarantine_floor = configure_quarantine_floor(props)
     if quarantine_floor is not None:
         logger.info("  Quarantine floor: months ending on/before %s archive "
                     "to '%s-quarantine/'.", quarantine_floor, key_prefix)

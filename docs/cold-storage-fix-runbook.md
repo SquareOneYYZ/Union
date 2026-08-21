@@ -99,7 +99,7 @@ script reads, audited:
 | Key | Validated by | On absent / malformed |
 |---|---|---|
 | `archive.retention.months` | **`resolve_retention_months`** (at the RESOLUTION point — covers the cron path, not just `--months`) | absent → 6; non-numeric or < 1 → fatal, named message |
-| `archive.quarantine.floor` | **`parse_quarantine_floor`** | absent → quarantine disabled; malformed → fatal |
+| `archive.quarantine.floor` | **`parse_quarantine_floor`** (main: fatal via `configure_quarantine_floor`; selfcheck: report-and-continue) | absent → quarantine disabled; malformed → fatal (main) / reported FAIL (selfcheck) — a bad floor fails the gate at install, not a run later |
 | `archive.s3cmd.timeout` | **`parse_s3_timeout`** (main: fatal via `configure_s3_timeout`; selfcheck: report-and-continue) | absent → 300 s; malformed/non-positive → fatal (main) / reported FAIL (selfcheck) |
 | `archive.python.exe`, `archive.s3cmd.script` | **`build_s3cmd_base`** | absent → fatal (`sys.exit(1)`) |
 | `archive.spaces.bucket` | no dedicated validator; **fail-closed downstream**: `do_upload` errors, probes error (`s3:///…`), selfcheck reports missing | absent → every group fails; selfcheck FAIL |
@@ -560,6 +560,30 @@ InnoDB files do not shrink on delete (Phase 5 expectation).
 **Open items that are actions, not code:** STOP 3 (versioning ON), A0 (access-policy
 verification), the Branch C A-steps, F12 (builds/ destination), A1 (Aug-13 temp-dir
 touch).
+
+### Follow-ups (filed 2026-08-21 — post-staging; no further review rounds before staging)
+
+1. **Marker-probe strictness:** the marker's only remaining use is an informational log,
+   yet a failed marker probe fails the whole group — uniform strictness vs. downgrading
+   that one probe to warn-and-continue (the final-exists probe is the load-bearing one).
+2. **C5 abort message's third history:** the message describes two tmp histories
+   (pre-C4 mid-delete / post-C4 pre-finalize); a third now exists — a tmp left by a
+   failed tmp-delete *after* a successful finalize (final present, DB intact), and
+   dry-run's failed self-cleanup is a fourth of the same benign shape. Extend the
+   message and the "Leftover tmp keys" procedure.
+3. **Unanchored greps in `verify_artifacts.sh`:** the NOCARRY and leak checks match
+   substrings of `unzip -l` output; anchor them to the exact entry path so an unrelated
+   filename containing the pattern can't false-positive (or false-negative a rename).
+4. **Non-uniform exit codes:** CLI validation exits 2, config fatals exit 1, selfcheck
+   0/1, limit-stop 0 — document the scheme or unify it, so wrapper scripts can
+   distinguish operator error from environment failure.
+5. **Reconciliation value-checking gap** (from the merge-collision limitation): the
+   DuckDB Invariant-7 query compares row counts, id min/max, and id sums — it would not
+   surface a value-level divergence between an archived row and its since-modified DB
+   counterpart. Consider adding a value hash (e.g. per-device checksum over a stable
+   column subset) to the reconciliation.
+6. **Selfcheck temp-dir gate** (held from the third review): fix per the F10
+   `archive.temp.dir` answer once it arrives — do not guess.
 
 ## Standing requirement — independent second review before production contact
 
