@@ -100,12 +100,25 @@ finalize-before-delete (ordering tests green; finalize now also fails closed on 
 tmp-delete), exact-match verification, and the deleter capability injection are all
 intact — none weakened.
 
+A follow-up review round (`f1e536d0e`, `91d28cae7`) moved retention validation to the
+resolution point (covering the config path every cron run takes, with 0 and negative
+severities distinguished), audited every config read into a runbook validation map,
+closed the one `delete_spaces_key` call site that missed its own contract (structurally
+tested for all future call sites), replaced two string-assertion tests with behavior
+tests (real-artifact leak grep; a stubbed-crontab test proving a failing selfcheck
+installs no cron line and **comments out an existing armed one**), gave the selfcheck a
+fixed 60 s s3cmd bound plus report-and-continue timeout parsing, and added the
+probe-premise check — the deployed s3cmd's absent-key behavior, which the whole
+fail-closed design rests on, is verified at install time rather than trusted.
+
 ## Verification
 
-- Offline pytest suite (`scripts/tests/`, no network/DB/bucket): **106 passed, 3
+- Offline pytest suite (`scripts/tests/`, no network/DB/bucket): **114 passed, 3
   platform-skipped locally**; the skipped POSIX flock contention tests run green in CI.
-- CI on push/PR: `py_compile` gate + test suite against the **pinned** requirements +
-  packaging self-test running the real `package.sh` (faithful/tamper/missing/sneak).
+- Shell behavior tests: setup.sh cron gate (three behaviors, stubbed crontab) — runs in
+  CI and locally; packaging self-test runs the real `package.sh` in CI
+  (faithful/leak-grep/tamper/missing/sneak).
+- CI on push/PR: `py_compile` gate + test suite against the **pinned** requirements.
 - Release builds verify the built artifacts against the repo before uploading.
 
 ## Not in this PR (operator actions, sequenced in the runbook)
