@@ -61,11 +61,16 @@ if [ -n "$ARCHIVE_BUCKET" ]; then
         (crontab -l 2>/dev/null | grep -v "archive_cold_storage.py"; echo "0 4 1 * * /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml >> /opt/traccar/logs/archive.log 2>&1") | crontab -
         echo "Archive cron job installed (selfcheck passed)."
     else
+        # Disarm: a newly-installed script that failed its selfcheck must
+        # not stay scheduled (the runbook's comment-out command). The line
+        # is commented, not deleted, so the operator can see and restore it.
+        (crontab -l 2>/dev/null | sed 's|^\([^#].*archive_cold_storage.*\)$|#\1|') | crontab -
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        echo "!! Archiver selfcheck FAILED -- cron NOT installed or updated.  !!"
-        echo "!! An existing crontab was left untouched. Fix the failure(s)   !!"
-        echo "!! above, then re-run the installer (or run the selfcheck       !!"
-        echo "!! manually and install the cron line once it passes).          !!"
+        echo "!! Archiver selfcheck FAILED -- cron NOT installed, and any     !!"
+        echo "!! existing archive cron line has been COMMENTED OUT so a       !!"
+        echo "!! failing script is never left armed. Fix the failure(s)       !!"
+        echo "!! above, then re-run the installer (the selfcheck gates        !!"
+        echo "!! re-arming), or restore the line once the selfcheck passes.   !!"
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     fi
 else

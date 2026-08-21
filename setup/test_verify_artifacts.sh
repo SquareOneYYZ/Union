@@ -62,10 +62,19 @@ verify() {
 
 # --- 1. faithful real artifacts PASS (includes the other-zip leak check) --
 if verify; then
-    echo "PASS 1: real package.sh artifacts verify (and 'other' carries no script)"
+    echo "PASS 1: real package.sh artifacts verify"
 else
     echo "FAIL 1: faithful real artifacts were rejected"; exit 1
 fi
+
+# Direct leak regression, asserted against the REAL built artifact (not the
+# verifier's logic): the "other" zip must contain neither shipped file.
+for leaked in archive_cold_storage.py requirements.txt; do
+    if unzip -l "traccar-other-$V.zip" | grep -q "$leaked"; then
+        echo "FAIL 1b: $leaked leaked into traccar-other-$V.zip"; exit 1
+    fi
+done
+echo "PASS 1b: 'other' artifact carries neither the script nor requirements.txt"
 
 # --- 2. tamper: repo copy changes AFTER the build -> built artifacts FAIL -
 cp "$REPO_ROOT/scripts/archive_cold_storage.py" "$REPO_ROOT/scripts/archive_cold_storage.py.orig"

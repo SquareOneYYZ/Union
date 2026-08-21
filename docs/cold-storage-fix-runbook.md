@@ -89,6 +89,29 @@ that blocks only the setup.sh commit: HOW staging's Python packages were install
    be handled, and the Phase 1 anomaly scan (`fixtime < '2015-01-01' OR fixtime IS NULL`)
    is not optional.
 
+### Config-value validation map (third review: every config read, its validator, its failure mode)
+
+Ordered by the third occurrence of the same defect class — a guard sitting on a path
+production doesn't take (`--dry-run` vs verification, the CLI `--months` vs the config
+retention, the fabricated packaging self-test vs `package.sh`). Every config value the
+script reads, audited:
+
+| Key | Validated by | On absent / malformed |
+|---|---|---|
+| `archive.retention.months` | **`resolve_retention_months`** (at the RESOLUTION point — covers the cron path, not just `--months`) | absent → 6; non-numeric or < 1 → fatal, named message |
+| `archive.quarantine.floor` | **`parse_quarantine_floor`** | absent → quarantine disabled; malformed → fatal |
+| `archive.s3cmd.timeout` | **`parse_s3_timeout`** (main: fatal via `configure_s3_timeout`; selfcheck: report-and-continue) | absent → 300 s; malformed/non-positive → fatal (main) / reported FAIL (selfcheck) |
+| `archive.python.exe`, `archive.s3cmd.script` | **`build_s3cmd_base`** | absent → fatal (`sys.exit(1)`) |
+| `archive.spaces.bucket` | no dedicated validator; **fail-closed downstream**: `do_upload` errors, probes error (`s3:///…`), selfcheck reports missing | absent → every group fails; selfcheck FAIL |
+| `archive.temp.dir` | `ensure_temp_dir` creates it; selfcheck checks existence + writability | absent → `/tmp/traccar-archive`. **Held pending the F10 temp-dir answer — do not change until it arrives** |
+| `database.url` | **regex in `get_connection` — FLAGGED: silent-default hazard.** An unparseable URL falls back to `localhost:3306/traccar` rather than failing. On prod hosts (no local MySQL) the connect then fails loudly; on a dev box with a local DB it would silently hit the wrong database. Noted, not changed (behavior predates this series); the selfcheck's DB check exercises the real config at install time | absent/unparseable → localhost defaults → connect fails loudly on the real hosts |
+| `database.user` / `database.password` | none (defaults `root`/empty) | wrong values → connect fails loudly |
+| `archive.s3cmd.configFile` | none — **FLAGGED: silent-default hazard.** Empty means s3cmd runs with its own default config (`~/.s3cfg` of the invoking user), which may be a different identity's credentials. Noted, not changed; the selfcheck's reachability + probe-premise checks exercise whatever config is actually in effect | absent → s3cmd defaults |
+| `archive.local.upload.dir` | none — **FLAGGED: mode switch.** If set, ALL uploads divert to a local directory instead of the bucket. Visible: the startup banner prints `Mode: LOCAL TEST` and the KEY SPACE line. Must be ABSENT on prod (arming checklist) | absent → normal Spaces mode |
+
+Rule of the map: a key with no validator row named here may not be added to the script —
+new config reads get a validator or an explicit flagged entry, at review time.
+
 ### STOP-condition status as of 2026-08-19
 
 | # | Condition | Status |
@@ -599,7 +622,9 @@ Never plan a batch from stale figures.**
 8. Prod arming config includes `archive.quarantine.floor` (the quarantine decision needs a
    floor value chosen) alongside the bucket keys — unset floor means garbage months would
    archive normally into the main key space. Optional: `archive.s3cmd.timeout` (seconds,
-   default 300) for hosts where transfers legitimately run long.
+   default 300) for hosts where transfers legitimately run long. **Must be ABSENT:**
+   `archive.local.upload.dir` (it silently diverts all uploads to a local directory —
+   see the config-value validation map).
 9. **The independent second review (standing requirement above) has run on the final diff
    and its findings are applied and re-verified.**
 

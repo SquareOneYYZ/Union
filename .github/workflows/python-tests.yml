@@ -22,6 +22,8 @@ jobs:
       run: pip install pytest -r scripts/requirements.txt
     - name: Run tests
       run: python -m pytest scripts/tests/ -v
+    - name: Cron-gate behavior test (setup.sh)
+      run: bash setup/test_setup_cron_gate.sh
 
   packaging-verifier:
 
