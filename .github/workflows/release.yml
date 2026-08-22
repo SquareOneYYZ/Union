@@ -8,6 +8,9 @@ on:
         required: true
         default: 'preview'
 
+permissions:
+  contents: read
+
 jobs:
   build:
 
