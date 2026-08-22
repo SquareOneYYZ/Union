@@ -40,7 +40,8 @@ def test_garbage_group_goes_to_quarantine_prefix_and_is_deleted(
     total, failures = run_table(garbage_conn(), tmp_path, deleter=deleter,
                                 quarantine_floor=FLOOR)
 
-    assert (total, failures) == (2, 0)
+    # Quarantined rows are EXCLUDED from the normal archive total.
+    assert (total, failures) == (0, 0)
     # Every key — tmp, final, marker — lives under the quarantine sibling.
     assert s3["uploads"] == [
         "rehearsal-quarantine/positions/7/2000-01.parquet.tmp",
@@ -53,6 +54,7 @@ def test_garbage_group_goes_to_quarantine_prefix_and_is_deleted(
     assert deleted == [[1, 2]]
     assert "QUARANTINE: device=7 2000-01" in caplog.text
     assert "Quarantined groups this run: 1 (2 rows)" in caplog.text
+    assert "EXCLUDED from the normal archive totals" in caplog.text
 
 
 def test_normal_group_unaffected_by_floor(tmp_path, s3, caplog):

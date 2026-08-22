@@ -12,10 +12,12 @@ SNAPSHOT TABLES (store only, NEVER deleted from DB):
   - tc_geofences, tc_drivers, tc_devices, tc_device_geofence_segment
 
 Usage:
-    python archive_cold_storage.py [--config /path/to/traccar.xml] [--dry-run] [--months 6]
+    python archive_cold_storage.py [--config PATH] [--months N]
+        [--archive-only] [--prefix SCRATCH] [--max-groups N]
+        [--dry-run] [--selfcheck]
 
 Requirements:
-    pip install pymysql pandas pyarrow python-dateutil
+    pip install -r requirements.txt   (pinned; installed by setup.sh)
 """
 
 # ---------------------------------------------------------------------------
@@ -125,36 +127,39 @@ def validate_prefix(prefix: str) -> str:
     return cleaned
 
 
-def resolve_retention_months(args, props) -> int:
+def parse_retention_months(cli_months, props) -> int:
     """Resolve retention from --months or archive.retention.months (default 6),
     validated at the RESOLUTION point so the config path -- the one every
-    cron run takes -- is covered, not just the CLI argument.
-
-    Non-numeric config is a clear fatal error, never an uncaught ValueError
-    under cron. Non-positive is fatal with the failure mode named: 0
-    collapses retention to zero (the cutoff lands at now, archiving months
-    of recent history early); negative puts the cutoff in the FUTURE, which
-    would sweep the current month.
+    cron run takes -- is covered, not just the CLI argument. Raises
+    ValueError so callers choose their failure mode (main: fatal; selfcheck:
+    report-and-continue), like the timeout and quarantine-floor parsers.
     """
-    if args.months is not None:
-        value, source = args.months, "--months"
+    if cli_months is not None:
+        value, source = cli_months, "--months"
     else:
         raw = str(props.get("archive.retention.months", "6")).strip() or "6"
         try:
             value = int(raw)
         except ValueError:
-            logger.error("Invalid archive.retention.months %r -- expected a "
-                         "positive integer of months. Refusing to run.", raw)
-            sys.exit(1)
+            raise ValueError(
+                f"invalid archive.retention.months {raw!r} -- expected a "
+                f"positive integer of months")
         source = "archive.retention.months"
     if value < 1:
-        logger.error(
-            "%s=%d is not a valid retention: 0 collapses retention to zero "
-            "and archives recent history early; a negative value puts the "
-            "cutoff in the future and would sweep the current month. "
-            "Refusing to run.", source, value)
-        sys.exit(1)
+        raise ValueError(
+            f"{source}={value} is not a valid retention: 0 collapses "
+            f"retention to zero and archives recent history early; a "
+            f"negative value puts the cutoff in the future and would sweep "
+            f"the current month")
     return value
+
+
+def resolve_retention_months(args, props) -> int:
+    try:
+        return parse_retention_months(args.months, props)
+    except ValueError as e:
+        logger.error("%s. Refusing to run.", e)
+        sys.exit(1)
 
 
 def parse_quarantine_floor(props):
@@ -278,9 +283,6 @@ class PropsConfig:
             return fallback
         return self._props.get(flat_key, fallback)
 
-    def getint(self, section, key):
-        return int(self.get(section, key, 0))
-
 
 # ---------------------------------------------------------------------------
 # DB connection
@@ -289,7 +291,9 @@ class PropsConfig:
 def get_connection(props: dict):
     """Parse JDBC URL from config and connect."""
     url   = props.get("database.url", "")
-    match = re.match(r"jdbc:mysql://([^:/]+)(?::(\d+))?/(\w+)", url)
+    # ([^?/]+): the db name runs to '?' or end -- (\w+) silently truncated
+    # names containing '-', feeding the localhost-fallback hazard.
+    match = re.match(r"jdbc:mysql://([^:/]+)(?::(\d+))?/([^?/]+)", url)
     host   = match.group(1) if match else "localhost"
     port   = int(match.group(2)) if match and match.group(2) else 3306
     dbname = match.group(3) if match else "traccar"
@@ -631,7 +635,15 @@ def write_parquet(df: pd.DataFrame, path: str):
 # ---------------------------------------------------------------------------
 
 def fetch_chunked(conn, query: str, params: tuple, chunk_size: int = 50000):
-    """Yield DataFrame chunks to avoid loading all rows into memory at once."""
+    """Yield DataFrame chunks of the result set.
+
+    HONESTY NOTE: this does NOT bound total memory. Every caller does
+    list(fetch_chunked(...)) + concat, and pymysql's default DictCursor
+    buffers the entire result client-side at execute() anyway -- true
+    streaming needs SSDictCursor plus an incremental parquet writer, filed
+    as a runbook follow-up. Acceptable today: the largest observed group is
+    ~197k rows (tens of MB).
+    """
     with conn.cursor() as cur:
         cur.execute(query, params)
         while True:
@@ -740,7 +752,9 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                   quarantine_floor: date = None) -> tuple:
     """
     Archive rows older than cutoff for any time-series table.
-    Returns (total_rows_archived, failure_count).
+    Returns (total_rows_archived, failure_count). Quarantined groups are
+    EXCLUDED from total_rows_archived -- they are counted and logged
+    separately, per the quarantine decision.
 
     The DB-delete capability is injected via `deleter` (main passes
     batch_delete_by_ids for a destructive run). With deleter=None
@@ -1015,10 +1029,11 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                     if os.path.exists(marker_path):
                         os.remove(marker_path)
 
-            total += len(df)
             if quarantined_group:
                 quarantined_groups += 1
                 quarantined_rows += len(df)
+            else:
+                total += len(df)
 
         except Exception as exc:
             logger.error("  [%s] ERROR device=%d %s: %s", table, device_id, label, exc)
@@ -1037,7 +1052,8 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
     if quarantine_floor is not None:
         logger.info(
             "[%s] Quarantined groups this run: %d (%d rows) -- floor %s; "
-            "counted separately, never blended into normal archive totals.",
+            "EXCLUDED from the normal archive totals (they were still "
+            "archived to the quarantine key space and deleted from the DB).",
             table, quarantined_groups, quarantined_rows, quarantine_floor)
 
     # A device that stops appearing here month over month is visible rather
@@ -1124,10 +1140,13 @@ def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
 def snapshot_table(conn, cfg, table_name: str, columns: list,
                    spaces_prefix: str, temp_dir: str,
                    datetime_cols: list = None,
-                   key_prefix: str = PROD_KEY_PREFIX) -> int:
+                   key_prefix: str = PROD_KEY_PREFIX) -> tuple:
     """
     Snapshot all rows to Spaces. DB is NEVER modified.
     Uploads: timestamped copy + latest.parquet (overwritten each run).
+    Returns (rows_snapshotted, failure_count) -- a failed snapshot counts
+    toward the run's failures and its non-zero exit; it must never be able
+    to fail while the run still logs "Archive complete" and exits 0.
     """
     # #9 fix: timezone-aware datetime
     now   = dt.now(timezone.utc).replace(tzinfo=None)
@@ -1146,7 +1165,7 @@ def snapshot_table(conn, cfg, table_name: str, columns: list,
 
         if not chunks:
             logger.info("  [%s] Empty -- nothing to snapshot.", table_name)
-            return 0
+            return 0, 0
 
         df = pd.concat(chunks, ignore_index=True)
         if datetime_cols:
@@ -1163,14 +1182,16 @@ def snapshot_table(conn, cfg, table_name: str, columns: list,
 
         if ok_ts and ok_latest:
             logger.info("  [%s] Snapshot uploaded. DB NOT modified.", table_name)
-        else:
-            logger.warning("  [%s] One or both uploads failed.", table_name)
-
-        return len(df)
+            return len(df), 0
+        logger.error("  [%s] Snapshot upload failed (timestamped ok=%s, "
+                     "latest ok=%s) -- counted as a run failure.",
+                     table_name, ok_ts, ok_latest)
+        return len(df), 1
 
     except Exception as exc:
-        logger.error("  [%s] ERROR: %s", table_name, exc)
-        return 0
+        logger.error("  [%s] ERROR: %s -- counted as a run failure.",
+                     table_name, exc)
+        return 0, 1
 
     finally:
         for p in [local_ts, local_latest]:
@@ -1294,6 +1315,12 @@ def run_selfcheck(args) -> int:
                f"floor {floor}" if floor else "unset (quarantine disabled)")
     except ValueError as e:
         report("quarantine", False, str(e))
+
+    try:
+        months = parse_retention_months(getattr(args, "months", None), props)
+        report("retention", True, f"{months} month(s)")
+    except ValueError as e:
+        report("retention", False, str(e))
 
     bucket = cfg.get("spaces", "bucket")
     if not bucket:
@@ -1502,17 +1529,28 @@ def main():
                                        quarantine_floor=quarantine_floor)
         total_failures += ef
 
-        logger.info("\n--- Snapshotting GEOFENCES (store only, DB unchanged) ---")
-        geo_total = snapshot_geofences(conn, cfg, temp_dir, key_prefix)
+        if dry_run:
+            # --dry-run's contract is "leaves NO artifact in the bucket";
+            # the snapshots would upload six objects (timestamped copies and
+            # latest.parquet overwrites) into the real key space.
+            logger.info("\n--- Skipping all snapshots: --dry-run leaves no "
+                        "artifacts ---")
+        else:
+            logger.info("\n--- Snapshotting GEOFENCES (store only, DB unchanged) ---")
+            geo_total, sf = snapshot_geofences(conn, cfg, temp_dir, key_prefix)
+            total_failures += sf
 
-        logger.info("\n--- Snapshotting DRIVERS (store only, DB unchanged) ---")
-        drv_total = snapshot_drivers(conn, cfg, temp_dir, key_prefix)
+            logger.info("\n--- Snapshotting DRIVERS (store only, DB unchanged) ---")
+            drv_total, sf = snapshot_drivers(conn, cfg, temp_dir, key_prefix)
+            total_failures += sf
 
-        logger.info("\n--- Snapshotting DEVICES (store only, DB unchanged) ---")
-        dev_total = snapshot_devices(conn, cfg, temp_dir, key_prefix)
+            logger.info("\n--- Snapshotting DEVICES (store only, DB unchanged) ---")
+            dev_total, sf = snapshot_devices(conn, cfg, temp_dir, key_prefix)
+            total_failures += sf
 
-        logger.info("\n--- Snapshotting DEVICE GEOFENCE SEGMENTS (store only, DB unchanged) ---")
-        seg_total = snapshot_device_geofence_segments(conn, cfg, temp_dir, key_prefix)
+            logger.info("\n--- Snapshotting DEVICE GEOFENCE SEGMENTS (store only, DB unchanged) ---")
+            seg_total, sf = snapshot_device_geofence_segments(conn, cfg, temp_dir, key_prefix)
+            total_failures += sf
 
     finally:
         conn.close()

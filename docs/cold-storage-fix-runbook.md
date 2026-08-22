@@ -98,7 +98,13 @@ script reads, audited:
 
 | Key | Validated by | On absent / malformed |
 |---|---|---|
-| `archive.retention.months` | **`resolve_retention_months`** (at the RESOLUTION point — covers the cron path, not just `--months`) | absent → 6; non-numeric or < 1 → fatal, named message |
+| `archive.retention.months` | **`parse_retention_months`** (main: fatal via `resolve_retention_months`; selfcheck: report-and-continue) — at the RESOLUTION point, covering the cron path | absent → 6; non-numeric or < 1 → fatal (main) / reported FAIL (selfcheck) |
+
+*Selfcheck parity rule (added after the retention hole — twice is a pattern): every
+config-sourced validator in this map with a raise-capable parser MUST also be exercised by
+`run_selfcheck` in report-and-continue form. Current set, all mirrored: timeout,
+quarantine floor, retention; the s3cmd/python/bucket/db/temp-dir/lock checks exercise
+their values directly.*
 | `archive.quarantine.floor` | **`parse_quarantine_floor`** (main: fatal via `configure_quarantine_floor`; selfcheck: report-and-continue) | absent → quarantine disabled; malformed → fatal (main) / reported FAIL (selfcheck) — a bad floor fails the gate at install, not a run later |
 | `archive.s3cmd.timeout` | **`parse_s3_timeout`** (main: fatal via `configure_s3_timeout`; selfcheck: report-and-continue) | absent → 300 s; malformed/non-positive → fatal (main) / reported FAIL (selfcheck) |
 | `archive.python.exe`, `archive.s3cmd.script` | **`build_s3cmd_base`** | absent → fatal (`sys.exit(1)`) |
@@ -617,6 +623,11 @@ the reason stated in it. Items 2–6 are genuinely post-staging.
    distinguish operator error from environment failure.
 6. **Selfcheck temp-dir gate** (held from the third review): fix per the F10
    `archive.temp.dir` answer once it arrives — do not guess.
+7. **True streaming export:** `fetch_chunked`'s chunking never bounded total memory —
+   callers materialize all chunks, and pymysql's default DictCursor buffers the whole
+   result client-side at execute() anyway. Acceptable at the observed maximum group size
+   (~197k rows); real streaming needs `SSDictCursor` plus an incremental parquet writer.
+   The docstring now states this honestly.
 
 ## Standing requirement — independent second review before production contact
 

@@ -143,6 +143,20 @@ def test_malformed_quarantine_floor_reports_and_checks_continue(
     assert seen["cmds"]
 
 
+def test_malformed_retention_reports_and_checks_continue(
+        tmp_path, monkeypatch, caplog):
+    # Same hole as the quarantine floor, closed the same way: a bad
+    # archive.retention.months fails the install gate, not the next cron
+    # fire — and the selfcheck still runs everything else.
+    code, seen = run_selfcheck(
+        tmp_path, monkeypatch,
+        **{"archive.retention.months": "six"})
+    assert code == 1
+    assert "archive.retention.months" in caplog.text
+    assert seen["conn"] is not None
+    assert seen["cmds"]
+
+
 def test_probe_premise_violation_fails(tmp_path, monkeypatch):
     # The absence premise: ls of an absent key exits 0 with an EMPTY listing.
     # An s3cmd that echoes the key back for an absent target violates it.
