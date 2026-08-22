@@ -1,0 +1,10 @@
+# Dependencies for scripts/archive_cold_storage.py.
+#
+# Pinned to the versions MEASURED on the staging host (P-F9, 2026-08-19) --
+# the set the archiver has actually run with, on Python 3.12.7, which both
+# hosts share. Do not bump these casually: prod installs exactly this set,
+# and the parquet output of pandas/pyarrow is what the archive contains.
+PyMySQL==1.1.2
+pandas==3.0.1
+pyarrow==23.0.1
+python-dateutil==2.9.0

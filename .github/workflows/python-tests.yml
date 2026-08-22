@@ -1,0 +1,44 @@
+name: Archive Script Tests
+
+on:
+  push:
+    branches: [ master, riq-cold-storage-hardening ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Syntax gate
+      run: python -m py_compile scripts/archive_cold_storage.py
+    - name: Install pinned runtime deps plus pytest
+      run: pip install pytest -r scripts/requirements.txt
+    - name: Run tests
+      run: python -m pytest scripts/tests/ -v
+    - name: Cron-gate behavior test (setup.sh)
+      run: bash setup/test_setup_cron_gate.sh
+
+  packaging-verifier:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 21
+    - name: Install packaging tools
+      run: sudo apt-get update && sudo apt-get install -y makeself zip unzip
+    - name: Self-test the artifact verifier against REAL package.sh artifacts
+      run: bash setup/test_verify_artifacts.sh

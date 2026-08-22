@@ -107,6 +107,7 @@ package_linux () {
 
     mkdir -p out/scripts
     cp ../scripts/archive_cold_storage.py out/scripts
+    cp ../scripts/requirements.txt out/scripts
 
   tar -xf OpenJDK*$2_linux*.tar.gz
   jlink --module-path jdk-*/jmods --add-modules java.se,jdk.charsets,jdk.crypto.ec,jdk.unsupported --output out/jre
@@ -119,6 +120,9 @@ package_linux () {
   rm traccar.run
   rm out/setup.sh
   rm out/traccar.service
+  # The scripts dir is linux-only payload; leaving it in out/ would leak the
+  # archiver into the "other" zip built afterwards from out/*.
+  rm -r out/scripts
 }
 
 package_linux_64 () {

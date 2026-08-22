@@ -23,16 +23,62 @@ mkdir -p /opt/traccar/scripts
 chmod +x /opt/traccar/scripts/archive_cold_storage.py
 mkdir -p /opt/traccar/parquet
 
+# Archiver Python dependencies: pinned set, installed for the SAME interpreter
+# the cron line invokes (/usr/bin/python3). System pip with
+# --break-system-packages matches how the existing working host was set up
+# (PEP 668 environment, packages in /usr/local). Idempotent: already-satisfied
+# pins are skipped. Non-fatal but loud: a failed install must not abort the
+# whole traccar upgrade -- --selfcheck below is the real gate.
+if [ -f /opt/traccar/scripts/requirements.txt ]; then
+    if /usr/bin/python3 -m pip --version >/dev/null 2>&1; then
+        echo "Installing archiver Python dependencies (pinned set)..."
+        if ! /usr/bin/python3 -m pip install --break-system-packages -r /opt/traccar/scripts/requirements.txt; then
+            echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            echo "!! WARNING: archiver dependency install FAILED.                 !!"
+            echo "!! The archive script will NOT run until this is fixed.         !!"
+            echo "!! Verify with the --selfcheck command printed below.           !!"
+            echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        fi
+    else
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "!! WARNING: pip is not available for /usr/bin/python3.          !!"
+        echo "!! Archiver dependencies NOT installed; the archive script      !!"
+        echo "!! will NOT run until they are. See scripts/requirements.txt.   !!"
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    fi
+fi
+
 systemctl daemon-reload
 systemctl enable traccar.service
 
 ARCHIVE_BUCKET=$(grep -o 'archive\.spaces\.bucket[^<]*</entry>' /opt/traccar/conf/traccar.xml 2>/dev/null | grep -o '>.*<' | tr -d '><')
 if [ -n "$ARCHIVE_BUCKET" ]; then
-    (crontab -l 2>/dev/null | grep -v "archive_cold_storage.py"; echo "0 4 1 * * /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml >> /opt/traccar/logs/archive.log 2>&1") | crontab -
-    echo "Archive cron job installed."
+    # The selfcheck GATES the cron: a host that cannot pass it (failed pip
+    # install, unreachable bucket/DB, unopenable lock path) must not be armed
+    # -- arming anyway would be the deploy equivalent of a fail-open probe.
+    echo "Running archiver selfcheck (gates the cron install)..."
+    if /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml --selfcheck; then
+        (crontab -l 2>/dev/null | grep -v "archive_cold_storage.py"; echo "0 4 1 * * /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml >> /opt/traccar/logs/archive.log 2>&1") | crontab -
+        echo "Archive cron job installed (selfcheck passed)."
+    else
+        # Disarm: a newly-installed script that failed its selfcheck must
+        # not stay scheduled (the runbook's comment-out command). The line
+        # is commented, not deleted, so the operator can see and restore it.
+        (crontab -l 2>/dev/null | sed 's|^\([^#].*archive_cold_storage.*\)$|#\1|') | crontab -
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "!! Archiver selfcheck FAILED -- cron NOT installed, and any     !!"
+        echo "!! existing archive cron line has been COMMENTED OUT so a       !!"
+        echo "!! failing script is never left armed. Fix the failure(s)       !!"
+        echo "!! above, then re-run the installer (the selfcheck gates        !!"
+        echo "!! re-arming), or restore the line once the selfcheck passes.   !!"
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    fi
 else
     echo "archive.spaces.bucket not configured — skipping cron install."
 fi
+
+echo "Post-install verification of the archiver (read-only, run it now):"
+echo "  sudo /usr/bin/python3 /opt/traccar/scripts/archive_cold_storage.py --config /opt/traccar/conf/traccar.xml --selfcheck"
 
 rm /opt/traccar/setup.sh
 rm -r ../out

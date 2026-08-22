@@ -8,6 +8,9 @@ on:
         required: true
         default: 'preview'
 
+permissions:
+  contents: read
+
 jobs:
   build:
 
@@ -45,6 +48,9 @@ jobs:
           wget -q https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4+7/OpenJDK21U-jdk_x64_linux_hotspot_21.0.4_7.tar.gz
           wget -q https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4+7/OpenJDK21U-jdk_aarch64_linux_hotspot_21.0.4_7.tar.gz
           ./package.sh ${{ github.event.inputs.version }}
+      - name: Verify packaged archive script against repo
+        working-directory: ./setup
+        run: bash verify_artifacts.sh ${{ github.event.inputs.version }}
       - name: Upload installers
         working-directory: ./setup
         env:

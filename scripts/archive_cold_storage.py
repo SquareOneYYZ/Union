@@ -12,10 +12,12 @@ SNAPSHOT TABLES (store only, NEVER deleted from DB):
   - tc_geofences, tc_drivers, tc_devices, tc_device_geofence_segment
 
 Usage:
-    python archive_cold_storage.py [--config /path/to/traccar.xml] [--dry-run] [--months 6]
+    python archive_cold_storage.py [--config PATH] [--months N]
+        [--archive-only] [--prefix SCRATCH] [--max-groups N]
+        [--dry-run] [--selfcheck]
 
 Requirements:
-    pip install pymysql pandas pyarrow python-dateutil
+    pip install -r requirements.txt   (pinned; installed by setup.sh)
 """
 
 # ---------------------------------------------------------------------------
@@ -25,7 +27,6 @@ import argparse
 import logging
 import os
 import re
-import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -36,6 +37,11 @@ from dateutil.relativedelta import relativedelta
 import pandas as pd
 import pymysql
 import pymysql.cursors
+
+try:
+    import fcntl  # POSIX only -- the deployed hosts; None on Windows dev boxes
+except ImportError:
+    fcntl = None
 
 # ---------------------------------------------------------------------------
 # Logging -- replaces all print() (#10 fix)
@@ -67,10 +73,171 @@ def parse_args():
     parser.add_argument("--config",  default=default_config,
                         help="Path to traccar.xml or debug.xml")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Upload but skip DB deletion")
+                        help="Upload, verify, then delete the verification upload again; "
+                             "skips DB deletion and finalization. Leaves NO artifact in "
+                             "the bucket, so it cannot serve as verification -- use "
+                             "--archive-only for that.")
     parser.add_argument("--months",  type=int, default=None,
                         help="Override retention_months from config")
+    parser.add_argument("--archive-only", action="store_true",
+                        help="Export + verify + finalize only: no DB deletes, no .done "
+                             "markers. For rehearsals and pre-populating the archive.")
+    parser.add_argument("--prefix", default=None,
+                        help="Rehearsal key-space prefix replacing the leading 'archive'. "
+                             "Requires --archive-only; must not resolve into the "
+                             "production 'archive/' key space.")
+    parser.add_argument("--max-groups", type=int, default=None,
+                        help="Stop cleanly after N device/month groups (shared across "
+                             "tables). Stops only at a group boundary and exits 0 -- for "
+                             "bounded supervised bulk-migration sessions.")
+    parser.add_argument("--selfcheck", action="store_true",
+                        help="Read-only environment check (imports, config parse, lock "
+                             "path, s3cmd reachability, DB connect) -- uploads nothing, "
+                             "deletes nothing, writes nothing, then exits (0 = all OK).")
     return parser.parse_args()
+
+
+# The production key space. The Java read path (ArchiveResource) constructs
+# keys under this prefix, so rehearsals must never write into it.
+PROD_KEY_PREFIX = "archive"
+
+
+def validate_prefix(prefix: str) -> str:
+    """Normalize and validate a rehearsal key prefix.
+
+    Rejects anything that would land keys in the production key space, and
+    path tricks that could resolve there: empty or absolute paths, '.'/'..'
+    segments, empty segments, characters outside [A-Za-z0-9._-].
+    """
+    cleaned = (prefix or "").strip().strip("/")
+    if not cleaned:
+        raise ValueError("prefix is empty")
+    for seg in cleaned.split("/"):
+        if seg in ("", ".", ".."):
+            raise ValueError(f"segment not allowed: {seg!r}")
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", seg):
+            raise ValueError(f"segment has unsupported characters: {seg!r}")
+    if cleaned.split("/")[0].startswith(PROD_KEY_PREFIX):
+        # startswith, not equality: 'archive2' or 'archive-mine' would sit
+        # beside the production key space and its quarantine sibling in
+        # listings and tooling globs -- rehearsals stay visibly apart.
+        raise ValueError(
+            f"prefix must not begin with '{PROD_KEY_PREFIX}' "
+            f"(the production key space and its siblings)")
+    return cleaned
+
+
+def parse_retention_months(cli_months, props) -> int:
+    """Resolve retention from --months or archive.retention.months (default 6),
+    validated at the RESOLUTION point so the config path -- the one every
+    cron run takes -- is covered, not just the CLI argument. Raises
+    ValueError so callers choose their failure mode (main: fatal; selfcheck:
+    report-and-continue), like the timeout and quarantine-floor parsers.
+    """
+    if cli_months is not None:
+        value, source = cli_months, "--months"
+    else:
+        raw = str(props.get("archive.retention.months", "6")).strip() or "6"
+        try:
+            value = int(raw)
+        except ValueError:
+            raise ValueError(
+                f"invalid archive.retention.months {raw!r} -- expected a "
+                f"positive integer of months")
+        source = "archive.retention.months"
+    if value < 1:
+        raise ValueError(
+            f"{source}={value} is not a valid retention: 0 collapses "
+            f"retention to zero and archives recent history early; a "
+            f"negative value puts the cutoff in the future and would sweep "
+            f"the current month")
+    return value
+
+
+def resolve_retention_months(args, props) -> int:
+    try:
+        return parse_retention_months(args.months, props)
+    except ValueError as e:
+        logger.error("%s. Refusing to run.", e)
+        sys.exit(1)
+
+
+def parse_quarantine_floor(props):
+    """archive.quarantine.floor (YYYY-MM-DD) or None when unset.
+
+    Clock-garbage policy (decision: quarantine): a group is quarantined when
+    its ENTIRE calendar month lies strictly before the floor date -- the
+    comparison is period_end <= floor, where period_end is the exclusive
+    month end (first day of the next month). Set the floor to the first day
+    of a month: with floor 2024-01-01, every month up to and including
+    2023-12 quarantines and 2024-01 onward archives normally. Quarantined
+    groups go under '<prefix>-quarantine/' -- a sibling the Java read path
+    never serves -- and are deleted from the live table like any other
+    group. The floor is a config value, never a code literal. Raises
+    ValueError on a malformed value so callers choose their failure mode
+    (main: fatal via configure_quarantine_floor; selfcheck:
+    report-and-continue) -- the same pattern as archive.s3cmd.timeout.
+    """
+    raw = props.get("archive.quarantine.floor", "").strip()
+    if not raw:
+        return None
+    try:
+        return dt.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError(
+            f"invalid archive.quarantine.floor {raw!r} -- expected YYYY-MM-DD")
+
+
+def configure_quarantine_floor(props):
+    try:
+        return parse_quarantine_floor(props)
+    except ValueError as e:
+        logger.error("%s. Refusing to run.", e)
+        sys.exit(1)
+
+
+class GroupBudget:
+    """Run-wide --max-groups budget, shared across tables.
+
+    take() grants one group and returns True until the limit is spent; the
+    first refused take marks exhausted_hit so the run can say it stopped on
+    the limit rather than exhausting the work. No limit = unlimited.
+    """
+
+    def __init__(self, limit):
+        self.limit = limit
+        self.used = 0
+        self.exhausted_hit = False
+
+    def take(self) -> bool:
+        if self.limit is None:
+            return True
+        if self.used >= self.limit:
+            self.exhausted_hit = True
+            return False
+        self.used += 1
+        return True
+
+
+def resolve_run_options(args):
+    """Cross-validate CLI flags. Returns (key_prefix, archive_only)."""
+    if args.archive_only and args.dry_run:
+        logger.error("--archive-only and --dry-run are mutually exclusive.")
+        sys.exit(2)
+    if getattr(args, "max_groups", None) is not None and args.max_groups < 1:
+        logger.error("--max-groups must be a positive integer.")
+        sys.exit(2)
+    if args.prefix is not None and not args.archive_only:
+        logger.error("--prefix is a rehearsal option and requires --archive-only; "
+                     "a destructive run must write to the production key space.")
+        sys.exit(2)
+    if args.prefix is None:
+        return PROD_KEY_PREFIX, args.archive_only
+    try:
+        return validate_prefix(args.prefix), args.archive_only
+    except ValueError as e:
+        logger.error("Invalid --prefix: %s", e)
+        sys.exit(2)
 
 
 # ---------------------------------------------------------------------------
@@ -97,14 +264,16 @@ class PropsConfig:
 
     def __init__(self, props: dict):
         self._props = props
-        # #2 fix: added local_upload_dir mapping
+        # archive.local.upload.dir was removed 2026-08-22: a silent mode
+        # switch diverting uploads to a local dir, broken under the
+        # verification pipeline (probes check the bucket) -- rehearse with
+        # --archive-only --prefix instead.
         self._map = {
             ("spaces",  "bucket"):           "archive.spaces.bucket",
             ("spaces",  "s3cmd_config"):     "archive.s3cmd.configFile",
             ("spaces",  "temp_dir"):         "archive.temp.dir",
             ("spaces",  "python_exe"):       "archive.python.exe",
             ("spaces",  "s3cmd_script"):     "archive.s3cmd.script",
-            ("spaces",  "local_upload_dir"): "archive.local.upload.dir",  # optional
             ("archive", "retention_months"): "archive.retention.months",
         }
 
@@ -114,9 +283,6 @@ class PropsConfig:
             return fallback
         return self._props.get(flat_key, fallback)
 
-    def getint(self, section, key):
-        return int(self.get(section, key, 0))
-
 
 # ---------------------------------------------------------------------------
 # DB connection
@@ -125,7 +291,9 @@ class PropsConfig:
 def get_connection(props: dict):
     """Parse JDBC URL from config and connect."""
     url   = props.get("database.url", "")
-    match = re.match(r"jdbc:mysql://([^:/]+)(?::(\d+))?/(\w+)", url)
+    # ([^?/]+): the db name runs to '?' or end -- (\w+) silently truncated
+    # names containing '-', feeding the localhost-fallback hazard.
+    match = re.match(r"jdbc:mysql://([^:/]+)(?::(\d+))?/([^?/]+)", url)
     host   = match.group(1) if match else "localhost"
     port   = int(match.group(2)) if match and match.group(2) else 3306
     dbname = match.group(3) if match else "traccar"
@@ -136,12 +304,64 @@ def get_connection(props: dict):
         database=dbname,
         charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor,
+        # Pin the session to UTC so cutoff, month windows, and the rendered
+        # datetime strings in Parquet are independent of the server timezone.
+        init_command="SET time_zone = '+00:00'",
     )
 
 
 # ---------------------------------------------------------------------------
 # s3cmd helpers
 # ---------------------------------------------------------------------------
+
+# Hard timeout for EVERY s3cmd subprocess (seconds); overridable via the
+# archive.s3cmd.timeout config key. A hung transfer must never hold the run
+# lock indefinitely across a multi-session migration.
+DEFAULT_S3_TIMEOUT_SECONDS = 300
+S3_TIMEOUT = {"seconds": DEFAULT_S3_TIMEOUT_SECONDS}
+
+
+def parse_s3_timeout(props) -> int:
+    """Parse archive.s3cmd.timeout; raises ValueError on a malformed or
+    non-positive value so callers choose their failure mode (main: fatal;
+    selfcheck: report-and-continue)."""
+    raw = str(props.get("archive.s3cmd.timeout", "")).strip()
+    if not raw:
+        return DEFAULT_S3_TIMEOUT_SECONDS
+    value = int(raw)  # ValueError propagates
+    if value < 1:
+        raise ValueError(f"non-positive timeout {raw!r}")
+    return value
+
+
+def configure_s3_timeout(props) -> int:
+    try:
+        S3_TIMEOUT["seconds"] = parse_s3_timeout(props)
+    except ValueError:
+        logger.error("Invalid archive.s3cmd.timeout %r -- expected a "
+                     "positive integer of seconds.",
+                     props.get("archive.s3cmd.timeout"))
+        sys.exit(1)
+    return S3_TIMEOUT["seconds"]
+
+
+def run_s3cmd(cmd, timeout_override=None):
+    """Run one s3cmd subprocess, bounded by the configured timeout.
+
+    Returns the CompletedProcess, or None when the command timed out or could
+    not be launched. Callers MUST treat None as a failed measurement -- never
+    as evidence about the bucket (the runbook's measurement-validity rule,
+    enforced in code).
+    """
+    t = timeout_override if timeout_override is not None else S3_TIMEOUT["seconds"]
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=t)
+    except subprocess.TimeoutExpired:
+        logger.error("  [S3] TIMED OUT after %ds: %s ...", t, " ".join(cmd[:4]))
+        return None
+    except OSError as e:
+        logger.error("  [S3] Could not launch s3cmd: %s", e)
+        return None
 
 def build_s3cmd_base(cfg) -> list:
     python_exe   = cfg.get("spaces", "python_exe")
@@ -164,34 +384,65 @@ def build_s3cmd_base(cfg) -> list:
     return cmd
 
 
-def verify_upload(cfg, spaces_key: str) -> bool:
-    """Verify file landed in Spaces after upload. (#4 fix: no delete without verify)"""
+def key_in_listing(stdout: str, dest: str) -> bool:
+    """True only if a listing line's key column equals dest exactly.
+
+    `s3cmd ls <dest>` is a prefix listing: asking for X.parquet also returns
+    X.parquet.tmp, so a substring test against stdout false-positives. Compare
+    the final whitespace-separated token of each line instead.
+    """
+    for line in stdout.splitlines():
+        parts = line.split()
+        if parts and parts[-1] == dest:
+            return True
+    return False
+
+
+def probe_key(cfg, spaces_key: str):
+    """Three-state existence probe: True (present), False (absent), None
+    (the probe itself FAILED -- non-zero exit, timeout, or launch failure).
+
+    The measurement-validity rule, enforced: a failed probe must NEVER be
+    read as absence. Callers fail their group on None.
+    """
     bucket = cfg.get("spaces", "bucket")
     dest   = f"s3://{bucket}/{spaces_key}"
     cmd    = build_s3cmd_base(cfg) + ["ls", dest]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    exists = result.returncode == 0 and spaces_key in result.stdout
-    if not exists:
-        logger.warning("Verification failed -- file not found at %s", dest)
-    return exists
-
-def check_temp_key_exists(cfg, temp_spaces_key: str) -> bool:
-    """Check if a previous run left a temp upload behind."""
-    bucket = cfg.get("spaces", "bucket")
-    dest   = f"s3://{bucket}/{temp_spaces_key}"
-    cmd    = build_s3cmd_base(cfg) + ["ls", dest]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.returncode == 0 and temp_spaces_key in result.stdout
+    result = run_s3cmd(cmd)
+    if result is None:
+        return None
+    if result.returncode != 0:
+        logger.error("  [S3] Probe FAILED for %s (exit=%d, stderr: %s) -- "
+                     "unknown, not absent.", dest, result.returncode,
+                     result.stderr.strip()[:200])
+        return None
+    return key_in_listing(result.stdout, dest)
 
 
-def delete_spaces_key(cfg, spaces_key: str):
+def verify_upload(cfg, spaces_key: str) -> bool:
+    """Verify a key is confirmably present (#4 fix: no delete without verify).
+
+    Strict: a failed probe counts as NOT verified (fail-closed).
+    """
+    state = probe_key(cfg, spaces_key)
+    if state is not True:
+        logger.warning("Verification failed -- %s not confirmed present "
+                       "(%s).", spaces_key,
+                       "absent" if state is False else "probe failed")
+    return state is True
+
+
+def delete_spaces_key(cfg, spaces_key: str) -> bool:
     """Delete a key from Spaces (used for temp key cleanup)."""
     bucket = cfg.get("spaces", "bucket")
     dest   = f"s3://{bucket}/{spaces_key}"
     cmd    = build_s3cmd_base(cfg) + ["del", dest]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        logger.warning("  [S3] Could not delete temp key %s: %s", spaces_key, result.stderr.strip())
+    result = run_s3cmd(cmd)
+    if result is None or result.returncode != 0:
+        logger.warning("  [S3] Could not delete temp key %s: %s", spaces_key,
+                       result.stderr.strip() if result else "timeout/launch failure")
+        return False
+    return True
 
 
 def copy_spaces_key(cfg, src_key: str, dst_key: str) -> bool:
@@ -202,27 +453,124 @@ def copy_spaces_key(cfg, src_key: str, dst_key: str) -> bool:
         f"s3://{bucket}/{src_key}",
         f"s3://{bucket}/{dst_key}",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        logger.error("  [S3] Copy failed %s -> %s: %s", src_key, dst_key, result.stderr.strip())
+    result = run_s3cmd(cmd)
+    if result is None or result.returncode != 0:
+        logger.error("  [S3] Copy failed %s -> %s: %s", src_key, dst_key,
+                     result.stderr.strip() if result else "timeout/launch failure")
+        return False
+    return True
+
+
+def download_key(cfg, spaces_key: str, local_path: str) -> bool:
+    """Download a key from Spaces to a local file."""
+    bucket = cfg.get("spaces", "bucket")
+    cmd = build_s3cmd_base(cfg) + ["get", "--force",
+                                   f"s3://{bucket}/{spaces_key}", local_path]
+    result = run_s3cmd(cmd)
+    if result is None or result.returncode != 0:
+        logger.error("  [S3] Download failed for %s: %s", spaces_key,
+                     result.stderr.strip() if result else "timeout/launch failure")
+        return False
+    return True
+
+
+def merge_with_existing_final(cfg, spaces_key: str, df, temp_dir: str,
+                              table: str):
+    """Merge a fresh export into an already-existing final parquet (C6).
+
+    Additive-only: every id already in the archive must survive the merge and
+    the merged frame can never be smaller than the archived one; on id
+    collision the ARCHIVED row wins (the archive is the immutable record).
+    A column-set mismatch aborts instead of coercing -- older script versions
+    wrote the existing objects, and concat across schemas silently produces
+    null-filled columns that still pass a row-count check. Returns the merged
+    DataFrame, or None to abort the group with the final key untouched.
+    """
+    local_existing = os.path.join(
+        temp_dir, f"merge_{os.path.basename(spaces_key)}")
+    try:
+        if not download_key(cfg, spaces_key, local_existing):
+            logger.error("  [%s] Could not download existing final %s for "
+                         "merge -- aborting group (final key untouched).",
+                         table, spaces_key)
+            return None
+        try:
+            old_df = pd.read_parquet(local_existing)
+        except Exception as e:
+            logger.error("  [%s] Existing final %s unreadable (%s) -- "
+                         "aborting group (final key untouched).",
+                         table, spaces_key, e)
+            return None
+
+        old_cols, new_cols = set(old_df.columns), set(df.columns)
+        if old_cols != new_cols:
+            logger.error(
+                "  [%s] SCHEMA MISMATCH vs existing final %s -- aborting "
+                "group, no coercion. Only in archive: %s; only in export: %s.",
+                table, spaces_key,
+                sorted(old_cols - new_cols) or "none",
+                sorted(new_cols - old_cols) or "none")
+            return None
+
+        merged = pd.concat([old_df, df], ignore_index=True)
+        merged = merged.drop_duplicates(subset="id", keep="first")
+        merged = merged[list(df.columns)]  # order only; same set, no coercion
+
+        original_ids = set(int(i) for i in old_df["id"])
+        merged_ids   = set(int(i) for i in merged["id"])
+        if not original_ids.issubset(merged_ids) or len(merged) < len(old_df):
+            lost = sorted(original_ids - merged_ids)[:10]
+            logger.error(
+                "  [%s] MERGE NOT ADDITIVE for %s: archived rows would be "
+                "lost (%d -> %d rows; sample lost ids %s) -- aborting group "
+                "(final key untouched).",
+                table, spaces_key, len(old_df), len(merged), lost)
+            return None
+
+        logger.info("  [%s] Merged %d archived + %d exported -> %d rows "
+                    "(dedupe on id; archived rows win collisions).",
+                    table, len(old_df), len(df), len(merged))
+        return merged
+    finally:
+        if os.path.exists(local_existing):
+            os.remove(local_existing)
+
+
+def finalize_parquet(cfg, temp_key: str, spaces_key: str) -> bool:
+    """Promote a verified temp upload to its final key.
+
+    copy tmp -> final, verify the final key exists, then delete the tmp.
+    Returns False -- leaving the temp key in place -- if the copy or the
+    final-key verification fails. Callers run this BEFORE any DB delete (D3),
+    so a False here always means nothing has been removed yet.
+    """
+    if not copy_spaces_key(cfg, temp_key, spaces_key):
+        logger.error("  [S3] Could not copy %s -> %s; temp key preserved.",
+                     temp_key, spaces_key)
+        return False
+    if not verify_upload(cfg, spaces_key):
+        logger.error("  [S3] Final key %s not verifiable after copy; temp key "
+                     "preserved at %s.", spaces_key, temp_key)
+        return False
+    if not delete_spaces_key(cfg, temp_key):
+        # Fail-closed: the final is verified in place and no rows have been
+        # deleted yet; the leftover tmp aborts via C5 next run, so nothing
+        # destructive proceeds on top of an unconfirmed cleanup.
+        logger.error("  [S3] Could not delete tmp after finalize -- failing "
+                     "the group before any DB delete; final %s is in place.",
+                     spaces_key)
         return False
     return True
 
 
 def verify_row_count(cfg, spaces_key: str, expected_rows: int) -> bool:
     """Download uploaded Parquet and verify row count matches DB."""
-    bucket     = cfg.get("spaces", "bucket")
     temp_dir   = cfg.get("spaces", "temp_dir") or "/tmp/traccar-archive"
     local_path = os.path.join(temp_dir, f"verify_{os.path.basename(spaces_key)}")
 
-    cmd = build_s3cmd_base(cfg) + ["get", "--force",
-                                    f"s3://{bucket}/{spaces_key}",
-                                    local_path]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            logger.warning("  [VERIFY] Could not download for row count check: %s",
-                           result.stderr.strip())
+        if not download_key(cfg, spaces_key, local_path):
+            logger.warning("  [VERIFY] Could not download for row count check.")
             return False
 
         df           = pd.read_parquet(local_path)
@@ -252,32 +600,18 @@ def s3cmd_upload(cfg, local_file: str, bucket: str, key: str) -> bool:
     dest   = f"s3://{bucket}/{key}"
     cmd    = build_s3cmd_base(cfg) + ["put", "--acl-private", local_file, dest]
     logger.info("  [S3] Uploading %s -> %s", os.path.basename(local_file), dest)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        logger.error("  [S3 ERROR] %s", result.stderr.strip())
+    result = run_s3cmd(cmd)
+    if result is None or result.returncode != 0:
+        logger.error("  [S3 ERROR] %s",
+                     result.stderr.strip() if result else "timeout/launch failure")
         return False
     return True
 
 
-def local_upload(local_file: str, upload_dir: str, key: str) -> bool:
-    dest = os.path.join(upload_dir, key.replace("/", os.sep))
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    logger.info("  [LOCAL] Copying %s -> %s", os.path.basename(local_file), dest)
-    try:
-        shutil.copy2(local_file, dest)
-        return True
-    except Exception as e:
-        logger.error("  [LOCAL ERROR] %s", e)
-        return False
-
-
 def do_upload(cfg, local_path: str, spaces_key: str) -> bool:
-    bucket           = cfg.get("spaces", "bucket")
-    local_upload_dir = cfg.get("spaces", "local_upload_dir")
-    if local_upload_dir:
-        return local_upload(local_path, local_upload_dir, spaces_key)
+    bucket = cfg.get("spaces", "bucket")
     if not bucket:
-        logger.error("bucket not configured and local_upload_dir is empty")
+        logger.error("bucket not configured")
         return False
     return s3cmd_upload(cfg, local_path, bucket, spaces_key)
 
@@ -301,7 +635,15 @@ def write_parquet(df: pd.DataFrame, path: str):
 # ---------------------------------------------------------------------------
 
 def fetch_chunked(conn, query: str, params: tuple, chunk_size: int = 50000):
-    """Yield DataFrame chunks to avoid loading all rows into memory at once."""
+    """Yield DataFrame chunks of the result set.
+
+    HONESTY NOTE: this does NOT bound total memory. Every caller does
+    list(fetch_chunked(...)) + concat, and pymysql's default DictCursor
+    buffers the entire result client-side at execute() anyway -- true
+    streaming needs SSDictCursor plus an incremental parquet writer, filed
+    as a runbook follow-up. Acceptable today: the largest observed group is
+    ~197k rows (tens of MB).
+    """
     with conn.cursor() as cur:
         cur.execute(query, params)
         while True:
@@ -312,29 +654,90 @@ def fetch_chunked(conn, query: str, params: tuple, chunk_size: int = 50000):
 
 
 # ---------------------------------------------------------------------------
-# Batched DELETE -- avoids long table locks (#5 fix)
+# Batched DELETE by exported ids (D2) -- never by time window
 # ---------------------------------------------------------------------------
 
-def batch_delete(conn, table: str, time_col: str, device_id: int,
-                 period_start: date, period_end: date,
-                 batch_size: int = 10000) -> int:
-    """Delete in small batches to prevent long table locks."""
+def batch_delete_by_ids(conn, table: str, ids: list,
+                        chunk_size: int = 10000) -> int:
+    """Delete exactly the given ids, in chunks of chunk_size.
+
+    Keyed by the exported ids, never by a time window, so a row the export
+    never saw (e.g. late-arriving data inserted mid-run) can never be
+    deleted. Committed per chunk to keep table locks short. Returns the
+    number of rows actually deleted; the caller compares it against the
+    exported count.
+    """
     total_deleted = 0
-    while True:
+    for start in range(0, len(ids), chunk_size):
+        chunk = ids[start:start + chunk_size]
+        placeholders = ", ".join(["%s"] * len(chunk))
         with conn.cursor() as cur:
             cur.execute(
-                f"DELETE FROM {table} "
-                f"WHERE deviceid = %s AND {time_col} >= %s AND {time_col} < %s "
-                f"LIMIT %s",
-                (device_id, period_start, period_end, batch_size),
+                f"DELETE FROM {table} WHERE id IN ({placeholders})",
+                tuple(chunk),
             )
             deleted = cur.rowcount
         conn.commit()
         total_deleted += deleted
         logger.info("    Deleted batch of %d rows...", deleted)
-        if deleted < batch_size:
-            break
     return total_deleted
+
+
+def fetch_protected_position_ids(conn) -> set:
+    """tc_devices.positionid values -- a device's latest position is never
+    deleted (D9). Fetched once per run and applied as a Python-side filter,
+    keeping the DELETE a plain id IN (...) instead of a correlated subquery
+    against a table that changes constantly.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT positionid FROM tc_devices WHERE positionid IS NOT NULL")
+        return {row["positionid"] for row in cur.fetchall()}
+
+
+# ---------------------------------------------------------------------------
+# Device-iterated group discovery -- replaces the time-only full scan
+# ---------------------------------------------------------------------------
+
+def discover_groups(conn, table: str, time_col: str, cutoff: date) -> list:
+    """Discover device/month groups older than cutoff, one device at a time.
+
+    The old single query (WHERE {time_col} < cutoff GROUP BY deviceid, ...)
+    filtered on time alone, which no index supports -- a full scan of the
+    table at the top of every run. Devices are enumerated from tc_devices
+    (small, cheap) and each device's groups come from an index range scan on
+    (deviceid, {time_col}) that touches only that device's pre-cutoff rows
+    (EXPLAIN-verified covering index on prod). Runs on the script's single
+    persistent connection.
+
+    Known gap, by decision: orphan rows whose deviceid no longer exists in
+    tc_devices are not discovered here -- they are handled by the documented
+    one-off orphan sweep in the runbook, never per-run.
+    """
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM tc_devices ORDER BY id")
+        device_ids = [row["id"] for row in cur.fetchall()]
+
+    groups = []
+    for device_id in device_ids:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT YEAR({time_col}) AS yr, MONTH({time_col}) AS mo, "
+                f"COUNT(*) AS cnt FROM {table} "
+                f"WHERE deviceid = %s AND {time_col} < %s "
+                f"GROUP BY YEAR({time_col}), MONTH({time_col}) "
+                f"ORDER BY yr, mo",
+                (device_id, cutoff),
+            )
+            for row in cur.fetchall():
+                groups.append({"deviceid": device_id, "yr": row["yr"],
+                               "mo": row["mo"], "cnt": row["cnt"]})
+
+    logger.info("[%s] Discovery: %d device(s) enumerated from tc_devices, "
+                "%d with archivable groups, %d device/month group(s) total.",
+                table, len(device_ids),
+                len({g["deviceid"] for g in groups}), len(groups))
+    return groups
 
 
 # ---------------------------------------------------------------------------
@@ -343,23 +746,34 @@ def batch_delete(conn, table: str, time_col: str, device_id: int,
 
 def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                   spaces_prefix: str, cutoff: date, temp_dir: str,
-                  dry_run: bool, datetime_cols: list = None) -> tuple:
+                  dry_run: bool, datetime_cols: list = None,
+                  key_prefix: str = PROD_KEY_PREFIX, deleter=None,
+                  id_exclusions: set = None, budget: GroupBudget = None,
+                  quarantine_floor: date = None) -> tuple:
     """
     Archive rows older than cutoff for any time-series table.
-    Returns (total_rows_archived, failure_count).
-    """
-    total    = 0
-    failures = 0
+    Returns (total_rows_archived, failure_count). Quarantined groups are
+    EXCLUDED from total_rows_archived -- they are counted and logged
+    separately, per the quarantine decision.
 
-    with conn.cursor() as cur:
-        cur.execute(
-            f"SELECT deviceid, YEAR({time_col}) AS yr, MONTH({time_col}) AS mo, COUNT(*) AS cnt "
-            f"FROM {table} WHERE {time_col} < %s "
-            f"GROUP BY deviceid, YEAR({time_col}), MONTH({time_col}) "
-            f"ORDER BY deviceid, yr, mo",
-            (cutoff,)
-        )
-        groups = cur.fetchall()
+    The DB-delete capability is injected via `deleter` (main passes
+    batch_delete_by_ids for a destructive run). With deleter=None
+    (--archive-only) the deleting branch is never entered: this function then
+    holds no reference to any delete code, so no flag check guards a delete
+    call -- the capability simply is not there.
+
+    `id_exclusions` (D9): ids never handed to the deleter even when exported
+    -- currently the tc_devices.positionid set, so a device's latest position
+    stays in the DB (still archived; it is deleted by a later run once the
+    device reports again and the pointer moves on).
+    """
+    total      = 0
+    failures   = 0
+    tmp_aborts = 0
+    quarantined_groups = 0
+    quarantined_rows   = 0
+
+    groups = discover_groups(conn, table, time_col, cutoff)
 
     if not groups:
         logger.info("[%s] Nothing to archive.", table)
@@ -367,30 +781,117 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
 
     logger.info("[%s] Found %d device/month group(s) to archive.", table, len(groups))
 
+    # C7: never touch the month containing the cutoff. A group qualifies via
+    # any row < cutoff, but export/delete take the FULL calendar month -- on
+    # a mid-month run that would archive-and-delete rows younger than the
+    # retention period. Only whole months strictly before the cutoff's month
+    # are processed.
+    cutoff_month_start = date(cutoff.year, cutoff.month, 1)
+
     for g in groups:
-        device_id    = g["deviceid"]
-        yr, mo       = g["yr"], g["mo"]
-        period_start = date(yr, mo, 1)
-        period_end   = date(yr + 1, 1, 1) if mo == 12 else date(yr, mo + 1, 1)
-        label        = f"{yr}-{mo:02d}"
+        device_id = g["deviceid"]
+        yr, mo    = g["yr"], g["mo"]
+        try:
+            # Zero/garbage dates (permitted by a permissive sql_mode) yield
+            # groups like year=0 month=0; date() rejecting them must fail
+            # THIS group, never the whole run.
+            period_start = date(yr, mo, 1)
+            period_end   = date(yr + 1, 1, 1) if mo == 12 else date(yr, mo + 1, 1)
+        except (ValueError, TypeError) as e:
+            logger.error(
+                "  [%s] MALFORMED GROUP device=%s year=%r month=%r (%s) -- "
+                "failing this group and continuing; its rows stay in the DB "
+                "until the dates are repaired or a policy exists (see the "
+                "Phase 1 anomaly scan).", table, device_id, yr, mo, e)
+            failures += 1
+            continue
+        label = f"{yr}-{mo:02d}"
+
+        # Clock-garbage quarantine: months ending on/before the floor go to
+        # a sibling key space the read path never serves.
+        group_prefix = key_prefix
+        quarantined_group = False
+        if quarantine_floor is not None and period_end <= quarantine_floor:
+            group_prefix = f"{key_prefix}-quarantine"
+            quarantined_group = True
+
         local_path   = os.path.join(temp_dir, f"{table}_{device_id}_{label}.parquet")
-        spaces_key   = f"archive/{spaces_prefix}/{device_id}/{label}.parquet"
-        temp_key     = f"archive/{spaces_prefix}/{device_id}/{label}.parquet.tmp"
-        marker_key   = f"archive/{spaces_prefix}/{device_id}/{label}.done"
+        spaces_key   = f"{group_prefix}/{spaces_prefix}/{device_id}/{label}.parquet"
+        temp_key     = f"{group_prefix}/{spaces_prefix}/{device_id}/{label}.parquet.tmp"
+        marker_key   = f"{group_prefix}/{spaces_prefix}/{device_id}/{label}.done"
 
         logger.info("  [%s] device=%d period=%s rows=%d", table, device_id, label, g["cnt"])
 
-        if verify_upload(cfg, marker_key):
-            logger.info("  [%s] Already archived (found .done marker) -- skipping.", table)
-            total += g["cnt"]
+        if quarantined_group:
+            logger.info(
+                "  [%s] QUARANTINE: device=%d %s predates the floor (%s) -- "
+                "keys go under %s/.", table, device_id, label,
+                quarantine_floor, group_prefix)
+
+        if period_end > cutoff_month_start:
+            logger.info(
+                "  [%s] Skipping device=%d %s: month window extends past the "
+                "cutoff month start (%s) -- rows younger than the retention "
+                "period stay live until a later run.",
+                table, device_id, label, cutoff_month_start)
             continue
 
-        if check_temp_key_exists(cfg, temp_key):
-            logger.warning(
-                "  [%s] Found leftover temp key %s — previous run was killed mid-delete. "
-                "Cleaning up and restarting this group.", table, temp_key
+        # --max-groups: consume budget only for groups actually attempted
+        # (skips above cost nothing). Stops strictly at a group boundary.
+        if budget is not None and not budget.take():
+            logger.info(
+                "[%s] --max-groups limit (%d) reached -- stopping cleanly at "
+                "a group boundary; the remaining groups run next time (this "
+                "is a clean stop, not a failure).", table, budget.limit)
+            break
+
+        # C6: a marker no longer skips the group. Discovery only returns
+        # groups that still have rows, so marker + rows = late-arriving data
+        # that the old skip starved forever (and even counted as archived).
+        # All probes are three-state: a FAILED probe fails the group -- it is
+        # never read as absence.
+        marker_state = probe_key(cfg, marker_key)
+        if marker_state is None:
+            logger.error("  [%s] Marker probe FAILED for device=%d %s -- "
+                         "failing this group.", table, device_id, label)
+            failures += 1
+            continue
+        if marker_state:
+            logger.info(
+                "  [%s] .done marker present but the group still has %d "
+                "row(s) -- late-arriving data; proceeding instead of "
+                "skipping (the export merges with the final object if it "
+                "still exists).", table, g["cnt"])
+
+        tmp_state = probe_key(cfg, temp_key)
+        if tmp_state is None:
+            logger.error("  [%s] Leftover-tmp probe FAILED for device=%d %s "
+                         "-- failing this group (an unseen leftover tmp must "
+                         "never be processed over).", table, device_id, label)
+            failures += 1
+            continue
+        if tmp_state:
+            # C5: a leftover tmp is EVIDENCE, never garbage. This code cannot
+            # tell which history produced it, so it aborts the group and
+            # leaves the object exactly as found. Other groups continue.
+            logger.error(
+                "  [%s] ABORTING GROUP device=%d %s: leftover temp key %s. "
+                "Two possible histories and this script cannot tell them "
+                "apart: (a) written by THIS version (finalize-before-delete) "
+                "-- the run died before finalize, the DB still holds every "
+                "row, the tmp is redundant residue; (b) written by an OLDER "
+                "version (delete-before-finalize) -- the run died mid-delete "
+                "and the tmp may be the ONLY copy of rows already deleted "
+                "from the DB. Resolve before touching it: does the final key "
+                "%s exist, and does the DB still hold this device-month's "
+                "rows? Procedure: docs/cold-storage-fix-runbook.md, section "
+                "'Leftover tmp keys'. Other groups continue; this run will "
+                "exit non-zero.",
+                table, device_id, label, temp_key, spaces_key,
             )
-            delete_spaces_key(cfg, temp_key)
+            failures += 1
+            tmp_aborts += 1
+            continue
 
         try:
             cols  = ", ".join(columns)
@@ -411,8 +912,28 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                     if col in df.columns:
                         df[col] = df[col].astype(str)
 
-            write_parquet(df, local_path)
-            logger.info("  [%s] Parquet written: %s (%d rows)", table, local_path, len(df))
+            # C6: never overwrite an existing final object blindly -- merge
+            # the fresh export into it (additive-only, schema-checked). A
+            # FAILED existence probe fails the group BEFORE any upload: an
+            # unknown final must never be blind-overwritten.
+            merged_df = df
+            final_state = probe_key(cfg, spaces_key)
+            if final_state is None:
+                logger.error("  [%s] Final-key probe FAILED for device=%d %s "
+                             "-- failing group before upload.",
+                             table, device_id, label)
+                failures += 1
+                continue
+            if final_state:
+                merged_df = merge_with_existing_final(
+                    cfg, spaces_key, df, temp_dir, table)
+                if merged_df is None:
+                    failures += 1
+                    continue
+
+            write_parquet(merged_df, local_path)
+            logger.info("  [%s] Parquet written: %s (%d rows)",
+                        table, local_path, len(merged_df))
 
             if not do_upload(cfg, local_path, temp_key):
                 logger.error("  [%s] Upload to temp key failed -- skipping.", table)
@@ -424,41 +945,95 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                 failures += 1
                 continue
 
-            if not verify_row_count(cfg, temp_key, len(df)):
+            if not verify_row_count(cfg, temp_key, len(merged_df)):
                 logger.error("  [%s] Row count mismatch on temp key -- skipping.", table)
                 failures += 1
                 continue
 
             if dry_run:
-                logger.info("  [%s] --dry-run: skipping DB deletion and finalization.", table)
-                delete_spaces_key(cfg, temp_key)
-            else:
-                deleted = batch_delete(conn, table, time_col,
-                                       device_id, period_start, period_end)
-                logger.info("  [%s] Deleted %d rows in batches.", table, deleted)
-
-                if not copy_spaces_key(cfg, temp_key, spaces_key):
+                logger.info("  [%s] --dry-run: skipping DB deletion and finalization. "
+                            "The temp upload is deleted again now -- dry-run leaves no "
+                            "artifact and cannot serve as verification (use "
+                            "--archive-only for that).", table)
+                if not delete_spaces_key(cfg, temp_key):
                     logger.error(
-                        "  [%s] CRITICAL: DB deleted but could not finalize parquet key. "
-                        "Temp key still exists at %s — recover manually.", table, temp_key
-                    )
+                        "  [%s] --dry-run could not remove its own temp "
+                        "upload %s -- the leftover tmp will abort this group "
+                        "next run (C5); counting as a failure.",
+                        table, temp_key)
+                    failures += 1
+            elif deleter is None:
+                # --archive-only: finalize the parquet and stop. No delete
+                # capability was injected, so this branch cannot touch the DB;
+                # no .done marker either (marker means "archived AND deleted").
+                if not finalize_parquet(cfg, temp_key, spaces_key):
+                    failures += 1
+                    continue
+                logger.info("  [%s] Archive-only: finalized %s "
+                            "(no DB delete, no marker).", table, spaces_key)
+            else:
+                # D3: finalize BEFORE any delete. A failure from here up
+                # means the group failed with the DB untouched.
+                if not finalize_parquet(cfg, temp_key, spaces_key):
+                    logger.error("  [%s] Finalize failed for device=%d %s -- "
+                                 "group failed BEFORE any DB delete; nothing "
+                                 "was removed.", table, device_id, label)
                     failures += 1
                     continue
 
-                delete_spaces_key(cfg, temp_key)
+                # C6: delete only the NEWLY-EXPORTED ids (df, never the
+                # merged frame) -- rows already in the archive were deleted
+                # from the DB by the prior run that archived them.
+                ids = [int(i) for i in df["id"].tolist()]
+                if id_exclusions:
+                    keep = [i for i in ids if i not in id_exclusions]
+                    excluded = len(ids) - len(keep)
+                    if excluded:
+                        logger.info(
+                            "  [%s] Excluding %d row(s) referenced as a "
+                            "device's latest position from deletion "
+                            "(still archived).", table, excluded)
+                    ids = keep
+                deleted = deleter(conn, table, ids)
+                if deleted != len(ids):
+                    logger.error(
+                        "  [%s] DELETE COUNT MISMATCH for device=%d %s: "
+                        "expected %d, deleted %d. Failing this group loudly: "
+                        "the final parquet %s is safely in place, no marker "
+                        "uploaded, no repair attempted -- rows may be "
+                        "partially deleted; reconcile manually.",
+                        table, device_id, label, len(ids), deleted, spaces_key)
+                    failures += 1
+                    continue
+                logger.info("  [%s] Deleted %d rows by id in batches.",
+                            table, deleted)
 
                 marker_path = os.path.join(temp_dir, f"{table}_{device_id}_{label}.done")
                 try:
                     open(marker_path, 'w').close()
-                    do_upload(cfg, marker_path, marker_key)
-                    logger.info("  [%s] Done marker uploaded: %s", table, marker_key)
+                    # do_upload returns False on s3cmd failure, it does not
+                    # raise -- the except below can't see it. Warn-only is
+                    # the documented behavior; silent success is not.
+                    if do_upload(cfg, marker_path, marker_key):
+                        logger.info("  [%s] Done marker uploaded: %s",
+                                    table, marker_key)
+                    else:
+                        logger.warning(
+                            "  [%s] Done marker upload FAILED for %s -- "
+                            "harmless under the merge semantics (the group "
+                            "re-merges next run), but recorded.",
+                            table, marker_key)
                 except Exception as e:
                     logger.warning("  [%s] Could not upload done marker: %s", table, e)
                 finally:
                     if os.path.exists(marker_path):
                         os.remove(marker_path)
 
-            total += len(df)
+            if quarantined_group:
+                quarantined_groups += 1
+                quarantined_rows += len(df)
+            else:
+                total += len(df)
 
         except Exception as exc:
             logger.error("  [%s] ERROR device=%d %s: %s", table, device_id, label, exc)
@@ -467,6 +1042,30 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
         finally:
             if os.path.exists(local_path):
                 os.remove(local_path)
+
+    if tmp_aborts:
+        logger.error(
+            "[%s] %d group(s) aborted on leftover temp keys -- resolve per "
+            "the runbook ('Leftover tmp keys') before their next run.",
+            table, tmp_aborts)
+
+    if quarantine_floor is not None:
+        logger.info(
+            "[%s] Quarantined groups this run: %d (%d rows) -- floor %s; "
+            "EXCLUDED from the normal archive totals (they were still "
+            "archived to the quarantine key space and deleted from the DB).",
+            table, quarantined_groups, quarantined_rows, quarantine_floor)
+
+    # A device that stops appearing here month over month is visible rather
+    # than silent (device-iterated discovery requirement).
+    per_device = {}
+    for g in groups:
+        per_device[g["deviceid"]] = per_device.get(g["deviceid"], 0) + 1
+    if per_device:
+        logger.info(
+            "[%s] End-of-run device summary: %d device(s) had groups this "
+            "run -- groups per device: %s", table, len(per_device),
+            ", ".join(f"{d}:{n}" for d, n in sorted(per_device.items())))
 
     return total, failures
 
@@ -508,19 +1107,29 @@ DEVICE_GEOFENCE_SEGMENT_COLUMNS = [
 # Archive wrappers (#8 fix: one-liners using generic function)
 # ---------------------------------------------------------------------------
 
-def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> tuple:
+def archive_positions(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
+                      key_prefix: str = PROD_KEY_PREFIX, deleter=None,
+                      id_exclusions: set = None, budget: GroupBudget = None,
+                      quarantine_floor: date = None) -> tuple:
     return archive_table(
         conn, cfg, "tc_positions", "fixtime", POSITIONS_COLUMNS,
         "positions", cutoff, temp_dir, dry_run,
         datetime_cols=["servertime", "devicetime", "fixtime"],
+        key_prefix=key_prefix, deleter=deleter, id_exclusions=id_exclusions,
+        budget=budget, quarantine_floor=quarantine_floor,
     )
 
 
-def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> tuple:
+def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool,
+                   key_prefix: str = PROD_KEY_PREFIX, deleter=None,
+                   budget: GroupBudget = None,
+                   quarantine_floor: date = None) -> tuple:
     return archive_table(
         conn, cfg, "tc_events", "eventtime", EVENTS_COLUMNS,
         "events", cutoff, temp_dir, dry_run,
         datetime_cols=["eventtime"],
+        key_prefix=key_prefix, deleter=deleter, budget=budget,
+        quarantine_floor=quarantine_floor,
     )
 
 
@@ -530,10 +1139,14 @@ def archive_events(conn, cfg, cutoff: date, temp_dir: str, dry_run: bool) -> tup
 
 def snapshot_table(conn, cfg, table_name: str, columns: list,
                    spaces_prefix: str, temp_dir: str,
-                   datetime_cols: list = None) -> int:
+                   datetime_cols: list = None,
+                   key_prefix: str = PROD_KEY_PREFIX) -> tuple:
     """
     Snapshot all rows to Spaces. DB is NEVER modified.
     Uploads: timestamped copy + latest.parquet (overwritten each run).
+    Returns (rows_snapshotted, failure_count) -- a failed snapshot counts
+    toward the run's failures and its non-zero exit; it must never be able
+    to fail while the run still logs "Archive complete" and exits 0.
     """
     # #9 fix: timezone-aware datetime
     now   = dt.now(timezone.utc).replace(tzinfo=None)
@@ -541,8 +1154,8 @@ def snapshot_table(conn, cfg, table_name: str, columns: list,
 
     local_ts     = os.path.join(temp_dir, f"{table_name}_{label}.parquet")
     local_latest = os.path.join(temp_dir, f"{table_name}_latest.parquet")
-    key_ts       = f"archive/{spaces_prefix}/{label}.parquet"
-    key_latest   = f"archive/{spaces_prefix}/latest.parquet"
+    key_ts       = f"{key_prefix}/{spaces_prefix}/{label}.parquet"
+    key_latest   = f"{key_prefix}/{spaces_prefix}/latest.parquet"
 
     logger.info("  [%s] Reading all rows...", table_name)
 
@@ -552,7 +1165,7 @@ def snapshot_table(conn, cfg, table_name: str, columns: list,
 
         if not chunks:
             logger.info("  [%s] Empty -- nothing to snapshot.", table_name)
-            return 0
+            return 0, 0
 
         df = pd.concat(chunks, ignore_index=True)
         if datetime_cols:
@@ -569,14 +1182,16 @@ def snapshot_table(conn, cfg, table_name: str, columns: list,
 
         if ok_ts and ok_latest:
             logger.info("  [%s] Snapshot uploaded. DB NOT modified.", table_name)
-        else:
-            logger.warning("  [%s] One or both uploads failed.", table_name)
-
-        return len(df)
+            return len(df), 0
+        logger.error("  [%s] Snapshot upload failed (timestamped ok=%s, "
+                     "latest ok=%s) -- counted as a run failure.",
+                     table_name, ok_ts, ok_latest)
+        return len(df), 1
 
     except Exception as exc:
-        logger.error("  [%s] ERROR: %s", table_name, exc)
-        return 0
+        logger.error("  [%s] ERROR: %s -- counted as a run failure.",
+                     table_name, exc)
+        return 0, 1
 
     finally:
         for p in [local_ts, local_latest]:
@@ -584,24 +1199,240 @@ def snapshot_table(conn, cfg, table_name: str, columns: list,
                 os.remove(p)
 
 
-def snapshot_geofences(conn, cfg, temp_dir):
+def snapshot_geofences(conn, cfg, temp_dir, key_prefix=PROD_KEY_PREFIX):
     return snapshot_table(conn, cfg, "tc_geofences",
-                          GEOFENCES_COLUMNS, "geofences", temp_dir)
+                          GEOFENCES_COLUMNS, "geofences", temp_dir,
+                          key_prefix=key_prefix)
 
-def snapshot_drivers(conn, cfg, temp_dir):
+def snapshot_drivers(conn, cfg, temp_dir, key_prefix=PROD_KEY_PREFIX):
     return snapshot_table(conn, cfg, "tc_drivers",
-                          DRIVERS_COLUMNS, "drivers", temp_dir)
+                          DRIVERS_COLUMNS, "drivers", temp_dir,
+                          key_prefix=key_prefix)
 
-def snapshot_devices(conn, cfg, temp_dir):
+def snapshot_devices(conn, cfg, temp_dir, key_prefix=PROD_KEY_PREFIX):
     return snapshot_table(conn, cfg, "tc_devices",
                           DEVICES_COLUMNS, "devices", temp_dir,
-                          datetime_cols=["lastupdate", "expirationtime"])
+                          datetime_cols=["lastupdate", "expirationtime"],
+                          key_prefix=key_prefix)
 
-def snapshot_device_geofence_segments(conn, cfg, temp_dir):
+def snapshot_device_geofence_segments(conn, cfg, temp_dir, key_prefix=PROD_KEY_PREFIX):
     return snapshot_table(conn, cfg, "tc_device_geofence_segment",
                           DEVICE_GEOFENCE_SEGMENT_COLUMNS,
                           "device_geofence_segments", temp_dir,
-                          datetime_cols=["entertime", "exittime"])
+                          datetime_cols=["entertime", "exittime"],
+                          key_prefix=key_prefix)
+
+
+# ---------------------------------------------------------------------------
+# Selfcheck -- read-only post-install verification (Phase 4)
+# ---------------------------------------------------------------------------
+
+# Fixed bound for the selfcheck's own s3cmd calls: it runs on the installer
+# critical path and must not inherit an operator-raisable archive.s3cmd.timeout.
+SELFCHECK_S3_TIMEOUT = 60
+
+
+def run_selfcheck(args) -> int:
+    """Read-only environment check: imports, config parse, lock-path access,
+    s3cmd reachability (ls only), DB connect (SELECT only). Uploads nothing,
+    deletes nothing, writes nothing to the DB or the bucket. Returns 0 only
+    if every check passed.
+    """
+    ok = True
+
+    def report(name, passed, detail=""):
+        nonlocal ok
+        logger.log(logging.INFO if passed else logging.ERROR,
+                   "SELFCHECK %-12s %s%s", name,
+                   "OK" if passed else "FAIL",
+                   f" -- {detail}" if detail else "")
+        if not passed:
+            ok = False
+
+    missing = []
+    for pkg in ("pymysql", "pandas", "pyarrow", "dateutil"):
+        try:
+            __import__(pkg)
+        except ImportError:
+            missing.append(pkg)
+    report("imports", not missing,
+           ", ".join(missing) if missing else f"python {sys.version.split()[0]}")
+
+    try:
+        props = load_config_xml(args.config)
+    except SystemExit:
+        report("config", False, f"cannot load {args.config}")
+        return 1
+    cfg = PropsConfig(props)
+    needed = {
+        "archive.spaces.bucket": cfg.get("spaces", "bucket"),
+        "archive.s3cmd.configFile": cfg.get("spaces", "s3cmd_config"),
+        "archive.python.exe": cfg.get("spaces", "python_exe"),
+        "archive.s3cmd.script": cfg.get("spaces", "s3cmd_script"),
+        "database.url": props.get("database.url", ""),
+    }
+    absent = sorted(k for k, v in needed.items() if not v)
+    report("config", not absent,
+           ("missing: " + ", ".join(absent)) if absent else args.config)
+
+    temp_dir = os.path.expanduser(
+        props.get("archive.temp.dir", "/tmp/traccar-archive"))
+    report("temp-dir",
+           os.path.isdir(temp_dir) and os.access(temp_dir, os.W_OK),
+           temp_dir)
+
+    if fcntl is None:
+        report("lock-path", True, "no fcntl on this platform (dev box)")
+    else:
+        lock_path = _lock_path()
+        try:
+            # "a" so a running instance's pid content is never truncated.
+            handle = open(lock_path, "a")
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(handle, fcntl.LOCK_UN)
+                report("lock-path", True, f"{lock_path} openable and free")
+            except OSError:
+                report("lock-path", True,
+                       f"{lock_path} openable; held by a running instance")
+            finally:
+                handle.close()
+        except OSError as e:
+            report("lock-path", False,
+                   f"{lock_path} not openable by this identity: {e}")
+
+    # Report-and-continue, never exit: this function runs EVERY check.
+    try:
+        S3_TIMEOUT["seconds"] = parse_s3_timeout(props)
+        report("timeout", True, f"s3cmd timeout {S3_TIMEOUT['seconds']}s "
+                                f"(selfcheck itself uses {SELFCHECK_S3_TIMEOUT}s)")
+    except ValueError as e:
+        report("timeout", False, f"invalid archive.s3cmd.timeout: {e}")
+
+    try:
+        floor = parse_quarantine_floor(props)
+        report("quarantine", True,
+               f"floor {floor}" if floor else "unset (quarantine disabled)")
+    except ValueError as e:
+        report("quarantine", False, str(e))
+
+    try:
+        months = parse_retention_months(getattr(args, "months", None), props)
+        report("retention", True, f"{months} month(s)")
+    except ValueError as e:
+        report("retention", False, str(e))
+
+    bucket = cfg.get("spaces", "bucket")
+    if not bucket:
+        report("s3cmd", False, "no bucket configured")
+    else:
+        try:
+            # Fixed short bound: the selfcheck sits on the installer critical
+            # path and must not inherit an operator-raised run timeout.
+            cmd = build_s3cmd_base(cfg) + ["ls", f"s3://{bucket}"]
+            result = run_s3cmd(cmd, timeout_override=SELFCHECK_S3_TIMEOUT)
+            ok_s3 = result is not None and result.returncode == 0
+            report("s3cmd", ok_s3,
+                   f"ls s3://{bucket} "
+                   + (f"exit={result.returncode}" if result else "TIMED OUT/failed to launch")
+                   + ("" if ok_s3 or result is None
+                      else f" stderr: {result.stderr.strip()[:200]}"))
+
+            # Probe-premise check: the entire fail-closed design rests on the
+            # deployed s3cmd exiting 0 with an EMPTY listing for an absent
+            # key. Verify that against a key that cannot exist, at install
+            # time, rather than trusting it.
+            absent = (f"selfcheck-premise/{os.getpid()}-"
+                      f"{os.urandom(4).hex()}.absent")
+            cmd = build_s3cmd_base(cfg) + ["ls", f"s3://{bucket}/{absent}"]
+            result = run_s3cmd(cmd, timeout_override=SELFCHECK_S3_TIMEOUT)
+            premise_ok = (result is not None and result.returncode == 0
+                          and not key_in_listing(result.stdout,
+                                                 f"s3://{bucket}/{absent}"))
+            report("probe-premise", premise_ok,
+                   "absent key -> exit 0 + empty listing"
+                   if premise_ok else
+                   "deployed s3cmd violates the absence premise (nonzero "
+                   "exit or unexpected listing for a known-absent key) -- "
+                   "every existence probe would fail closed")
+        except SystemExit:
+            report("s3cmd", False, "s3cmd invocation not configured")
+        except Exception as e:
+            report("s3cmd", False, str(e))
+
+    try:
+        conn = get_connection(props)
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 AS one, @@session.time_zone AS tz")
+                row = cur.fetchone()
+            report("db", True,
+                   f"connected; session time_zone={row['tz'] if row else '?'}")
+        finally:
+            conn.close()
+    except Exception as e:
+        report("db", False, str(e))
+
+    logger.info("SELFCHECK result: %s", "ALL OK" if ok else "FAILURES ABOVE")
+    return 0 if ok else 1
+
+
+# ---------------------------------------------------------------------------
+# Run lock -- cron and a manual run must never overlap
+# ---------------------------------------------------------------------------
+
+# One fixed lock path -- no config derivation, no fallback. Deriving it from
+# archive.temp.dir would let a run with a different --config lock a different
+# file; a fallback path has the same flaw (two identities resolving to two
+# different files = no mutual exclusion). If the running identity cannot open
+# this path, the run fails loudly instead. Tentative pending the L1 host
+# answers (which identities run cron vs. hand-runs, and what /var/lock allows).
+LOCK_PATH = "/var/lock/traccar-archive.lock"
+
+
+def _lock_path() -> str:
+    """Fixed lock location, deliberately independent of any config value."""
+    return LOCK_PATH
+
+
+def acquire_run_lock():
+    """Take an exclusive non-blocking lock; abort loudly if already held.
+
+    Guards the one real overlap on a single-host deployment: the cron firing
+    while someone hand-runs the script. Fail-fast by design -- a held lock
+    exits non-zero immediately instead of queueing this run behind the other
+    one. Only a missing fcntl module (Windows dev box) downgrades to a
+    warning; on a real host any lock-file problem is fatal rather than a
+    silent run without exclusion. The returned handle must stay referenced
+    for the whole run; the lock is released when the process exits.
+    """
+    if fcntl is None:
+        logger.warning("File locking unavailable on this platform -- "
+                       "running WITHOUT overlap protection.")
+        return None
+    lock_path = _lock_path()
+    try:
+        # O_CREAT without truncation: opening with "w" would wipe a RUNNING
+        # instance's pid from the file before our flock attempt fails --
+        # the same reason run_selfcheck probes with "a".
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+        handle = os.fdopen(fd, "r+")
+    except OSError as e:
+        logger.error("Cannot open lock file %s: %s -- refusing to run "
+                     "without overlap protection.", lock_path, e)
+        sys.exit(1)
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        logger.error("Another archiver instance already holds the lock (%s) "
+                     "-- aborting this run.", lock_path)
+        sys.exit(1)
+    handle.seek(0)
+    handle.truncate()
+    handle.write(str(os.getpid()))
+    handle.flush()
+    return handle
 
 
 # ---------------------------------------------------------------------------
@@ -609,14 +1440,44 @@ def snapshot_device_geofence_segments(conn, cfg, temp_dir):
 # ---------------------------------------------------------------------------
 
 def main():
-    args  = parse_args()
+    args = parse_args()
+
+    if args.selfcheck:
+        sys.exit(run_selfcheck(args))
+
+    key_prefix, archive_only = resolve_run_options(args)
+
+    # First line on the record: where this run writes. A misdirected
+    # rehearsal must be obvious from the very top of the log.
+    logger.info("KEY PREFIX: %s/  (archive-only=%s, dry-run=%s)",
+                key_prefix, archive_only, args.dry_run)
+
     props = load_config_xml(args.config)
     cfg   = PropsConfig(props)
 
-    retention_months = (args.months if args.months is not None
-                        else int(props.get("archive.retention.months", 6)))
+    logger.info("KEY SPACE: s3://%s/%s/...",
+                cfg.get("spaces", "bucket") or "<no bucket configured>",
+                key_prefix)
+
+    retention_months = resolve_retention_months(args, props)
     temp_dir = ensure_temp_dir(props.get("archive.temp.dir", "/tmp/traccar-archive"))
     dry_run  = args.dry_run
+
+    # Held via the returned handle until the process exits.
+    run_lock = acquire_run_lock()  # noqa: F841
+
+    # The only place the delete capability is granted. --archive-only runs
+    # never receive it, so no code path in them can delete rows.
+    deleter = None if archive_only else batch_delete_by_ids
+
+    # Shared across both tables; None limit = unlimited.
+    budget = GroupBudget(args.max_groups)
+
+    configure_s3_timeout(props)
+    quarantine_floor = configure_quarantine_floor(props)
+    if quarantine_floor is not None:
+        logger.info("  Quarantine floor: months ending on/before %s archive "
+                    "to '%s-quarantine/'.", quarantine_floor, key_prefix)
 
     # #9 fix: timezone-aware datetime
     now    = dt.now(timezone.utc).replace(tzinfo=None)
@@ -626,14 +1487,12 @@ def main():
     logger.info("  Traccar Cold Storage Archiver")
     logger.info("  Started  : %s UTC", now.strftime("%Y-%m-%d %H:%M:%S"))
     logger.info("  Cutoff   : %s  (retention = %d months)", cutoff, retention_months)
-    local_upload_dir = cfg.get("spaces", "local_upload_dir")
-    if local_upload_dir:
-        logger.info("  Mode     : LOCAL TEST (Upload -> %s)", local_upload_dir)
-    else:
-        logger.info("  Mode     : DO SPACES (Bucket -> %s)",
-                    cfg.get("spaces", "bucket") or "N/A")
+    logger.info("  Mode     : DO SPACES (Bucket -> %s)",
+                cfg.get("spaces", "bucket") or "N/A")
     logger.info("  Temp dir : %s", temp_dir)
     logger.info("  Dry run  : %s", dry_run)
+    logger.info("  Archive-only : %s", archive_only)
+    logger.info("  Key prefix   : %s/", key_prefix)
     logger.info("=" * 60)
 
     try:
@@ -646,39 +1505,74 @@ def main():
     pos_total = evt_total = geo_total = drv_total = dev_total = seg_total = 0
 
     try:
-        logger.info("\n--- Archiving POSITIONS (old rows -> Spaces, then delete) ---")
-        pos_total, pf = archive_positions(conn, cfg, cutoff, temp_dir, dry_run)
+        protected_ids = set()
+        if deleter is not None:
+            # D9: fetched once per run; a device's latest position is never
+            # handed to the deleter.
+            protected_ids = fetch_protected_position_ids(conn)
+            logger.info("Protected latest-position ids (D9, excluded from "
+                        "deletion): %d", len(protected_ids))
+
+        mode_note = "archive only, DB unchanged" if archive_only else "then delete"
+        logger.info("\n--- Archiving POSITIONS (old rows -> Spaces, %s) ---", mode_note)
+        pos_total, pf = archive_positions(conn, cfg, cutoff, temp_dir, dry_run,
+                                          key_prefix=key_prefix, deleter=deleter,
+                                          id_exclusions=protected_ids,
+                                          budget=budget,
+                                          quarantine_floor=quarantine_floor)
         total_failures += pf
 
-        logger.info("\n--- Archiving EVENTS (old rows -> Spaces, then delete) ---")
-        evt_total, ef = archive_events(conn, cfg, cutoff, temp_dir, dry_run)
+        logger.info("\n--- Archiving EVENTS (old rows -> Spaces, %s) ---", mode_note)
+        evt_total, ef = archive_events(conn, cfg, cutoff, temp_dir, dry_run,
+                                       key_prefix=key_prefix, deleter=deleter,
+                                       budget=budget,
+                                       quarantine_floor=quarantine_floor)
         total_failures += ef
 
-        logger.info("\n--- Snapshotting GEOFENCES (store only, DB unchanged) ---")
-        geo_total = snapshot_geofences(conn, cfg, temp_dir)
+        if dry_run:
+            # --dry-run's contract is "leaves NO artifact in the bucket";
+            # the snapshots would upload six objects (timestamped copies and
+            # latest.parquet overwrites) into the real key space.
+            logger.info("\n--- Skipping all snapshots: --dry-run leaves no "
+                        "artifacts ---")
+        else:
+            logger.info("\n--- Snapshotting GEOFENCES (store only, DB unchanged) ---")
+            geo_total, sf = snapshot_geofences(conn, cfg, temp_dir, key_prefix)
+            total_failures += sf
 
-        logger.info("\n--- Snapshotting DRIVERS (store only, DB unchanged) ---")
-        drv_total = snapshot_drivers(conn, cfg, temp_dir)
+            logger.info("\n--- Snapshotting DRIVERS (store only, DB unchanged) ---")
+            drv_total, sf = snapshot_drivers(conn, cfg, temp_dir, key_prefix)
+            total_failures += sf
 
-        logger.info("\n--- Snapshotting DEVICES (store only, DB unchanged) ---")
-        dev_total = snapshot_devices(conn, cfg, temp_dir)
+            logger.info("\n--- Snapshotting DEVICES (store only, DB unchanged) ---")
+            dev_total, sf = snapshot_devices(conn, cfg, temp_dir, key_prefix)
+            total_failures += sf
 
-        logger.info("\n--- Snapshotting DEVICE GEOFENCE SEGMENTS (store only, DB unchanged) ---")
-        seg_total = snapshot_device_geofence_segments(conn, cfg, temp_dir)
+            logger.info("\n--- Snapshotting DEVICE GEOFENCE SEGMENTS (store only, DB unchanged) ---")
+            seg_total, sf = snapshot_device_geofence_segments(conn, cfg, temp_dir, key_prefix)
+            total_failures += sf
 
     finally:
         conn.close()
 
     logger.info("\n" + "=" * 60)
     logger.info("  Archive complete.")
-    logger.info("  Positions archived      : %d  (deleted from DB)", pos_total)
-    logger.info("  Events archived         : %d  (deleted from DB)", evt_total)
+    row_note = "(DB unchanged -- archive-only)" if archive_only else "(deleted from DB)"
+    logger.info("  Positions archived      : %d  %s", pos_total, row_note)
+    logger.info("  Events archived         : %d  %s", evt_total, row_note)
     logger.info("  Geofences snapshotted   : %d  (DB unchanged)", geo_total)
     logger.info("  Drivers snapshotted     : %d  (DB unchanged)", drv_total)
     logger.info("  Devices snapshotted     : %d  (DB unchanged)", dev_total)
     logger.info("  Geofence segs snap.     : %d  (DB unchanged)", seg_total)
     if dry_run:
-        logger.info("  NOTE: --dry-run -- no rows deleted from DB.")
+        logger.info("  NOTE: --dry-run -- no rows deleted from DB, and the "
+                    "verification uploads were removed again (no artifact left).")
+    if archive_only:
+        logger.info("  NOTE: --archive-only -- no rows deleted, no markers uploaded.")
+    if budget.exhausted_hit:
+        logger.info("  NOTE: run stopped on --max-groups=%d after %d group(s) "
+                    "-- work remains; this is a CLEAN stop (exit 0), not a "
+                    "failure.", budget.limit, budget.used)
     if total_failures > 0:
         logger.warning("  WARNING: %d group(s) failed.", total_failures)
     logger.info("=" * 60)
