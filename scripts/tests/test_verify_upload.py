@@ -101,6 +101,34 @@ class TestVerifyUploadFailClosed:
         assert not acs.verify_upload(make_cfg(), FINAL_KEY)
 
 
+class TestVerifyRowCount:
+    """Consolidated onto download_key (was a duplicate s3cmd get)."""
+
+    def make_cfg(self, tmp_path):
+        return acs.PropsConfig({"archive.temp.dir": str(tmp_path)})
+
+    def seed_download(self, monkeypatch, rows):
+        import pandas as pd
+
+        def fake_download(cfg, key, local_path):
+            acs.write_parquet(
+                pd.DataFrame({"id": list(range(rows))}), local_path)
+            return True
+        monkeypatch.setattr(acs, "download_key", fake_download)
+
+    def test_match(self, tmp_path, monkeypatch):
+        self.seed_download(monkeypatch, 3)
+        assert acs.verify_row_count(self.make_cfg(tmp_path), "k.parquet", 3)
+
+    def test_mismatch(self, tmp_path, monkeypatch):
+        self.seed_download(monkeypatch, 2)
+        assert not acs.verify_row_count(self.make_cfg(tmp_path), "k.parquet", 3)
+
+    def test_download_failure_fails_closed(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(acs, "download_key", lambda c, k, p: False)
+        assert not acs.verify_row_count(self.make_cfg(tmp_path), "k.parquet", 3)
+
+
 class TestRunS3cmdTimeout:
     def test_timeout_returns_none(self, monkeypatch):
         def raise_timeout(cmd, capture_output=True, text=True, timeout=None):

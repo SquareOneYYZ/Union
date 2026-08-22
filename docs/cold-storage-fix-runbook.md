@@ -107,7 +107,7 @@ script reads, audited:
 | `database.url` | **regex in `get_connection` — FLAGGED: silent-default hazard.** An unparseable URL falls back to `localhost:3306/traccar` rather than failing. On prod hosts (no local MySQL) the connect then fails loudly; on a dev box with a local DB it would silently hit the wrong database. Noted, not changed (behavior predates this series); the selfcheck's DB check exercises the real config at install time | absent/unparseable → localhost defaults → connect fails loudly on the real hosts |
 | `database.user` / `database.password` | none (defaults `root`/empty) | wrong values → connect fails loudly |
 | `archive.s3cmd.configFile` | none — **FLAGGED: silent-default hazard.** Empty means s3cmd runs with its own default config (`~/.s3cfg` of the invoking user), which may be a different identity's credentials. Noted, not changed; the selfcheck's reachability + probe-premise checks exercise whatever config is actually in effect | absent → s3cmd defaults |
-| `archive.local.upload.dir` | none — **FLAGGED: mode switch.** If set, ALL uploads divert to a local directory instead of the bucket. Visible: the startup banner prints `Mode: LOCAL TEST` and the KEY SPACE line. Must be ABSENT on prod (arming checklist) | absent → normal Spaces mode |
+| `archive.local.upload.dir` | **REMOVED (2026-08-22).** It was the original author's pre-Spaces dev scaffolding (no config anywhere referenced it), a silent mode switch, and BROKEN under the verification pipeline — uploads diverted locally while the probes checked the bucket, so every group would have failed verification. The key is no longer recognized; rehearse with `--archive-only --prefix` instead | key ignored entirely |
 
 Rule of the map: a key with no validator row named here may not be added to the script —
 new config reads get a validator or an explicit flagged entry, at review time.
@@ -679,9 +679,9 @@ Never plan a batch from stale figures.**
 8. Prod arming config includes `archive.quarantine.floor` (the quarantine decision needs a
    floor value chosen) alongside the bucket keys — unset floor means garbage months would
    archive normally into the main key space. Optional: `archive.s3cmd.timeout` (seconds,
-   default 300) for hosts where transfers legitimately run long. **Must be ABSENT:**
-   `archive.local.upload.dir` (it silently diverts all uploads to a local directory —
-   see the config-value validation map).
+   default 300) for hosts where transfers legitimately run long. (The former
+   `archive.local.upload.dir` mode switch was removed outright — the key is no longer
+   recognized; see the config-value validation map.)
 9. **The independent second review (standing requirement above) has run on the final diff
    and its findings are applied and re-verified.**
 

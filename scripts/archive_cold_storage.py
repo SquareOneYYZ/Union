@@ -25,7 +25,6 @@ import argparse
 import logging
 import os
 import re
-import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -260,14 +259,16 @@ class PropsConfig:
 
     def __init__(self, props: dict):
         self._props = props
-        # #2 fix: added local_upload_dir mapping
+        # archive.local.upload.dir was removed 2026-08-22: a silent mode
+        # switch diverting uploads to a local dir, broken under the
+        # verification pipeline (probes check the bucket) -- rehearse with
+        # --archive-only --prefix instead.
         self._map = {
             ("spaces",  "bucket"):           "archive.spaces.bucket",
             ("spaces",  "s3cmd_config"):     "archive.s3cmd.configFile",
             ("spaces",  "temp_dir"):         "archive.temp.dir",
             ("spaces",  "python_exe"):       "archive.python.exe",
             ("spaces",  "s3cmd_script"):     "archive.s3cmd.script",
-            ("spaces",  "local_upload_dir"): "archive.local.upload.dir",  # optional
             ("archive", "retention_months"): "archive.retention.months",
         }
 
@@ -560,18 +561,12 @@ def finalize_parquet(cfg, temp_key: str, spaces_key: str) -> bool:
 
 def verify_row_count(cfg, spaces_key: str, expected_rows: int) -> bool:
     """Download uploaded Parquet and verify row count matches DB."""
-    bucket     = cfg.get("spaces", "bucket")
     temp_dir   = cfg.get("spaces", "temp_dir") or "/tmp/traccar-archive"
     local_path = os.path.join(temp_dir, f"verify_{os.path.basename(spaces_key)}")
 
-    cmd = build_s3cmd_base(cfg) + ["get", "--force",
-                                    f"s3://{bucket}/{spaces_key}",
-                                    local_path]
     try:
-        result = run_s3cmd(cmd)
-        if result is None or result.returncode != 0:
-            logger.warning("  [VERIFY] Could not download for row count check: %s",
-                           result.stderr.strip() if result else "timeout/launch failure")
+        if not download_key(cfg, spaces_key, local_path):
+            logger.warning("  [VERIFY] Could not download for row count check.")
             return False
 
         df           = pd.read_parquet(local_path)
@@ -609,25 +604,10 @@ def s3cmd_upload(cfg, local_file: str, bucket: str, key: str) -> bool:
     return True
 
 
-def local_upload(local_file: str, upload_dir: str, key: str) -> bool:
-    dest = os.path.join(upload_dir, key.replace("/", os.sep))
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    logger.info("  [LOCAL] Copying %s -> %s", os.path.basename(local_file), dest)
-    try:
-        shutil.copy2(local_file, dest)
-        return True
-    except Exception as e:
-        logger.error("  [LOCAL ERROR] %s", e)
-        return False
-
-
 def do_upload(cfg, local_path: str, spaces_key: str) -> bool:
-    bucket           = cfg.get("spaces", "bucket")
-    local_upload_dir = cfg.get("spaces", "local_upload_dir")
-    if local_upload_dir:
-        return local_upload(local_path, local_upload_dir, spaces_key)
+    bucket = cfg.get("spaces", "bucket")
     if not bucket:
-        logger.error("bucket not configured and local_upload_dir is empty")
+        logger.error("bucket not configured")
         return False
     return s3cmd_upload(cfg, local_path, bucket, spaces_key)
 
@@ -1017,8 +997,18 @@ def archive_table(conn, cfg, table: str, time_col: str, columns: list,
                 marker_path = os.path.join(temp_dir, f"{table}_{device_id}_{label}.done")
                 try:
                     open(marker_path, 'w').close()
-                    do_upload(cfg, marker_path, marker_key)
-                    logger.info("  [%s] Done marker uploaded: %s", table, marker_key)
+                    # do_upload returns False on s3cmd failure, it does not
+                    # raise -- the except below can't see it. Warn-only is
+                    # the documented behavior; silent success is not.
+                    if do_upload(cfg, marker_path, marker_key):
+                        logger.info("  [%s] Done marker uploaded: %s",
+                                    table, marker_key)
+                    else:
+                        logger.warning(
+                            "  [%s] Done marker upload FAILED for %s -- "
+                            "harmless under the merge semantics (the group "
+                            "re-merges next run), but recorded.",
+                            table, marker_key)
                 except Exception as e:
                     logger.warning("  [%s] Could not upload done marker: %s", table, e)
                 finally:
@@ -1470,12 +1460,8 @@ def main():
     logger.info("  Traccar Cold Storage Archiver")
     logger.info("  Started  : %s UTC", now.strftime("%Y-%m-%d %H:%M:%S"))
     logger.info("  Cutoff   : %s  (retention = %d months)", cutoff, retention_months)
-    local_upload_dir = cfg.get("spaces", "local_upload_dir")
-    if local_upload_dir:
-        logger.info("  Mode     : LOCAL TEST (Upload -> %s)", local_upload_dir)
-    else:
-        logger.info("  Mode     : DO SPACES (Bucket -> %s)",
-                    cfg.get("spaces", "bucket") or "N/A")
+    logger.info("  Mode     : DO SPACES (Bucket -> %s)",
+                cfg.get("spaces", "bucket") or "N/A")
     logger.info("  Temp dir : %s", temp_dir)
     logger.info("  Dry run  : %s", dry_run)
     logger.info("  Archive-only : %s", archive_only)

@@ -28,12 +28,14 @@ def s3(monkeypatch):
         # keys ERROR (probe returns None / delete returns False) — the state
         # the old present/absent-only model could not express, which is how
         # the fail-open bugs slipped past 90 green tests.
-        "probe_errors": set(), "fail_delete": set(),
+        "probe_errors": set(), "fail_delete": set(), "fail_upload": set(),
     }
 
     def do_upload(cfg, path, key):
-        calls["uploads"].append(key)
         calls["events"].append(("upload", key))
+        if key in calls["fail_upload"]:
+            return False
+        calls["uploads"].append(key)
         return True
 
     def probe_key(cfg, key):

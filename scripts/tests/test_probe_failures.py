@@ -63,6 +63,22 @@ def test_final_probe_error_fails_group_before_upload(tmp_path, s3, caplog):
     assert "Final-key probe FAILED" in caplog.text
 
 
+def test_marker_upload_failure_is_warned_not_silent_success(tmp_path, s3,
+                                                            caplog):
+    # do_upload returns False on failure, it does not raise -- the old code
+    # logged "Done marker uploaded" regardless. Warn-only stays (a missing
+    # marker is harmless under the merge semantics), silent success does not.
+    s3["fail_upload"].add(MARKER)
+    conn = make_conn()
+    total, failures = run_table(conn, tmp_path,
+                                deleter=lambda c, t, i: len(i))
+
+    assert (total, failures) == (2, 0)          # warn-only: not a failure
+    assert MARKER not in s3["uploads"]
+    assert "Done marker upload FAILED" in caplog.text
+    assert "Done marker uploaded" not in caplog.text
+
+
 def test_dry_run_checks_its_own_tmp_delete(tmp_path, s3):
     # Not a regression: the delete_spaces_key contract (return checked) was
     # established by the probe fix and this call site was missed by it.

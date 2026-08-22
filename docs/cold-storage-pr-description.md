@@ -119,6 +119,14 @@ fixed 60 s s3cmd bound plus report-and-continue timeout parsing, and added the
 probe-premise check — the deployed s3cmd's absent-key behavior, which the whole
 fail-closed design rests on, is verified at install time rather than trusted.
 
+**Diff-size note:** the script's +980 gross lines are roughly **+440 lines of logic**; the
+remainder is docstrings (+~140), operator-facing log text (+~105), comments (+~83), and
+whitespace — the block table above reads as more behavioural change than it is. A final
+reading pass also fixed a silent-success marker-upload log (return now checked; warn-only
+as documented), consolidated a duplicate s3cmd download onto `download_key`, and removed
+the dead `archive.local.upload.dir` local-test mode switch (unreferenced by any config and
+broken under the verification pipeline).
+
 ## Verification
 
 - Offline pytest suite (`scripts/tests/`, no network/DB/bucket): **114 passed, 3
