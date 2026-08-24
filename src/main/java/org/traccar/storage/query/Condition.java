@@ -39,6 +39,12 @@ public interface Condition {
         }
     }
 
+    class Like extends Compare {
+        public Like(String column, String value) {
+            super(column, "LIKE", column, "%" + value + "%");
+        }
+    }
+
     class Compare implements Condition {
         private final String column;
         private final String operator;

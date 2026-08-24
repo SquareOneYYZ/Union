@@ -131,4 +131,34 @@
 
     </changeSet>
 
+    <!-- CS-4: add userid to tc_vin_mappings to track which user created the mapping -->
+    <changeSet author="author" id="changelog-6.7.0-add-userid-to-vin-mappings">
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="tc_vin_mappings"/>
+            <not>
+                <columnExists tableName="tc_vin_mappings" columnName="userid"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="tc_vin_mappings">
+            <column name="userid" type="INT">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <addForeignKeyConstraint
+                baseTableName="tc_vin_mappings"
+                baseColumnNames="userid"
+                referencedTableName="tc_users"
+                referencedColumnNames="id"
+                onDelete="SET NULL"
+                constraintName="fk_vin_mappings_user"/>
+
+        <createIndex tableName="tc_vin_mappings" indexName="idx_vin_mappings_userid">
+            <column name="userid"/>
+        </createIndex>
+
+    </changeSet>
+
 </databaseChangeLog>
