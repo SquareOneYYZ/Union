@@ -172,12 +172,41 @@ public class TollRouteState {
      * test is an equality, returning null for that device forever.
      */
     public void addOnToll(Boolean isToll, int duration) {
+        addOnToll(isToll, duration, null);
+    }
+
+    /**
+     * As {@link #addOnToll(Boolean, int)}, additionally remembering which position opened the
+     * current homogeneous run and which was the most recent confirmation.
+     *
+     * <p>Those two marks are what let the emitted event carry the boundary of the traversal
+     * rather than the position that happened to complete the window. Without them the enter is
+     * {@code duration} lookups late - up to {@code duration x} the gate distance, which is 3 km
+     * at the shipped 500 m and 6.
+     *
+     * @param position the position this reading came from, or {@code null} to skip mark keeping
+     */
+    public void addOnToll(Boolean isToll, int duration, Position position) {
         if (this.tollWindow == null) {
             this.tollWindow = new ArrayList<>();
         }
 
         if (isToll == null) {
             return;
+        }
+
+        if (position != null) {
+            // A new run begins whenever the reading differs from the previous one. runValue is
+            // null for state restored from a payload written before this field existed, which
+            // is treated as a new run so the first traversal after deploy behaves as it did
+            // before rather than backdating to a default.
+            if (this.runValue == null || !this.runValue.equals(isToll)) {
+                this.runValue = isToll;
+                this.runStart = PositionMark.of(position);
+            }
+            if (isToll) {
+                this.lastTrue = PositionMark.of(position);
+            }
         }
 
         this.tollWindow.add(isToll);
@@ -247,6 +276,112 @@ public class TollRouteState {
     public void setTollrouteTime(Date tollrouteTime) {
         this.changed = true;
         this.tollrouteTime = tollrouteTime;
+    }
+
+    /**
+     * A position reduced to the four values an event needs, so the state can remember a
+     * traversal boundary without serialising a whole {@link Position} into
+     * {@code toll:<deviceId>}.
+     *
+     * <p>Both times are kept because the two consumers disagree: {@code Event(String, Position)}
+     * takes {@code getDeviceTime()} for {@code eventTime}, while {@code stateStartToll} records
+     * {@code getFixTime()} as {@code tollrouteTime}. Storing one and reusing it for both would
+     * silently change whichever it was not.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class PositionMark {
+
+        @JsonProperty
+        private long positionId;
+
+        @JsonProperty
+        private Date deviceTime;
+
+        @JsonProperty
+        private Date fixTime;
+
+        @JsonProperty
+        private double totalDistance;
+
+        public PositionMark() {
+        }
+
+        static PositionMark of(Position position) {
+            PositionMark mark = new PositionMark();
+            mark.positionId = position.getId();
+            mark.deviceTime = position.getDeviceTime();
+            mark.fixTime = position.getFixTime();
+            mark.totalDistance = position.getDouble(Position.KEY_TOTAL_DISTANCE);
+            return mark;
+        }
+
+        public long getPositionId() {
+            return positionId;
+        }
+
+        public void setPositionId(long positionId) {
+            this.positionId = positionId;
+        }
+
+        public Date getDeviceTime() {
+            return deviceTime;
+        }
+
+        public void setDeviceTime(Date deviceTime) {
+            this.deviceTime = deviceTime;
+        }
+
+        public Date getFixTime() {
+            return fixTime;
+        }
+
+        public void setFixTime(Date fixTime) {
+            this.fixTime = fixTime;
+        }
+
+        public double getTotalDistance() {
+            return totalDistance;
+        }
+
+        public void setTotalDistance(double totalDistance) {
+            this.totalDistance = totalDistance;
+        }
+    }
+
+    /** The reading that opened the current homogeneous run, true or false. */
+    @JsonProperty
+    private PositionMark runStart;
+
+    /** The most recent confirmation, which is where a traversal ends. */
+    @JsonProperty
+    private PositionMark lastTrue;
+
+    /** The value of the current run, used to detect where one run ends and the next begins. */
+    @JsonProperty
+    private Boolean runValue;
+
+    public PositionMark getRunStart() {
+        return runStart;
+    }
+
+    public void setRunStart(PositionMark runStart) {
+        this.runStart = runStart;
+    }
+
+    public PositionMark getLastTrue() {
+        return lastTrue;
+    }
+
+    public void setLastTrue(PositionMark lastTrue) {
+        this.lastTrue = lastTrue;
+    }
+
+    public Boolean getRunValue() {
+        return runValue;
+    }
+
+    public void setRunValue(Boolean runValue) {
+        this.runValue = runValue;
     }
 
     @JsonIgnore
