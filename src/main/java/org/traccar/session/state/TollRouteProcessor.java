@@ -25,7 +25,7 @@ public final class TollRouteProcessor {
             if (isOnToll) {
                 if (startTollDist == 0) {   //entered toll
                     stateStartToll(state, currentTotalDist, position.getFixTime(), tollRef, tollName);
-                    checkEvent(state, position, 0, currentTotalDist);
+                    checkEvent(state, position, 0, true);
                 } else if (startTollDist > 0) { // set names for tolls
                     if (state.getTollRef() == null && tollRef != null) {
                         state.setTollRef(tollRef);
@@ -40,7 +40,7 @@ public final class TollRouteProcessor {
                     state.setTollExitDistance(currentTotalDist);
                     state.setTollrouteTime(position.getFixTime());
 
-                    checkEvent(state, position, currentTollDist, 0);
+                    checkEvent(state, position, currentTollDist, false);
                     state.setTollStartDistance(0);
                     state.setTollrouteTime(null);
                 } else if (state.getTollExitDistance() == 0) { // bad exit (no enter event)
@@ -51,31 +51,43 @@ public final class TollRouteProcessor {
         }
     }
 
-    private static void checkEvent(TollRouteState state, Position position, double tollDist,
-                                      double tollStart) {
+    /**
+     * Emits an enter or an exit.
+     *
+     * <p>The caller says which. It used to be inferred from the distance argument - enter when
+     * {@code tollStart > 0}, exit when {@code tollStart == 0} - which made the event type a
+     * function of the device's odometer. A device confirming a toll road while
+     * {@code totalDistance} was still exactly 0 emitted an exit where an enter belonged, and
+     * because {@code stateStartToll} then left {@code tollStartDistance} at 0 it repeated on
+     * every subsequent toll position. That path is rare in the record - 0 of 2,048 exits in the
+     * local snapshot carry {@code tollDistance = 0}, and 20 of 118,184 fleet-wide - but it is
+     * real, and inferring a type from a measurement is what made it possible.
+     *
+     * <p>It also has to go before backdating lands: 1c replaces the completing position's
+     * distance with the run start's, so an inference on that value would start misfiring
+     * wherever a traversal began at odometer zero.
+     */
+    private static void checkEvent(TollRouteState state, Position position, double tollDist, boolean enter) {
         if (state.getTollrouteTime() != null) {
-            Event event = null;
-            if (tollStart > 0) {
+            Event event;
+            if (enter) {
                 event = new Event(Event.TYPE_DEVICE_TOLLROUTE_ENTER, position);
                 state.setTollExitDistance(-1);
-            } else if (tollStart == 0) {
-                 event = new Event(Event.TYPE_DEVICE_TOLLROUTE_EXIT, position);
+            } else {
+                event = new Event(Event.TYPE_DEVICE_TOLLROUTE_EXIT, position);
                 event.set(ATTRIBUTE_TOLL_DIST, tollDist);
             }
 
-            if (event != null) {
-                event.set(Position.KEY_TOLL_NAME, state.getTollName());
-                if (state.getTollName() == null && state.getTollRef() != null) {
-                    event.set(Position.KEY_TOLL_NAME, state.getTollRef());
-                }
-                if (state.getTollName() == null && state.getTollRef() == null) {
-                    event.set(Position.KEY_TOLL_NAME, " ");
-                }
-                event.set(Position.KEY_TOLL_REF, state.getTollRef());
-                state.setTollrouteTime(null);
-                state.setEvent(event);
-                return;
+            event.set(Position.KEY_TOLL_NAME, state.getTollName());
+            if (state.getTollName() == null && state.getTollRef() != null) {
+                event.set(Position.KEY_TOLL_NAME, state.getTollRef());
             }
+            if (state.getTollName() == null && state.getTollRef() == null) {
+                event.set(Position.KEY_TOLL_NAME, " ");
+            }
+            event.set(Position.KEY_TOLL_REF, state.getTollRef());
+            state.setTollrouteTime(null);
+            state.setEvent(event);
         }
     }
 
