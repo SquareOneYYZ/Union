@@ -2103,22 +2103,22 @@ public static final ConfigKey<Integer> ENRICHMENT_READ_TIMEOUT = new IntegerConf
  *   1.0 s          285
  * </pre>
  *
- * <p>256 covers service times up to ~0.9 s at measured peak. 128 was the first value here and it
- * is short above ~0.45 s, which is well inside plausible Overpass latency - the reason the
- * default is not tighter. Under-provisioning is not a harmless queue: rejections surface as
+ * <p>512 covers service times up to ~1.8 s at measured peak. The value has been raised twice:
+ * 128 was short above ~0.45 s, and 256 above ~0.9 s. Threads blocked on IO are cheap; the failure
+ * mode of the other direction is not. Under-provisioning is not a harmless queue: rejections surface as
  * lookup failures, which the tri-state correctly treats as unknown, so the cost is silently
  * degraded enrichment coverage - the same failure shape this whole workstream exists to remove.
  *
  * <p><b>Measure before tightening.</b> PositionInfoHandler logs observed enrichment service time
  * periodically; use that number and this table rather than this default.
  *
- * <p>The same value bounds an outage: when every request runs to the 15 s read timeout, 256
- * workers let only ~17 req/s reach the network and everything beyond the queue is rejected.
+ * <p>The same value bounds an outage: when every request runs to the 15 s read timeout, 512
+ * workers let only ~34 req/s reach the network and everything beyond the queue is rejected.
  */
 public static final ConfigKey<Integer> ENRICHMENT_MAX_CONCURRENT = new IntegerConfigKey(
         "enrichment.client.maxConcurrent",
         List.of(KeyType.CONFIG),
-        256);
+        512);
 
 /**
  * Queue depth in front of the enrichment worker pool. Beyond this, requests are rejected
@@ -2138,6 +2138,50 @@ public static final ConfigKey<Integer> ENRICHMENT_OVERPASS_QUERY_TIMEOUT = new I
         "enrichment.overpass.queryTimeout",
         List.of(KeyType.CONFIG),
         10);
+
+/**
+ * Connect timeout in milliseconds for the geocoder HTTP client.
+ *
+ * <p>The geocoder has its own bounded client rather than sharing the enrichment one. Both sit in
+ * the position handler chain, but they call different third parties - LocationIQ here, Overpass
+ * for toll and speed limit - and a stall in one must not consume the other's workers. Sharing a
+ * pool would couple their failure modes: a LocationIQ outage would starve toll detection of
+ * workers for reasons that have nothing to do with Overpass.
+ */
+public static final ConfigKey<Integer> GEOCODER_CLIENT_CONNECT_TIMEOUT = new IntegerConfigKey(
+        "geocoder.client.connectTimeout",
+        List.of(KeyType.CONFIG),
+        5000);
+
+/** Read timeout in milliseconds for the geocoder HTTP client. */
+public static final ConfigKey<Integer> GEOCODER_CLIENT_READ_TIMEOUT = new IntegerConfigKey(
+        "geocoder.client.readTimeout",
+        List.of(KeyType.CONFIG),
+        15000);
+
+/**
+ * Maximum concurrent in-flight geocode requests.
+ *
+ * <p>{@code GeocoderHandler} is gated by {@code geocoder.reuseDistance}, but that gate is on
+ * per-position distance rather than distance from the last lookup - so on any route whose steps
+ * exceed it the geocoder fires close to once per position. At the production 200 m and the
+ * Illinois fixture's 221 m median step, assume ~0.256 req/s per moving device, the same order as
+ * the ungated speed-limit provider.
+ *
+ * <p>At the measured ~739 concurrently moving devices that is ~189 req/s, so 256 workers cover
+ * service times up to ~1.35 s. {@code GeocoderHandler} logs observed service time periodically;
+ * tune from that rather than from this default.
+ */
+public static final ConfigKey<Integer> GEOCODER_CLIENT_MAX_CONCURRENT = new IntegerConfigKey(
+        "geocoder.client.maxConcurrent",
+        List.of(KeyType.CONFIG),
+        256);
+
+/** Queue depth in front of the geocoder worker pool; beyond it, requests are rejected. */
+public static final ConfigKey<Integer> GEOCODER_CLIENT_QUEUE_SIZE = new IntegerConfigKey(
+        "geocoder.client.queueSize",
+        List.of(KeyType.CONFIG),
+        512);
 
 /**
  * Maximum positions buffered per device in {@code ProcessingHandler}. The queue drains only as

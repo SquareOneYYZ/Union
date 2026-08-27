@@ -21,11 +21,21 @@ import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.geocoder.Geocoder;
 import org.traccar.model.Position;
+
+import java.util.concurrent.atomic.AtomicLong;
 import org.traccar.session.cache.CacheManager;
 
 public class GeocoderHandler extends BasePositionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GeocoderHandler.class);
+
+    /** Completed geocodes between service-time summaries. */
+    private static final int SERVICE_TIME_SAMPLE_INTERVAL = 500;
+
+    private final AtomicLong geocodeCount = new AtomicLong();
+    private final AtomicLong geocodeNanosTotal = new AtomicLong();
+    private final AtomicLong geocodeNanosMax = new AtomicLong();
+    private final AtomicLong geocodeFailures = new AtomicLong();
 
     private final Geocoder geocoder;
     private final CacheManager cacheManager;
@@ -41,6 +51,31 @@ public class GeocoderHandler extends BasePositionHandler {
         reuseDistance = config.getInteger(Keys.GEOCODER_REUSE_DISTANCE, 0);
     }
 
+    /**
+     * Records one completed geocode and emits a summary every
+     * {@link #SERVICE_TIME_SAMPLE_INTERVAL} completions.
+     *
+     * <p>This handler runs inside the position chain, so its worker pool is sized by Little's Law
+     * the same way the enrichment one is - and service time is the input that arithmetic cannot
+     * derive from the fleet. {@code geocoder.client.maxConcurrent} defaults to 256, which covers
+     * ~1.35 s at the measured peak; this is what says whether that is right.
+     */
+    private void recordServiceTime(long startNanos, boolean failed) {
+        long elapsed = System.nanoTime() - startNanos;
+        long count = geocodeCount.incrementAndGet();
+        geocodeNanosTotal.addAndGet(elapsed);
+        geocodeNanosMax.accumulateAndGet(elapsed, Math::max);
+        if (failed) {
+            geocodeFailures.incrementAndGet();
+        }
+        if (count % SERVICE_TIME_SAMPLE_INTERVAL == 0) {
+            LOGGER.info("Geocoder service time over {} calls: mean {} ms, max {} ms since last "
+                            + "summary, {} failures - see geocoder.client.maxConcurrent",
+                    count, geocodeNanosTotal.get() / count / 1_000_000L,
+                    geocodeNanosMax.getAndSet(0) / 1_000_000L, geocodeFailures.get());
+        }
+    }
+
     @Override
     public void onPosition(Position position, Callback callback) {
         if (!ignorePositions && (processInvalidPositions || position.getValid())) {
@@ -54,16 +89,19 @@ public class GeocoderHandler extends BasePositionHandler {
                 }
             }
 
+            long startNanos = System.nanoTime();
             geocoder.getAddress(position.getLatitude(), position.getLongitude(),
                     new Geocoder.ReverseGeocoderCallback() {
                 @Override
                 public void onSuccess(String address) {
+                    recordServiceTime(startNanos, false);
                     position.setAddress(address);
                     callback.processed(false);
                 }
 
                 @Override
                 public void onFailure(Throwable e) {
+                    recordServiceTime(startNanos, true);
                     LOGGER.warn("Geocoding failed", e);
                     callback.processed(false);
                 }

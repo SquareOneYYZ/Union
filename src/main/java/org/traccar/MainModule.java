@@ -173,58 +173,41 @@ public class MainModule extends AbstractModule {
     }
 
     /**
-     * A second client, used only by the enrichment providers, with the bounds the shared one does
-     * not have. See {@link EnrichmentClient} for why they are separated rather than the shared
-     * client being configured.
+     * Builds a bounded JAX-RS client for one of the position-chain call sites.
      *
      * <p>Three bounds, and they interlock:
      *
      * <ul>
      *   <li>connect and read timeouts, so a single hung request cannot occupy a worker forever;</li>
-     *   <li>a fixed worker pool, so the number of concurrent in-flight requests is capped - the
-     *       default Jersey client async executor is an unbounded cached pool, one platform thread
-     *       per in-flight request, which is what allowed a slow upstream to become a thread leak;</li>
-     *   <li>a bounded queue with {@code AbortPolicy}, so work beyond that is rejected immediately
-     *       and surfaces to the caller as a lookup failure instead of accumulating in memory.</li>
+     *   <li>a fixed worker pool, so concurrent in-flight requests are capped - Jersey's default
+     *       client async executor is {@code DefaultClientAsyncExecutorProvider}, which sizes from
+     *       {@code ClientProperties.ASYNC_THREADPOOL_SIZE} and defaults to 0, i.e. an unbounded
+     *       cached pool with one platform thread per in-flight request;</li>
+     *   <li>a bounded queue with {@code AbortPolicy}, so work beyond it is rejected immediately and
+     *       surfaces to the caller as a lookup failure instead of accumulating in memory.</li>
      * </ul>
      *
-     * <p>Together they put a ceiling on outbound enrichment volume that holds even when the gate
-     * stops advancing on failure: at most {@code maxConcurrent} requests in flight, each for at
-     * most {@code readTimeout}. At the shipped 128 and 15 s that is ~8.5 requests/second across
-     * the whole process while an upstream is timing out, against ~320 req/s the fleet offers at
-     * peak - so 97 % is shed at the queue instead of reaching a service that is already failing.
-     * Rejections surface as lookup failures, which after stage 1 read as "unknown" and leave the
-     * confirmation window untouched.
-     *
-     * <p>Healthy sizing is the other half of the same number: a moving device at a 3.9 s cadence
-     * offers ~0.385 req/s, so 128 workers at an assumed 300 ms latency serve ~1,100 simultaneously
-     * moving devices. See {@code Keys.ENRICHMENT_MAX_CONCURRENT} for the full arithmetic.
+     * <p>Together they put a ceiling on outbound volume that holds even when a caller retries
+     * freely: at most {@code maxConcurrent} requests in flight, each for at most the read timeout.
      */
-    @Singleton
-    @Provides
-    @EnrichmentClient
-    public static Client provideEnrichmentClient(
-            Config config, ObjectMapperContextResolver objectMapperContextResolver) {
-
-        int maxConcurrent = config.getInteger(Keys.ENRICHMENT_MAX_CONCURRENT);
-        int queueSize = config.getInteger(Keys.ENRICHMENT_QUEUE_SIZE);
-        int connectTimeout = config.getInteger(Keys.ENRICHMENT_CONNECT_TIMEOUT);
-        int readTimeout = config.getInteger(Keys.ENRICHMENT_READ_TIMEOUT);
+    private static Client boundedClient(
+            String name, ObjectMapperContextResolver objectMapperContextResolver,
+            int connectTimeout, int readTimeout, int maxConcurrent, int queueSize) {
 
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 maxConcurrent, maxConcurrent,
                 60L, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(queueSize),
                 runnable -> {
-                    Thread thread = new Thread(runnable, "enrichment-client");
+                    Thread thread = new Thread(runnable, name);
                     thread.setDaemon(true);
                     return thread;
                 },
                 new ThreadPoolExecutor.AbortPolicy());
         executor.allowCoreThreadTimeOut(true);
 
-        LOGGER.info("Enrichment HTTP client: connect {} ms, read {} ms, {} workers, queue {}",
-                connectTimeout, readTimeout, maxConcurrent, queueSize);
+        LOGGER.info("{} HTTP client: connect {} ms, read {} ms, {} workers, queue {}",
+                name, connectTimeout, readTimeout, maxConcurrent, queueSize);
 
         return ClientBuilder.newBuilder()
                 .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
@@ -232,6 +215,41 @@ public class MainModule extends AbstractModule {
                 .executorService(executor)
                 .build()
                 .register(objectMapperContextResolver);
+    }
+
+    /**
+     * The client for the toll, region and speed-limit providers. See {@link EnrichmentClient} for
+     * why these are separated from the client every other subsystem shares, and
+     * {@code Keys.ENRICHMENT_MAX_CONCURRENT} for the sizing arithmetic.
+     */
+    @Singleton
+    @Provides
+    @EnrichmentClient
+    public static Client provideEnrichmentClient(
+            Config config, ObjectMapperContextResolver objectMapperContextResolver) {
+        return boundedClient("enrichment", objectMapperContextResolver,
+                config.getInteger(Keys.ENRICHMENT_CONNECT_TIMEOUT),
+                config.getInteger(Keys.ENRICHMENT_READ_TIMEOUT),
+                config.getInteger(Keys.ENRICHMENT_MAX_CONCURRENT),
+                config.getInteger(Keys.ENRICHMENT_QUEUE_SIZE));
+    }
+
+    /**
+     * The client for {@code GeocoderHandler}. Bounded for the same reason as the enrichment one -
+     * it is in the position chain, so a hang there stalls a device and costs positions - but with
+     * its own pool, so a LocationIQ stall cannot consume Overpass workers. See
+     * {@link GeocoderClient}.
+     */
+    @Singleton
+    @Provides
+    @GeocoderClient
+    public static Client provideGeocoderClient(
+            Config config, ObjectMapperContextResolver objectMapperContextResolver) {
+        return boundedClient("geocoder", objectMapperContextResolver,
+                config.getInteger(Keys.GEOCODER_CLIENT_CONNECT_TIMEOUT),
+                config.getInteger(Keys.GEOCODER_CLIENT_READ_TIMEOUT),
+                config.getInteger(Keys.GEOCODER_CLIENT_MAX_CONCURRENT),
+                config.getInteger(Keys.GEOCODER_CLIENT_QUEUE_SIZE));
     }
 
     @Singleton
@@ -285,7 +303,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static Geocoder provideGeocoder(Config config, Client client, StatisticsManager statisticsManager) {
+    public static Geocoder provideGeocoder(
+            Config config, @GeocoderClient Client client, StatisticsManager statisticsManager) {
         if (config.getBoolean(Keys.GEOCODER_ENABLE)) {
             String type = config.getString(Keys.GEOCODER_TYPE);
             String url = config.getString(Keys.GEOCODER_URL);
