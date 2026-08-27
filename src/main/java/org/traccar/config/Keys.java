@@ -2085,20 +2085,40 @@ public static final ConfigKey<Integer> ENRICHMENT_READ_TIMEOUT = new IntegerConf
  * only hard bound on outbound enrichment volume once the distance gate stops advancing on
  * failure: at most this many requests can be in flight, each for at most the read timeout.
  *
- * <p>Sized by Little's Law, concurrency = throughput x latency. A moving device at a 3.9 s
- * cadence generates ~0.385 enrichment requests/second (0.256 of it the ungated speed-limit
- * provider, 0.128 the gated toll and region pair). At an assumed 300 ms healthy latency, 128
- * workers serve ~427 req/s, which is ~1,100 simultaneously moving devices - comfortable headroom
- * over a fleet of ~2,762 devices with toll state.
+ * <p>Sized by Little's Law, concurrency = throughput x latency, against a MEASURED peak
+ * concurrency rather than an assumed one. In a dense week of the production snapshot, 53 of the
+ * 198 devices reporting were moving in the same one-minute window - a 26.8 % peak ratio, 10.6 %
+ * mean. Scaled to the ~2,762 devices with toll state that is ~739 concurrently moving at peak.
  *
- * <p>The same number bounds an outage: when every request runs to the 15 s read timeout, 128
- * workers let only ~8.5 req/s reach the network and everything else is rejected at the queue.
- * That is the ceiling that makes the gate safe to stop advancing on failure.
+ * <p>A moving device at a 3.9 s cadence offers ~0.385 enrichment requests/second (0.256 of it
+ * the ungated speed-limit provider, 0.128 the gated toll and region pair), so peak offered load
+ * is ~285 req/s. The concurrency that needs is entirely a function of service time, which is the
+ * one input here still assumed rather than measured:
+ *
+ * <pre>
+ *   service time   concurrency needed at peak
+ *   0.2 s           57
+ *   0.3 s           85
+ *   0.5 s          142
+ *   1.0 s          285
+ * </pre>
+ *
+ * <p>256 covers service times up to ~0.9 s at measured peak. 128 was the first value here and it
+ * is short above ~0.45 s, which is well inside plausible Overpass latency - the reason the
+ * default is not tighter. Under-provisioning is not a harmless queue: rejections surface as
+ * lookup failures, which the tri-state correctly treats as unknown, so the cost is silently
+ * degraded enrichment coverage - the same failure shape this whole workstream exists to remove.
+ *
+ * <p><b>Measure before tightening.</b> PositionInfoHandler logs observed enrichment service time
+ * periodically; use that number and this table rather than this default.
+ *
+ * <p>The same value bounds an outage: when every request runs to the 15 s read timeout, 256
+ * workers let only ~17 req/s reach the network and everything beyond the queue is rejected.
  */
 public static final ConfigKey<Integer> ENRICHMENT_MAX_CONCURRENT = new IntegerConfigKey(
         "enrichment.client.maxConcurrent",
         List.of(KeyType.CONFIG),
-        128);
+        256);
 
 /**
  * Queue depth in front of the enrichment worker pool. Beyond this, requests are rejected

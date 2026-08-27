@@ -15,6 +15,7 @@ import org.traccar.tollroute.RegionProvider;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Singleton
 public class PositionInfoHandler extends BasePositionHandler {
@@ -41,8 +42,23 @@ public class PositionInfoHandler extends BasePositionHandler {
      */
     private static final int MAX_TRACKED_DEVICES = 10000;
 
+    /**
+     * How many completed lookups between service-time summaries. The pool that serves these calls
+     * is sized by Little's Law - concurrency = throughput x service time - and service time is the
+     * one input in that arithmetic that cannot be derived from the fleet. It is currently assumed
+     * to be ~0.3 s; 256 workers cover up to ~0.9 s at measured peak concurrency, and are short
+     * above that. This makes the real number observable so the default can be checked rather than
+     * trusted. See {@code Keys.ENRICHMENT_MAX_CONCURRENT}.
+     */
+    private static final int SERVICE_TIME_SAMPLE_INTERVAL = 500;
+
     private final double minDistanceMeters;
     private final ConcurrentHashMap<Long, double[]> lastProcessedPositions = new ConcurrentHashMap<>();
+
+    private final AtomicLong lookupCount = new AtomicLong();
+    private final AtomicLong lookupNanosTotal = new AtomicLong();
+    private final AtomicLong lookupNanosMax = new AtomicLong();
+    private final AtomicLong lookupFailures = new AtomicLong();
 
     @Inject
     public PositionInfoHandler(Config config, TollRouteProvider tollRouteProvider, RegionProvider regionProvider) {
@@ -89,6 +105,32 @@ public class PositionInfoHandler extends BasePositionHandler {
         lastProcessedPositions.put(deviceId, new double[]{latitude, longitude});
     }
 
+    /**
+     * Records one completed enrichment lookup, successful or not, and emits a summary every
+     * {@link #SERVICE_TIME_SAMPLE_INTERVAL} completions.
+     *
+     * <p>Mean and max rather than percentiles on purpose: the pool sizing needs a service-time
+     * scale, not a distribution, and a mean plus a max is enough to tell 0.3 s from 0.9 s without
+     * carrying a histogram on the hot path.
+     */
+    private void recordServiceTime(long startNanos, boolean failed) {
+        long elapsed = System.nanoTime() - startNanos;
+        long count = lookupCount.incrementAndGet();
+        lookupNanosTotal.addAndGet(elapsed);
+        lookupNanosMax.accumulateAndGet(elapsed, Math::max);
+        if (failed) {
+            lookupFailures.incrementAndGet();
+        }
+        if (count % SERVICE_TIME_SAMPLE_INTERVAL == 0) {
+            long meanMillis = lookupNanosTotal.get() / count / 1_000_000L;
+            long maxMillis = lookupNanosMax.getAndSet(0) / 1_000_000L;
+            LOGGER.info("Enrichment service time over {} lookups: mean {} ms, max {} ms since last "
+                            + "summary, {} failures. Pool is sized for ~{} ms - see "
+                            + "enrichment.client.maxConcurrent",
+                    count, meanMillis, maxMillis, lookupFailures.get(), 300);
+        }
+    }
+
     @Override
     public void onPosition(Position position, Callback callback) {
         if (position.getValid()) {
@@ -117,6 +159,7 @@ public class PositionInfoHandler extends BasePositionHandler {
             // The reference point advances on SUCCESS, not on attempt - see recordLookupPoint.
             // Use atomic counter to track both async callbacks
             AtomicInteger pendingCallbacks = new AtomicInteger(2);
+            long lookupStartNanos = System.nanoTime();
 
             regionProvider.getRegion(currentLat, currentLon,
                     new RegionProvider.RegionProviderCallback() {
@@ -153,6 +196,7 @@ public class PositionInfoHandler extends BasePositionHandler {
                     new TollRouteProvider.TollRouteProviderCallback() {
                         @Override
                         public void onSuccess(TollData data) {
+                            recordServiceTime(lookupStartNanos, false);
                             recordLookupPoint(deviceId, currentLat, currentLon);
                             if (data.getToll() != null) {
                                 position.set(Position.KEY_TOLL, data.getToll());
@@ -182,6 +226,7 @@ public class PositionInfoHandler extends BasePositionHandler {
 
                         @Override
                         public void onFailure(Throwable e) {
+                            recordServiceTime(lookupStartNanos, true);
                             LOGGER.warn("Overpass query failed", e);
                             // A failed lookup is not a reading. Without this the position
                             // carries no isToll and is indistinguishable from a gated-out one,
