@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
+import org.traccar.handler.PositionInfoHandler;
 import org.traccar.helper.model.PositionUtil;
 import org.traccar.model.Device;
 import org.traccar.model.Event;
@@ -57,6 +58,32 @@ public class TollEventHandler extends BaseEventHandler {
 
     }
 
+    /**
+     * Reads {@code isToll} as three states rather than two.
+     *
+     * <p>{@code ExtendedModel.getBoolean} returns the primitive {@code false} for an absent key
+     * ({@code ExtendedModel.java:104-106}), which collapses three different situations into one
+     * value: the gate skipped the lookup, the lookup failed, and the lookup succeeded and found
+     * no toll way. Only the last is evidence. The first two are unknowns, and feeding them into
+     * the confirmation window as {@code false} is what stopped the window ever filling for a
+     * device reporting faster than one fix per 500 m.
+     *
+     * <p>The two markers are checked before the value and are not substitutes for each other.
+     * The gate returns at {@code PositionInfoHandler:52} <em>before</em> either provider call,
+     * so {@code onFailure} never runs on a gated-out position: a failure marker says nothing
+     * about skips.
+     *
+     * @return {@code TRUE} or {@code FALSE} for a real reading, {@code null} for "not known"
+     */
+    private static Boolean readToll(Position position) {
+        if (position.getBoolean(PositionInfoHandler.KEY_TOLL_LOOKUP_SKIPPED)
+                || position.getBoolean(PositionInfoHandler.KEY_TOLL_LOOKUP_FAILED)
+                || !position.hasAttribute(Position.KEY_TOLL)) {
+            return null;
+        }
+        return position.getBoolean(Position.KEY_TOLL);
+    }
+
     @Override
     public void onPosition(Position position, Callback callback) {
         long deviceId = position.getDeviceId();
@@ -84,7 +111,7 @@ public class TollEventHandler extends BaseEventHandler {
             return;
         }
         String positionTollRef = position.getString(Position.KEY_TOLL_REF);
-        Boolean positionIsToll = position.getBoolean(Position.KEY_TOLL);
+        Boolean positionIsToll = readToll(position);
         String positionTollName = position.getString(Position.KEY_TOLL_NAME);
 
         TollRouteState tollState = null;
@@ -105,7 +132,7 @@ public class TollEventHandler extends BaseEventHandler {
             tollState = new TollRouteState();
             tollState.fromDevice(device);
         }
-        tollState.addOnToll(positionIsToll, minimalDuration);
+        tollState.addOnToll(positionIsToll, minimalDuration, position);
         TollRouteProcessor.updateState(tollState, position, positionTollRef, positionTollName, minimalDuration);
 
         LOGGER.debug("Position tollName={}, Group customToll={}, Device customToll={}", positionTollName,

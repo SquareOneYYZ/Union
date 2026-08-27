@@ -2040,6 +2040,26 @@ public static final ConfigKey<Integer> TOLL_ROUTE_ACCURACY = new IntegerConfigKe
         "tollRoute.accuracy",
         List.of(KeyType.CONFIG),
         100);
+
+/**
+ * Straight-line distance in metres a device must move from its last enrichment lookup before
+ * PositionInfoHandler issues another. Bounds Overpass and region-provider load; it is currently
+ * the only thing that does.
+ *
+ * <p>The default is explicit and must stay that way. Config.getInteger returns
+ * Objects.requireNonNullElse(defaultValue, 0) for an unset key, so a two-argument declaration
+ * would resolve to 0, "distanceMoved &lt; 0" would never be true, and the gate would disappear
+ * with no error and no log line - roughly quadrupling external load. Same silent-default trap as
+ * event.tollRoute.minimalDuration, except that one fails closed and this one fails open.
+ *
+ * <p>Added rather than renamed from anything: setup/setup.sh preserves conf/traccar.xml across
+ * upgrades, so a renamed key leaves the old entry sitting unread with the feature silently dead.
+ */
+public static final ConfigKey<Integer> TOLL_ROUTE_MINIMAL_DISTANCE = new IntegerConfigKey(
+        "tollRoute.minimalDistance",
+        List.of(KeyType.CONFIG),
+        500);
+
 /**
  * Minimal toll duration to trigger the event. Value in seconds.
  */

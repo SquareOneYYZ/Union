@@ -4,6 +4,8 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.traccar.config.Config;
+import org.traccar.config.Keys;
 import org.traccar.helper.DistanceCalculator;
 import org.traccar.model.Position;
 import org.traccar.tollroute.TollData;
@@ -20,13 +22,36 @@ public class PositionInfoHandler extends BasePositionHandler {
     private final TollRouteProvider tollRouteProvider;
     private final RegionProvider regionProvider;
 
-    private static final double MIN_DISTANCE_METERS = 500.0;
+    /**
+     * Set on a position whose enrichment lookup the distance gate skipped. Distinguishes
+     * "not looked up" from "looked up and not on a toll road", which are otherwise identical
+     * once {@code getBoolean} has turned an absent key into {@code false}.
+     */
+    public static final String KEY_TOLL_LOOKUP_SKIPPED = "tollLookupSkipped";
+
+    /**
+     * Set when the Overpass lookup itself failed. Mirrors {@code regionLookupFailed} at
+     * {@code :77}. A timeout must not read as "left the toll road".
+     */
+    public static final String KEY_TOLL_LOOKUP_FAILED = "tollLookupFailed";
+
+    private final double minDistanceMeters;
     private final ConcurrentHashMap<Long, double[]> lastProcessedPositions = new ConcurrentHashMap<>();
 
     @Inject
-    public PositionInfoHandler(TollRouteProvider tollRouteProvider, RegionProvider regionProvider) {
+    public PositionInfoHandler(Config config, TollRouteProvider tollRouteProvider, RegionProvider regionProvider) {
         this.tollRouteProvider = tollRouteProvider;
         this.regionProvider = regionProvider;
+        this.minDistanceMeters = config.getInteger(Keys.TOLL_ROUTE_MINIMAL_DISTANCE);
+        // The gate is the only bound on external call volume, and an unset key used to make it
+        // vanish silently. State the effective value at startup so it is never a guess again.
+        LOGGER.info("Enrichment lookup gate: {} m ({})", minDistanceMeters,
+                Keys.TOLL_ROUTE_MINIMAL_DISTANCE.getKey());
+        if (minDistanceMeters <= 0) {
+            LOGGER.warn("{} resolved to {} - the enrichment gate is disabled and every valid "
+                            + "position will issue an Overpass and a region lookup",
+                    Keys.TOLL_ROUTE_MINIMAL_DISTANCE.getKey(), minDistanceMeters);
+        }
     }
 
     @Override
@@ -40,8 +65,16 @@ public class PositionInfoHandler extends BasePositionHandler {
             double[] last = lastProcessedPositions.get(deviceId);
             if (last != null) {
                 double distanceMoved = DistanceCalculator.distance(last[0], last[1], currentLat, currentLon);
-                if (distanceMoved < MIN_DISTANCE_METERS) {
+                if (distanceMoved < minDistanceMeters) {
                     LOGGER.debug("Device {} moved only {} m - skipping external API calls", deviceId, distanceMoved);
+                    // Positive marker, not inferred absence. TollEventHandler treats this as
+                    // "not looked up", which is neither a confirmation nor a contradiction.
+                    // Written rather than inferred because CopyAttributesHandler:42 copies an
+                    // attribute exactly when the position lacks it - so if isToll were ever
+                    // added to processing.copyAttributes, absence would stop meaning unknown
+                    // and the defect would return silently. The marker is already present, so
+                    // that copy path cannot overwrite it.
+                    position.set(KEY_TOLL_LOOKUP_SKIPPED, true);
                     callback.processed(false);
                     return;
                 }
@@ -114,6 +147,10 @@ public class PositionInfoHandler extends BasePositionHandler {
                         @Override
                         public void onFailure(Throwable e) {
                             LOGGER.warn("Overpass query failed", e);
+                            // A failed lookup is not a reading. Without this the position
+                            // carries no isToll and is indistinguishable from a gated-out one,
+                            // and on master it was indistinguishable from toll=no as well.
+                            position.set(KEY_TOLL_LOOKUP_FAILED, true);
                             if (pendingCallbacks.decrementAndGet() == 0) {
                                 callback.processed(false);
                             }
