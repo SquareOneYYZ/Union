@@ -2061,6 +2061,76 @@ public static final ConfigKey<Integer> TOLL_ROUTE_MINIMAL_DISTANCE = new Integer
         500);
 
 /**
+ * Connect timeout in milliseconds for the enrichment HTTP client - the toll, region and
+ * speed-limit providers. Applies only to that client, not to the one shared by SMS,
+ * notificators, event forwarding, geocoding, geolocation, statistics, the health check and the
+ * VIN decoder, whose behaviour is unchanged.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_CONNECT_TIMEOUT = new IntegerConfigKey(
+        "enrichment.client.connectTimeout",
+        List.of(KeyType.CONFIG),
+        5000);
+
+/**
+ * Read timeout in milliseconds for the enrichment HTTP client. Bounds how long a single
+ * Overpass or region request may occupy a worker before it is abandoned.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_READ_TIMEOUT = new IntegerConfigKey(
+        "enrichment.client.readTimeout",
+        List.of(KeyType.CONFIG),
+        15000);
+
+/**
+ * Maximum concurrent in-flight enrichment requests. Together with the read timeout this is the
+ * only hard bound on outbound enrichment volume once the distance gate stops advancing on
+ * failure: at most this many requests can be in flight, each for at most the read timeout.
+ *
+ * <p>Sized by Little's Law, concurrency = throughput x latency. A moving device at a 3.9 s
+ * cadence generates ~0.385 enrichment requests/second (0.256 of it the ungated speed-limit
+ * provider, 0.128 the gated toll and region pair). At an assumed 300 ms healthy latency, 128
+ * workers serve ~427 req/s, which is ~1,100 simultaneously moving devices - comfortable headroom
+ * over a fleet of ~2,762 devices with toll state.
+ *
+ * <p>The same number bounds an outage: when every request runs to the 15 s read timeout, 128
+ * workers let only ~8.5 req/s reach the network and everything else is rejected at the queue.
+ * That is the ceiling that makes the gate safe to stop advancing on failure.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_MAX_CONCURRENT = new IntegerConfigKey(
+        "enrichment.client.maxConcurrent",
+        List.of(KeyType.CONFIG),
+        128);
+
+/**
+ * Queue depth in front of the enrichment worker pool. Beyond this, requests are rejected
+ * immediately and surface as a lookup failure rather than accumulating in memory.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_QUEUE_SIZE = new IntegerConfigKey(
+        "enrichment.client.queueSize",
+        List.of(KeyType.CONFIG),
+        512);
+
+/**
+ * Server-side query budget in seconds, emitted as Overpass's own {@code [timeout:N]} setting.
+ * Distinct from the client read timeout: this asks the remote server to abandon the query,
+ * which frees its resources rather than only ours. Keep it below the read timeout.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_OVERPASS_QUERY_TIMEOUT = new IntegerConfigKey(
+        "enrichment.overpass.queryTimeout",
+        List.of(KeyType.CONFIG),
+        10);
+
+/**
+ * Maximum positions buffered per device in {@code ProcessingHandler}. The queue drains only as
+ * each position finishes the handler chain, so a stalled external call holds it open; without a
+ * bound it grows for as long as the device keeps reporting. Positions beyond this are dropped
+ * with a warning.
+ */
+public static final ConfigKey<Integer> PROCESSING_QUEUE_MAX_SIZE = new IntegerConfigKey(
+        "processing.queue.maxSize",
+        List.of(KeyType.CONFIG),
+        1000);
+
+/**
  * Minimal toll duration to trigger the event. Value in seconds.
  */
 public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new IntegerConfigKey(

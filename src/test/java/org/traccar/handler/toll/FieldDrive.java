@@ -2,6 +2,7 @@ package org.traccar.handler.toll;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.traccar.helper.DistanceCalculator;
 import org.traccar.model.Position;
 import org.traccar.tollroute.TollData;
 
@@ -35,6 +36,13 @@ import java.util.TimeZone;
 public final class FieldDrive {
 
     public static final String RESOURCE = "/toll/field-drive-5964.csv";
+
+    /**
+     * How far a position may be from a recorded lookup and still inherit its reading. 400 m sits
+     * below the 500 m gate, so it can never merge two distinct recorded lookups, and above the
+     * ~136 m typical fix spacing, so a retry one or two positions away is covered.
+     */
+    private static final double NEIGHBOUR_RADIUS_METRES = 400.0;
 
     private final List<Position> positions = new ArrayList<>();
     private final Map<String, TollData> oracle = new HashMap<>();
@@ -122,8 +130,36 @@ public final class FieldDrive {
      * {@code toll=yes} element ({@code OverPassTollRouteProvider.java:176-179}).
      */
     public TollChainHarness.TollOracle oracle() {
-        return (latitude, longitude) -> oracle.getOrDefault(
-                key(latitude, longitude), new TollData(false, null, null, null, null, null));
+        return (latitude, longitude) -> {
+            TollData exact = oracle.get(key(latitude, longitude));
+            if (exact != null) {
+                return exact;
+            }
+            // Nearest recorded reading within NEIGHBOUR_RADIUS_METRES, rather than a flat false.
+            //
+            // The export only enriched 9 of its 44 positions, so an exact-match oracle answers
+            // "not tolled" everywhere else - which is fine only while the gate happens to land on
+            // exactly those 9. It does not once the gate can land elsewhere: after the stage 2
+            // change that stops the reference point advancing on a failed lookup, a retry lands on
+            // a neighbouring position, and a flat false there would fabricate a contradiction on a
+            // stretch where the vehicle was demonstrably still on the 407.
+            //
+            // Bounded so it stays an interpolation and not an invention: beyond the radius there is
+            // no evidence either way and the answer reverts to the empty response
+            // OverPassTollRouteProvider returns for a query with no toll element.
+            TollData nearest = null;
+            double best = NEIGHBOUR_RADIUS_METRES;
+            for (Map.Entry<String, TollData> entry : oracle.entrySet()) {
+                String[] parts = entry.getKey().split(":");
+                double distance = DistanceCalculator.distance(
+                        latitude, longitude, Double.parseDouble(parts[0]), Double.parseDouble(parts[1]));
+                if (distance <= best) {
+                    best = distance;
+                    nearest = entry.getValue();
+                }
+            }
+            return nearest != null ? nearest : new TollData(false, null, null, null, null, null);
+        };
     }
 
     /** 1-based indexes of the rows the export recorded enrichment on. */

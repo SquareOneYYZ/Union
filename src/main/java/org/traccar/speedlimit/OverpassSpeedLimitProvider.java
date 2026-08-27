@@ -33,7 +33,12 @@ public class OverpassSpeedLimitProvider implements SpeedLimitProvider {
     public OverpassSpeedLimitProvider(Config config, Client client, String url) {
         int accuracy = config.getInteger(Keys.SPEED_LIMIT_ACCURACY);
         this.client = client;
-        this.url = url + "?data=[out:json];way[maxspeed](around:" + accuracy + ",%f,%f);out%%20tags;";
+        // See OverPassTollRouteProvider for why the server-side budget is set as well as the
+        // client read timeout. This provider is ungated - it runs on every position, not only
+        // those clearing the enrichment gate - so it is the larger share of Overpass traffic.
+        int queryTimeout = config.getInteger(Keys.ENRICHMENT_OVERPASS_QUERY_TIMEOUT);
+        this.url = url + "?data=[out:json][timeout:" + queryTimeout + "];"
+                + "way[maxspeed](around:" + accuracy + ",%f,%f);out%%20tags;";
     }
 
     private Double parseSpeed(String value) {

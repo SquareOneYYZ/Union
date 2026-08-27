@@ -35,6 +35,12 @@ public class PositionInfoHandler extends BasePositionHandler {
      */
     public static final String KEY_TOLL_LOOKUP_FAILED = "tollLookupFailed";
 
+    /**
+     * Ceiling on tracked devices. Production has ~2,762 devices with toll state; 10,000 leaves
+     * headroom while keeping the map bounded at roughly 0.5 MB.
+     */
+    private static final int MAX_TRACKED_DEVICES = 10000;
+
     private final double minDistanceMeters;
     private final ConcurrentHashMap<Long, double[]> lastProcessedPositions = new ConcurrentHashMap<>();
 
@@ -52,6 +58,35 @@ public class PositionInfoHandler extends BasePositionHandler {
                             + "position will issue an Overpass and a region lookup",
                     Keys.TOLL_ROUTE_MINIMAL_DISTANCE.getKey(), minDistanceMeters);
         }
+    }
+
+    /**
+     * Advances the gate's reference point, and bounds the map that holds it.
+     *
+     * <p><b>Called on success only.</b> Previously the reference advanced before the provider
+     * calls, so a failed lookup consumed the budget and the next attempt was a whole gate distance
+     * further on. Now a failure leaves the reference where it was and the next position retries.
+     *
+     * <p>That is a conditional loosening of the gate, and it triggers precisely when the upstream
+     * is already failing - which is why it was held out of stage 1 and belongs here. It is safe
+     * only because the enrichment client is now bounded: at most
+     * {@code enrichment.client.maxConcurrent} requests in flight, each for at most
+     * {@code enrichment.client.readTimeout}, with everything beyond the queue rejected outright.
+     * Retries can no longer become a stampede, because the ceiling is on concurrency and duration
+     * rather than on how often a position asks.
+     *
+     * <p>The map is bounded here rather than left to grow with every device ever seen. Eviction is
+     * crude on purpose: the entry is a 16-byte coordinate pair whose only cost of loss is one
+     * extra lookup for that device, so a size check beats tracking access order.
+     */
+    private void recordLookupPoint(long deviceId, double latitude, double longitude) {
+        if (lastProcessedPositions.size() >= MAX_TRACKED_DEVICES
+                && !lastProcessedPositions.containsKey(deviceId)) {
+            LOGGER.warn("Gate reference map reached {} devices - clearing. Each affected device "
+                    + "makes one extra enrichment lookup on its next position", MAX_TRACKED_DEVICES);
+            lastProcessedPositions.clear();
+        }
+        lastProcessedPositions.put(deviceId, new double[]{latitude, longitude});
     }
 
     @Override
@@ -79,7 +114,7 @@ public class PositionInfoHandler extends BasePositionHandler {
                     return;
                 }
             }
-            lastProcessedPositions.put(deviceId, new double[]{currentLat, currentLon});
+            // The reference point advances on SUCCESS, not on attempt - see recordLookupPoint.
             // Use atomic counter to track both async callbacks
             AtomicInteger pendingCallbacks = new AtomicInteger(2);
 
@@ -118,6 +153,7 @@ public class PositionInfoHandler extends BasePositionHandler {
                     new TollRouteProvider.TollRouteProviderCallback() {
                         @Override
                         public void onSuccess(TollData data) {
+                            recordLookupPoint(deviceId, currentLat, currentLon);
                             if (data.getToll() != null) {
                                 position.set(Position.KEY_TOLL, data.getToll());
                             }

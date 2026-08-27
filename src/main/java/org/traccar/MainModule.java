@@ -116,10 +116,16 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.util.Properties;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class MainModule extends AbstractModule {
+
+    private static final org.slf4j.Logger LOGGER =
+            org.slf4j.LoggerFactory.getLogger(MainModule.class);
 
     private final String configFile;
 
@@ -164,6 +170,68 @@ public class MainModule extends AbstractModule {
     @Provides
     public static Client provideClient(ObjectMapperContextResolver objectMapperContextResolver) {
         return ClientBuilder.newClient().register(objectMapperContextResolver);
+    }
+
+    /**
+     * A second client, used only by the enrichment providers, with the bounds the shared one does
+     * not have. See {@link EnrichmentClient} for why they are separated rather than the shared
+     * client being configured.
+     *
+     * <p>Three bounds, and they interlock:
+     *
+     * <ul>
+     *   <li>connect and read timeouts, so a single hung request cannot occupy a worker forever;</li>
+     *   <li>a fixed worker pool, so the number of concurrent in-flight requests is capped - the
+     *       default Jersey client async executor is an unbounded cached pool, one platform thread
+     *       per in-flight request, which is what allowed a slow upstream to become a thread leak;</li>
+     *   <li>a bounded queue with {@code AbortPolicy}, so work beyond that is rejected immediately
+     *       and surfaces to the caller as a lookup failure instead of accumulating in memory.</li>
+     * </ul>
+     *
+     * <p>Together they put a ceiling on outbound enrichment volume that holds even when the gate
+     * stops advancing on failure: at most {@code maxConcurrent} requests in flight, each for at
+     * most {@code readTimeout}. At the shipped 128 and 15 s that is ~8.5 requests/second across
+     * the whole process while an upstream is timing out, against ~320 req/s the fleet offers at
+     * peak - so 97 % is shed at the queue instead of reaching a service that is already failing.
+     * Rejections surface as lookup failures, which after stage 1 read as "unknown" and leave the
+     * confirmation window untouched.
+     *
+     * <p>Healthy sizing is the other half of the same number: a moving device at a 3.9 s cadence
+     * offers ~0.385 req/s, so 128 workers at an assumed 300 ms latency serve ~1,100 simultaneously
+     * moving devices. See {@code Keys.ENRICHMENT_MAX_CONCURRENT} for the full arithmetic.
+     */
+    @Singleton
+    @Provides
+    @EnrichmentClient
+    public static Client provideEnrichmentClient(
+            Config config, ObjectMapperContextResolver objectMapperContextResolver) {
+
+        int maxConcurrent = config.getInteger(Keys.ENRICHMENT_MAX_CONCURRENT);
+        int queueSize = config.getInteger(Keys.ENRICHMENT_QUEUE_SIZE);
+        int connectTimeout = config.getInteger(Keys.ENRICHMENT_CONNECT_TIMEOUT);
+        int readTimeout = config.getInteger(Keys.ENRICHMENT_READ_TIMEOUT);
+
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                maxConcurrent, maxConcurrent,
+                60L, TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(queueSize),
+                runnable -> {
+                    Thread thread = new Thread(runnable, "enrichment-client");
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
+        executor.allowCoreThreadTimeOut(true);
+
+        LOGGER.info("Enrichment HTTP client: connect {} ms, read {} ms, {} workers, queue {}",
+                connectTimeout, readTimeout, maxConcurrent, queueSize);
+
+        return ClientBuilder.newBuilder()
+                .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
+                .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
+                .executorService(executor)
+                .build()
+                .register(objectMapperContextResolver);
     }
 
     @Singleton
@@ -273,7 +341,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static SpeedLimitProvider provideSpeedLimitProvider(Config config, Client client) {
+    public static SpeedLimitProvider provideSpeedLimitProvider(
+            Config config, @EnrichmentClient Client client) {
         if (config.getBoolean(Keys.SPEED_LIMIT_ENABLE)) {
             String type = config.getString(Keys.SPEED_LIMIT_TYPE, "overpass");
             String url = config.getString(Keys.SPEED_LIMIT_URL);
@@ -287,7 +356,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static TollRouteProvider provideTollRouteProvider(Config config, Client client, RedisCache redisCache) {
+    public static TollRouteProvider provideTollRouteProvider(
+            Config config, @EnrichmentClient Client client, RedisCache redisCache) {
         if (config.getBoolean(Keys.TOLL_ROUTE_ENABLE)) {
             String type = config.getString(Keys.TOLL_ROUTE_TYPE);
             String url = config.getString(Keys.TOLL_ROUTE_URL);
@@ -324,7 +394,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static RegionProvider provideRegionProvider(Config config, Client client, RedisCache redisCache) {
+    public static RegionProvider provideRegionProvider(
+            Config config, @EnrichmentClient Client client, RedisCache redisCache) {
         String type = config.getString(Keys.REGION_PROVIDER_TYPE, "locationiq");
         String url = config.getString(Keys.REGION_PROVIDER_URL);
         return switch (type) {
