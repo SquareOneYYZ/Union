@@ -54,11 +54,18 @@ public final class TollChainHarness {
     private int lookupCount;
     private int failureCount;
 
+    /** The shipped default for {@code tollRoute.minimalDistance}. */
+    public static final int DEFAULT_GATE_METRES = 500;
+
     public TollChainHarness(int minimalDuration, TollOracle oracle) {
-        this(minimalDuration, oracle, new Device());
+        this(minimalDuration, oracle, new Device(), DEFAULT_GATE_METRES);
     }
 
-    public TollChainHarness(int minimalDuration, TollOracle oracle, Device device) {
+    public TollChainHarness(int minimalDuration, TollOracle oracle, int gateMetres) {
+        this(minimalDuration, oracle, new Device(), gateMetres);
+    }
+
+    public TollChainHarness(int minimalDuration, TollOracle oracle, Device device, int gateMetres) {
         TollRouteProvider tollRouteProvider = (latitude, longitude, callback) -> {
             TollData data = oracle.lookup(latitude, longitude);
             if (data == null) {
@@ -74,10 +81,11 @@ public final class TollChainHarness {
         RegionProvider regionProvider = (latitude, longitude, callback) ->
                 callback.onSuccess(new RegionData(null, null, null));
 
-        this.positionInfoHandler = new PositionInfoHandler(tollRouteProvider, regionProvider);
-
         Config config = mock(Config.class);
         when(config.getInteger(eq(Keys.EVENT_TOLL_ROUTE_MINIMAL_DURATION))).thenReturn(minimalDuration);
+        when(config.getInteger(eq(Keys.TOLL_ROUTE_MINIMAL_DISTANCE))).thenReturn(gateMetres);
+
+        this.positionInfoHandler = new PositionInfoHandler(config, tollRouteProvider, regionProvider);
 
         CacheManager cacheManager = mock(CacheManager.class);
         when(cacheManager.getObject(eq(Device.class), anyLong())).thenReturn(device);
