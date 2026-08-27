@@ -1,6 +1,7 @@
 package org.traccar.session.state;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.traccar.model.Device;
 import org.traccar.model.Event;
@@ -13,6 +14,20 @@ import java.util.*;
 
 import static org.traccar.handler.events.TollEventHandler.LOGGER;
 
+/**
+ * Per-device toll state, serialised into {@code toll:<deviceId>} by
+ * {@code TollEventHandler:164-169}.
+ *
+ * <p>{@code TollEventHandler:49} builds a plain {@code ObjectMapper}, so Jackson's
+ * {@code FAIL_ON_UNKNOWN_PROPERTIES} is enabled. Without {@code ignoreUnknown}, rolling a jar
+ * back to a version whose class has fewer fields than the payload in Redis makes every read
+ * throw - caught at {@code TollEventHandler:101-103}, which logs a WARN and nulls the state,
+ * so every device loses its window with a warning per position until the keys are rewritten.
+ *
+ * <p>The annotation only helps in the version being rolled back <em>to</em>, which is why it
+ * ships here with 1a and 1b rather than with the fields 1c adds.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TollRouteState {
     private static final Logger LOGGER = LoggerFactory.getLogger(TollRouteState.class);
 
@@ -142,15 +157,33 @@ public class TollRouteState {
     }
 */
 
+    /**
+     * Appends one reading to the confirmation window.
+     *
+     * <p>A {@code null} is an unknown - the enrichment gate skipped the lookup, or the lookup
+     * failed - and is neither a confirmation nor a contradiction. It does not enter the window
+     * and it does not reset it, so {@code duration} slots always mean {@code duration} real
+     * lookups. Appending it instead would put a third value into a set the homogeneity test at
+     * {@link #isOnToll(int)} requires to have exactly one member, and no event would ever fire.
+     *
+     * <p>The trim is a {@code while}, not an {@code if}. A single {@code if} removes at most one
+     * entry per call, so a window restored longer than {@code duration} grows by one and shrinks
+     * by one on every position and never converges - leaving {@link #isOnToll(int)}, whose size
+     * test is an equality, returning null for that device forever.
+     */
     public void addOnToll(Boolean isToll, int duration) {
         if (this.tollWindow == null) {
             this.tollWindow = new ArrayList<>();
         }
 
+        if (isToll == null) {
+            return;
+        }
+
         this.tollWindow.add(isToll);
 
-        if (this.tollWindow.size() > duration) {
-            Boolean removed = this.tollWindow.remove(0);
+        while (this.tollWindow.size() > duration) {
+            this.tollWindow.remove(0);
         }
 
         if (this.tollWindow.size() == duration) {

@@ -20,6 +20,19 @@ public class PositionInfoHandler extends BasePositionHandler {
     private final TollRouteProvider tollRouteProvider;
     private final RegionProvider regionProvider;
 
+    /**
+     * Set on a position whose enrichment lookup the distance gate skipped. Distinguishes
+     * "not looked up" from "looked up and not on a toll road", which are otherwise identical
+     * once {@code getBoolean} has turned an absent key into {@code false}.
+     */
+    public static final String KEY_TOLL_LOOKUP_SKIPPED = "tollLookupSkipped";
+
+    /**
+     * Set when the Overpass lookup itself failed. Mirrors {@code regionLookupFailed} at
+     * {@code :77}. A timeout must not read as "left the toll road".
+     */
+    public static final String KEY_TOLL_LOOKUP_FAILED = "tollLookupFailed";
+
     private static final double MIN_DISTANCE_METERS = 500.0;
     private final ConcurrentHashMap<Long, double[]> lastProcessedPositions = new ConcurrentHashMap<>();
 
@@ -42,6 +55,14 @@ public class PositionInfoHandler extends BasePositionHandler {
                 double distanceMoved = DistanceCalculator.distance(last[0], last[1], currentLat, currentLon);
                 if (distanceMoved < MIN_DISTANCE_METERS) {
                     LOGGER.debug("Device {} moved only {} m - skipping external API calls", deviceId, distanceMoved);
+                    // Positive marker, not inferred absence. TollEventHandler treats this as
+                    // "not looked up", which is neither a confirmation nor a contradiction.
+                    // Written rather than inferred because CopyAttributesHandler:42 copies an
+                    // attribute exactly when the position lacks it - so if isToll were ever
+                    // added to processing.copyAttributes, absence would stop meaning unknown
+                    // and the defect would return silently. The marker is already present, so
+                    // that copy path cannot overwrite it.
+                    position.set(KEY_TOLL_LOOKUP_SKIPPED, true);
                     callback.processed(false);
                     return;
                 }
@@ -114,6 +135,10 @@ public class PositionInfoHandler extends BasePositionHandler {
                         @Override
                         public void onFailure(Throwable e) {
                             LOGGER.warn("Overpass query failed", e);
+                            // A failed lookup is not a reading. Without this the position
+                            // carries no isToll and is indistinguishable from a gated-out one,
+                            // and on master it was indistinguishable from toll=no as well.
+                            position.set(KEY_TOLL_LOOKUP_FAILED, true);
                             if (pendingCallbacks.decrementAndGet() == 0) {
                                 callback.processed(false);
                             }
