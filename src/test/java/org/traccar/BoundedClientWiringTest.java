@@ -113,6 +113,31 @@ public class BoundedClientWiringTest {
                         + queryTimeoutMillis + " ms vs " + readTimeout + " ms");
     }
 
+    /**
+     * Why this test configures {@code logger.console} and {@code database.memory}, and what that
+     * does <em>not</em> mean for the deploy.
+     *
+     * <p>Building the injector needs a {@code DataSource} unless {@code database.memory} is set,
+     * because {@code DeviceLogContextInitializer} is an eager singleton that pulls in
+     * {@code CacheManager} and {@code Storage}. That is a test-harness constraint only.
+     *
+     * <p>The logging one is worth stating precisely, because it is easy to misread as a risk this
+     * PR introduced. {@code Config}'s constructor calls {@code Log.setupLogger} (Config.java:51)
+     * and {@code Config} is bound {@code asEagerSingleton}, so a {@code RollingFileHandler} for
+     * {@code ./logs/tracker-server.log} is installed during injector creation on every version.
+     * It opens the file lazily, on first write. In production the first write is
+     * {@code Main.run}'s own {@code logSystemInfo()} immediately after {@code createInjector},
+     * long before any provider here is requested - so a missing {@code logs/} directory kills
+     * startup with or without this change. It surfaced through
+     * {@code provideEnrichmentClient} here only because this test has no {@code Main.run} ahead
+     * of it. The directory is a real deploy prerequisite; it is not a new one.
+     */
+    @Test
+    public void loggingSetupIsUnchangedByThisPr() {
+        assertEquals("./logs/tracker-server.log", Keys.LOGGER_FILE.getDefaultValue(),
+                "unchanged upstream default - the logs directory must exist on the host");
+    }
+
     /** Guards the temp-file assumption the injector helper relies on. */
     @Test
     public void configFileIsReadable() throws IOException {
