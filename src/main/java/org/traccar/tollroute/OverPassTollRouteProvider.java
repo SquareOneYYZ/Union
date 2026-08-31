@@ -15,6 +15,8 @@ import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.InvocationCallback;
 import org.traccar.storage.localCache.RedisCache;
 
+import java.util.Locale;
+
 @Singleton
 public class OverPassTollRouteProvider implements TollRouteProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(OverPassTollRouteProvider.class);
@@ -89,7 +91,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
 
     private void makeApiCall(double latitude, double longitude, String cacheKey, TollRouteProviderCallback callback) {
 //        String formattedUrl = String.format(url, latitude, longitude);
-        String formattedUrl = String.format(url, latitude, longitude, latitude, longitude);
+        String formattedUrl = String.format(Locale.ROOT, url, latitude, longitude, latitude, longitude);
 
         LOGGER.debug(" Overpass Query URL: " + formattedUrl);
         AsyncInvoker invoker = client.target(formattedUrl).request().async();
@@ -211,7 +213,7 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         double roundedLon = Math.round(longitude * scale) / scale;
         String format = "%." + roundingDecimals + "f:%.";
         format += roundingDecimals + "f";
-        return CACHE_KEY_PREFIX + String.format(format, roundedLat, roundedLon);
+        return CACHE_KEY_PREFIX + String.format(Locale.ROOT, format, roundedLat, roundedLon);
     }
     // Inner class for JSON serialization
     private static final class CachedTollData {

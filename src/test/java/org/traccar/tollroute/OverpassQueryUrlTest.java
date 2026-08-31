@@ -145,20 +145,40 @@ public class OverpassQueryUrlTest {
     }
 
     /**
-     * Pre-existing defect, pinned rather than fixed: {@code String.format} is called without a
-     * {@code Locale}, so a JVM running under a comma-decimal locale emits {@code 43,638320} and
-     * every query becomes malformed.
+     * The locale fix, proven the only way it can be: by running the assertions under a
+     * comma-decimal locale.
      *
-     * <p>This is errata's locale item and belongs to stage 3, not here. The assertion documents
-     * that the tests above pass only because the build locale happens to use a decimal point - so
-     * a green suite is not evidence the deployed JVM is safe.
+     * <p>{@code String.format} without an explicit {@code Locale} uses the JVM default, so on a
+     * host running e.g. {@code de_DE} every provider emitted {@code 43,638320} - an unparseable
+     * Overpass query and a cache key that could never match one written by a decimal-point JVM.
+     * Nothing in the previous test suite could catch it, because the build happens to run under a
+     * decimal-point locale; a green suite was not evidence the deployed JVM was safe.
+     *
+     * <p>All five call sites now pass {@code Locale.ROOT}: the query URL and the cache key in
+     * {@code OverPassTollRouteProvider} and {@code LocationIQRegionProvider}, and the query URL in
+     * {@code OverpassSpeedLimitProvider}.
+     *
+     * <p>The default locale is restored in a {@code finally} block - leaking it would silently
+     * change the behaviour of every later test in the JVM.
      */
     @Test
-    public void queryCorrectnessCurrentlyDependsOnTheDefaultLocale() {
-        assertEquals("43.638320", String.format("%f", LATITUDE).substring(0, 9),
-                "this test suite runs under a decimal-point locale: " + Locale.getDefault());
-        assertEquals("43,638320", String.format(Locale.GERMANY, "%f", LATITUDE).substring(0, 9),
-                "under a comma-decimal locale the same code emits an unparseable query");
+    public void queriesAreLocaleIndependent() {
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.GERMANY);
+
+            assertEquals("43,638320", String.format("%f", LATITUDE).substring(0, 9),
+                    "precondition: the default locale must now be comma-decimal");
+
+            for (String url : new String[]{tollUrl(), speedLimitUrl()}) {
+                assertTrue(url.contains("43.638320"),
+                        "coordinate must still use a decimal point under de_DE: " + url);
+                assertFalse(url.contains("43,638320"),
+                        "a comma-decimal coordinate makes the query unparseable: " + url);
+            }
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 
     /**

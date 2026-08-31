@@ -14,6 +14,8 @@ import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.InvocationCallback;
 import org.traccar.storage.localCache.RedisCache;
 
+import java.util.Locale;
+
 @Singleton
 public class LocationIQRegionProvider implements RegionProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(LocationIQRegionProvider.class);
@@ -69,7 +71,7 @@ public class LocationIQRegionProvider implements RegionProvider {
     }
 
     private void makeApiCall(double latitude, double longitude, String cacheKey, RegionProviderCallback callback) {
-        String formattedUrl = String.format(url, latitude, longitude);
+        String formattedUrl = String.format(Locale.ROOT, url, latitude, longitude);
 
         LOGGER.debug("LocationIQ Query URL: {}", formattedUrl);
         AsyncInvoker invoker = client.target(formattedUrl).request().async();
@@ -148,7 +150,7 @@ public class LocationIQRegionProvider implements RegionProvider {
         double roundedLat = Math.round(latitude * scale) / scale;
         double roundedLon = Math.round(longitude * scale) / scale;
         String format = "%." + roundingDecimals + "f:%." + roundingDecimals + "f";
-        return CACHE_KEY_PREFIX + String.format(format, roundedLat, roundedLon);
+        return CACHE_KEY_PREFIX + String.format(Locale.ROOT, format, roundedLat, roundedLon);
     }
 
     private static final class CachedRegionData {

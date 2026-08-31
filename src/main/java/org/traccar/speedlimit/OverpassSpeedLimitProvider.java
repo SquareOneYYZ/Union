@@ -25,6 +25,8 @@ import jakarta.ws.rs.client.AsyncInvoker;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.InvocationCallback;
 
+import java.util.Locale;
+
 public class OverpassSpeedLimitProvider implements SpeedLimitProvider {
 
     private final Client client;
@@ -55,7 +57,7 @@ public class OverpassSpeedLimitProvider implements SpeedLimitProvider {
 
     @Override
     public void getSpeedLimit(double latitude, double longitude, SpeedLimitProviderCallback callback) {
-        String formattedUrl = String.format(url, latitude, longitude);
+        String formattedUrl = String.format(Locale.ROOT, url, latitude, longitude);
         AsyncInvoker invoker = client.target(formattedUrl).request().async();
         invoker.get(new InvocationCallback<JsonObject>() {
             @Override
