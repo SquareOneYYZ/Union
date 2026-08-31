@@ -61,18 +61,29 @@ public class GeocoderHandler extends BasePositionHandler {
      * ~1.35 s at the measured peak; this is what says whether that is right.
      */
     private void recordServiceTime(long startNanos, boolean failed) {
-        long elapsed = System.nanoTime() - startNanos;
-        long count = geocodeCount.incrementAndGet();
-        geocodeNanosTotal.addAndGet(elapsed);
-        geocodeNanosMax.accumulateAndGet(elapsed, Math::max);
-        if (failed) {
-            geocodeFailures.incrementAndGet();
-        }
-        if (count % SERVICE_TIME_SAMPLE_INTERVAL == 0) {
-            LOGGER.info("Geocoder service time over {} calls: mean {} ms, max {} ms since last "
-                            + "summary, {} failures - see geocoder.client.maxConcurrent",
-                    count, geocodeNanosTotal.get() / count / 1_000_000L,
-                    geocodeNanosMax.getAndSet(0) / 1_000_000L, geocodeFailures.get());
+        // Instrumentation must never be able to break the thing it measures. This runs
+        // inside an async provider callback, BEFORE callback.processed(...) - and
+        // JsonGeocoder.completed() does not wrap its callback, so an exception escaping
+        // here would leave that device's handler chain never completing, its queue
+        // filling, and its positions dropped. A lost metric sample is the correct
+        // failure; a stalled device is not.
+        try {
+            long elapsed = System.nanoTime() - startNanos;
+            long count = geocodeCount.incrementAndGet();
+            geocodeNanosTotal.addAndGet(elapsed);
+            geocodeNanosMax.accumulateAndGet(elapsed, Math::max);
+            if (failed) {
+                geocodeFailures.incrementAndGet();
+            }
+            if (count % SERVICE_TIME_SAMPLE_INTERVAL == 0) {
+                LOGGER.info("Geocoder service time over {} calls: mean {} ms, max {} ms since last "
+                                + "summary, {} failures - see geocoder.client.maxConcurrent",
+                        count, geocodeNanosTotal.get() / count / 1_000_000L,
+                        geocodeNanosMax.getAndSet(0) / 1_000_000L, geocodeFailures.get());
+            }
+
+        } catch (RuntimeException e) {
+            LOGGER.debug("Service-time sampling failed", e);
         }
     }
 

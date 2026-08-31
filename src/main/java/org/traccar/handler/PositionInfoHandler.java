@@ -114,20 +114,31 @@ public class PositionInfoHandler extends BasePositionHandler {
      * carrying a histogram on the hot path.
      */
     private void recordServiceTime(long startNanos, boolean failed) {
-        long elapsed = System.nanoTime() - startNanos;
-        long count = lookupCount.incrementAndGet();
-        lookupNanosTotal.addAndGet(elapsed);
-        lookupNanosMax.accumulateAndGet(elapsed, Math::max);
-        if (failed) {
-            lookupFailures.incrementAndGet();
-        }
-        if (count % SERVICE_TIME_SAMPLE_INTERVAL == 0) {
-            long meanMillis = lookupNanosTotal.get() / count / 1_000_000L;
-            long maxMillis = lookupNanosMax.getAndSet(0) / 1_000_000L;
-            LOGGER.info("Enrichment service time over {} lookups: mean {} ms, max {} ms since last "
-                            + "summary, {} failures. Pool is sized for ~{} ms - see "
-                            + "enrichment.client.maxConcurrent",
-                    count, meanMillis, maxMillis, lookupFailures.get(), 300);
+        // Instrumentation must never be able to break the thing it measures. This runs
+        // inside an async provider callback, BEFORE callback.processed(...) - and
+        // JsonGeocoder.completed() does not wrap its callback, so an exception escaping
+        // here would leave that device's handler chain never completing, its queue
+        // filling, and its positions dropped. A lost metric sample is the correct
+        // failure; a stalled device is not.
+        try {
+            long elapsed = System.nanoTime() - startNanos;
+            long count = lookupCount.incrementAndGet();
+            lookupNanosTotal.addAndGet(elapsed);
+            lookupNanosMax.accumulateAndGet(elapsed, Math::max);
+            if (failed) {
+                lookupFailures.incrementAndGet();
+            }
+            if (count % SERVICE_TIME_SAMPLE_INTERVAL == 0) {
+                long meanMillis = lookupNanosTotal.get() / count / 1_000_000L;
+                long maxMillis = lookupNanosMax.getAndSet(0) / 1_000_000L;
+                LOGGER.info("Enrichment service time over {} lookups: mean {} ms, max {} ms since last "
+                                + "summary, {} failures. Pool is sized for ~{} ms - see "
+                                + "enrichment.client.maxConcurrent",
+                        count, meanMillis, maxMillis, lookupFailures.get(), 300);
+            }
+
+        } catch (RuntimeException e) {
+            LOGGER.debug("Service-time sampling failed", e);
         }
     }
 
