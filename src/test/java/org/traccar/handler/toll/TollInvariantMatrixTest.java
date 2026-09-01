@@ -97,6 +97,18 @@ public class TollInvariantMatrixTest {
                 wrong.add(String.format("%.0f km/h at %.1f s: %d enters, %d exits (want 1 and 1)",
                         speedKph, cadenceSeconds, enters, exits));
             }
+
+            // Both edges must carry the schema stamp, not just the enter. It is set once in
+            // checkEvent after the enter/exit branch, so this is the assertion that the shared
+            // placement actually holds - without it, the exit half of the backdating
+            // discontinuity would be unqueryable and nobody would find out from a green suite.
+            for (Event event : harness.events()) {
+                if (event.getInteger("tollEventSchema") != 2) {
+                    wrong.add(String.format("%.0f km/h at %.1f s: %s carries tollEventSchema=%d",
+                            speedKph, cadenceSeconds, event.getType(),
+                            event.getInteger("tollEventSchema")));
+                }
+            }
         }
 
         if (!wrong.isEmpty()) {
