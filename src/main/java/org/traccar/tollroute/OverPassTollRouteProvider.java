@@ -131,7 +131,11 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
 
             for (int i = 0; i < elements.size(); i++) {
                 JsonObject element = elements.getJsonObject(i);
-                LOGGER.info("Element {}: type={}", i, element.getString("type"));
+                // DEBUG, not INFO. This fires once per element per response, and responses on a
+                // lit urban road run to several hundred elements - 350 in one production sample.
+                // At INFO it produced ~1,100 lines/second, each one a synchronous disk write
+                // because Log.RollingFileHandler.publish flushes on every record.
+                LOGGER.debug("Element {}: type={}", i, element.getString("type"));
                 JsonObject tags = element.getJsonObject("tags");
                 if (tags == null) {
                     LOGGER.debug("Element {} has NO tags", i);

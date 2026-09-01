@@ -178,15 +178,15 @@ public class PositionInfoHandler extends BasePositionHandler {
                         public void onSuccess(RegionData data) {
                             if (data.getCountry() != null) {
                                 position.set(Position.KEY_COUNTRY, data.getCountry());
-                                LOGGER.info("Setting country: {}", data.getCountry());
+                                LOGGER.debug("Setting country: {}", data.getCountry());
                             }
                             if (data.getState() != null) {
                                 position.set(Position.KEY_STATE, data.getState());
-                                LOGGER.info("Setting state: {}", data.getState());
+                                LOGGER.debug("Setting state: {}", data.getState());
                             }
                             if (data.getCity() != null) {
                                 position.set(Position.KEY_CITY, data.getCity());
-                                LOGGER.info("Setting city: {}", data.getCity());
+                                LOGGER.debug("Setting city: {}", data.getCity());
                             }
                             if (pendingCallbacks.decrementAndGet() == 0) {
                                 callback.processed(false);
@@ -223,11 +223,11 @@ public class PositionInfoHandler extends BasePositionHandler {
                             }
                             if (data.getHighway() != null) {
                                 position.set(Position.KEY_HIGHWAY, data.getHighway());
-                                LOGGER.info("Setting highway: {}", data.getHighway());
+                                LOGGER.debug("Setting highway: {}", data.getHighway());
                             }
                             if (data.getEnforcement() != null) {
                                 position.set(Position.KEY_ENFORCEMENT, data.getEnforcement());
-                                LOGGER.info("Setting enforcement: {}", data.getEnforcement());
+                                LOGGER.debug("Setting enforcement: {}", data.getEnforcement());
                             }
 
                             if (pendingCallbacks.decrementAndGet() == 0) {
