@@ -38,7 +38,13 @@ public class OverPassTollRouteProvider implements TollRouteProvider {
         this.roundingDecimals = config.getInteger(Keys.TOLL_ROUTE_ROUNDING_DECIMALS);
 //        this.url = baseurl + "?data=[out:json];way(around:" + accuracy + ",%f,%f);out%%20tags;";
         //for speeding camera
-        this.url = baseurl + "?data=[out:json];(way(around:" + accuracy + ",%1$f,%2$f);"
+        // [timeout:N] is the server's own budget, distinct from the client read timeout: it lets
+        // Overpass abandon the query and free its resources rather than only freeing ours. Kept
+        // below the read timeout so the server gives up first and we get an error, not a socket
+        // timeout with the query still running upstream.
+        int queryTimeout = config.getInteger(Keys.ENRICHMENT_OVERPASS_QUERY_TIMEOUT);
+        this.url = baseurl + "?data=[out:json][timeout:" + queryTimeout + "];"
+                + "(way(around:" + accuracy + ",%1$f,%2$f);"
                 + "node(around:100,%1$f,%2$f););out%%20tags;";
 
     }

@@ -22,6 +22,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.traccar.config.Config;
+import org.traccar.config.Keys;
 import org.traccar.database.BufferingManager;
 import org.traccar.database.NotificationManager;
 import org.traccar.handler.*;
@@ -30,6 +31,8 @@ import org.traccar.handler.network.AcknowledgementHandler;
 import org.traccar.helper.DeviceLogContext;
 import org.traccar.helper.PositionLogger;
 import org.traccar.model.Position;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.traccar.session.cache.CacheManager;
 
 import java.util.HashMap;
@@ -38,11 +41,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 @Singleton
 @ChannelHandler.Sharable
 public class ProcessingHandler extends ChannelInboundHandlerAdapter implements BufferingManager.Callback {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProcessingHandler.class);
+
+    /** Log the first drop for a device, then every this-many, to bound log volume under a stall. */
+    private static final int DROP_LOG_INTERVAL = 100;
 
     private final CacheManager cacheManager;
     private final NotificationManager notificationManager;
@@ -53,9 +63,40 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
     private final PostProcessHandler postProcessHandler;
 
     private final Map<Long, Queue<Position>> queues = new HashMap<>();
+    private final int queueMaxSize;
+
+    /**
+     * Every shed position is counted, not just logged.
+     *
+     * <p>A dropped position is never stored: DatabaseHandler is the last handler in the chain, so
+     * a position that never enters the chain never reaches it. That is real telemetry loss, and it
+     * is the same shape as the defect this workstream exists to remove - something that vanishes
+     * without a trace. A bound that sheds invisibly is only a better failure than an OutOfMemory
+     * if someone finds out it happened.
+     *
+     * <p>So: a total, a per-device count, and a WARN carrying both. The per-device map is keyed
+     * only by devices that have actually shed, which is bounded by the number of stalled devices
+     * rather than by fleet size.
+     */
+    private final AtomicLong droppedTotal = new AtomicLong();
+    private final Map<Long, AtomicLong> droppedByDevice = new ConcurrentHashMap<>();
 
     private synchronized Queue<Position> getQueue(long deviceId) {
         return queues.computeIfAbsent(deviceId, k -> new LinkedList<>());
+    }
+
+    /**
+     * Discards a device's queue entry once it is empty.
+     *
+     * <p>{@code processNextPosition} already removes the device from the cache when its queue
+     * drains, but left the entry itself in {@code queues} - so the map grew by one
+     * {@code LinkedList} for every device ever seen and never shrank.
+     */
+    private synchronized void discardQueueIfEmpty(long deviceId) {
+        Queue<Position> queue = queues.get(deviceId);
+        if (queue != null && queue.isEmpty()) {
+            queues.remove(deviceId);
+        }
     }
 
     @Inject
@@ -66,6 +107,7 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
         this.notificationManager = notificationManager;
         this.positionLogger = positionLogger;
         bufferingManager = new BufferingManager(config, this);
+        this.queueMaxSize = config.getInteger(Keys.PROCESSING_QUEUE_MAX_SIZE);
 
         positionHandlers = Stream.of(
                 ComputedAttributesHandler.Early.class,
@@ -128,9 +170,37 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
         DeviceLogContext.setDeviceId(position.getDeviceId());
         Queue<Position> queue = getQueue(position.getDeviceId());
         boolean queued;
+        boolean dropped = false;
         synchronized (queue) {
             queued = !queue.isEmpty();
-            queue.offer(position);
+            // The queue drains only as each position completes the handler chain, and that chain
+            // makes external calls. A stalled provider therefore holds it open indefinitely while
+            // the device keeps reporting, and before this bound it grew without limit. Dropping
+            // the newest position is the explicit policy: the alternative, dropping the oldest,
+            // would reorder a stream that PositionUtil.isLatest and every windowed detector
+            // assume is monotonic in fixTime.
+            if (queueMaxSize > 0 && queue.size() >= queueMaxSize) {
+                dropped = true;
+            } else {
+                queue.offer(position);
+            }
+        }
+        if (dropped) {
+            long deviceTotal = droppedByDevice
+                    .computeIfAbsent(position.getDeviceId(), k -> new AtomicLong())
+                    .incrementAndGet();
+            long total = droppedTotal.incrementAndGet();
+            // Every drop is counted; the log is rate-limited so a sustained stall cannot drown the
+            // file, but the running totals ride along on each line so nothing is unaccounted for.
+            if (deviceTotal == 1 || deviceTotal % DROP_LOG_INTERVAL == 0) {
+                LOGGER.warn("Device {} queue is at its {} limit - DROPPING position at {} "
+                                + "(never stored). {} dropped for this device, {} process-wide. "
+                                + "The handler chain is not draining; check enrichment provider health",
+                        position.getDeviceId(), queueMaxSize, position.getFixTime(), deviceTotal, total);
+            }
+            context.writeAndFlush(new AcknowledgementHandler.EventHandled(position));
+            DeviceLogContext.clear();
+            return;
         }
         if (!queued) {
             try {
@@ -201,6 +271,12 @@ public class ProcessingHandler extends ChannelInboundHandlerAdapter implements B
             }
         } else {
             cacheManager.removeDevice(deviceId, deviceId);
+            discardQueueIfEmpty(deviceId);
+            AtomicLong deviceDrops = droppedByDevice.remove(deviceId);
+            if (deviceDrops != null) {
+                LOGGER.warn("Device {} queue drained after dropping {} position(s); "
+                        + "{} dropped process-wide so far", deviceId, deviceDrops.get(), droppedTotal.get());
+            }
             DeviceLogContext.clear();
         }
     }

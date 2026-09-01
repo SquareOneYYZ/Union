@@ -2061,6 +2061,144 @@ public static final ConfigKey<Integer> TOLL_ROUTE_MINIMAL_DISTANCE = new Integer
         500);
 
 /**
+ * Connect timeout in milliseconds for the enrichment HTTP client - the toll, region and
+ * speed-limit providers. Applies only to that client, not to the one shared by SMS,
+ * notificators, event forwarding, geocoding, geolocation, statistics, the health check and the
+ * VIN decoder, whose behaviour is unchanged.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_CONNECT_TIMEOUT = new IntegerConfigKey(
+        "enrichment.client.connectTimeout",
+        List.of(KeyType.CONFIG),
+        5000);
+
+/**
+ * Read timeout in milliseconds for the enrichment HTTP client. Bounds how long a single
+ * Overpass or region request may occupy a worker before it is abandoned.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_READ_TIMEOUT = new IntegerConfigKey(
+        "enrichment.client.readTimeout",
+        List.of(KeyType.CONFIG),
+        15000);
+
+/**
+ * Maximum concurrent in-flight enrichment requests. Together with the read timeout this is the
+ * only hard bound on outbound enrichment volume once the distance gate stops advancing on
+ * failure: at most this many requests can be in flight, each for at most the read timeout.
+ *
+ * <p>Sized by Little's Law, concurrency = throughput x latency, against peak concurrency
+ * MEASURED ON PRODUCTION: 354 devices moving in the same one-minute window, 12.8 % of the ~2,762
+ * with toll state.
+ *
+ * <p>An earlier revision of this comment used 739, extrapolated from 53 of 198 devices in a local
+ * snapshot holding 1.7 % of production's events. The real figure is less than half that. The
+ * extrapolation is recorded here because it was wrong in the safe direction, and the pool sizes
+ * below were chosen against it and deliberately left alone.
+ *
+ * <p>A moving device at a 3.9 s cadence offers ~0.385 enrichment requests/second (0.256 of it the
+ * ungated speed-limit provider, 0.128 the gated toll and region pair), so peak offered load is
+ * ~136 req/s. The concurrency that needs is a function of service time, which is the one input
+ * here still assumed rather than measured:
+ *
+ * <pre>
+ *   service time   concurrency at measured peak
+ *   0.2 s           27
+ *   0.3 s           41
+ *   0.5 s           68
+ *   1.0 s          136
+ *   2.0 s          273
+ * </pre>
+ *
+ * <p>512 therefore covers service times up to ~3.8 s - roughly 12x headroom at an assumed 0.3 s.
+ * Left over-provisioned on purpose until PositionInfoHandler's service-time summaries land: the
+ * two failure directions are not symmetric. Idle threads blocked on IO cost reserved stack and
+ * nothing else; under-provisioning surfaces as queue rejections, which the tri-state reads as
+ * unknown, so the cost is silently degraded enrichment coverage - the failure class this whole
+ * workstream exists to remove. Tune down from the logs, not from this comment.
+ *
+ * <p>The same value bounds an outage: when every request runs to the 15 s read timeout, 512
+ * workers let only ~34 req/s reach the network - a quarter of the ~136 req/s offered at peak -
+ * and everything beyond the queue is rejected.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_MAX_CONCURRENT = new IntegerConfigKey(
+        "enrichment.client.maxConcurrent",
+        List.of(KeyType.CONFIG),
+        512);
+
+/**
+ * Queue depth in front of the enrichment worker pool. Beyond this, requests are rejected
+ * immediately and surface as a lookup failure rather than accumulating in memory.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_QUEUE_SIZE = new IntegerConfigKey(
+        "enrichment.client.queueSize",
+        List.of(KeyType.CONFIG),
+        512);
+
+/**
+ * Server-side query budget in seconds, emitted as Overpass's own {@code [timeout:N]} setting.
+ * Distinct from the client read timeout: this asks the remote server to abandon the query,
+ * which frees its resources rather than only ours. Keep it below the read timeout.
+ */
+public static final ConfigKey<Integer> ENRICHMENT_OVERPASS_QUERY_TIMEOUT = new IntegerConfigKey(
+        "enrichment.overpass.queryTimeout",
+        List.of(KeyType.CONFIG),
+        10);
+
+/**
+ * Connect timeout in milliseconds for the geocoder HTTP client.
+ *
+ * <p>The geocoder has its own bounded client rather than sharing the enrichment one. Both sit in
+ * the position handler chain, but they call different third parties - LocationIQ here, Overpass
+ * for toll and speed limit - and a stall in one must not consume the other's workers. Sharing a
+ * pool would couple their failure modes: a LocationIQ outage would starve toll detection of
+ * workers for reasons that have nothing to do with Overpass.
+ */
+public static final ConfigKey<Integer> GEOCODER_CLIENT_CONNECT_TIMEOUT = new IntegerConfigKey(
+        "geocoder.client.connectTimeout",
+        List.of(KeyType.CONFIG),
+        5000);
+
+/** Read timeout in milliseconds for the geocoder HTTP client. */
+public static final ConfigKey<Integer> GEOCODER_CLIENT_READ_TIMEOUT = new IntegerConfigKey(
+        "geocoder.client.readTimeout",
+        List.of(KeyType.CONFIG),
+        15000);
+
+/**
+ * Maximum concurrent in-flight geocode requests.
+ *
+ * <p>{@code GeocoderHandler} is gated by {@code geocoder.reuseDistance}, but that gate is on
+ * per-position distance rather than distance from the last lookup - so on any route whose steps
+ * exceed it the geocoder fires close to once per position. At the production 200 m and the
+ * Illinois fixture's 221 m median step, assume ~0.256 req/s per moving device, the same order as
+ * the ungated speed-limit provider.
+ *
+ * <p>At the production-measured 354 concurrently moving devices that is ~91 req/s, so 256 workers
+ * cover service times up to ~2.8 s. {@code GeocoderHandler} logs observed service time
+ * periodically; tune from that rather than from this default.
+ */
+public static final ConfigKey<Integer> GEOCODER_CLIENT_MAX_CONCURRENT = new IntegerConfigKey(
+        "geocoder.client.maxConcurrent",
+        List.of(KeyType.CONFIG),
+        256);
+
+/** Queue depth in front of the geocoder worker pool; beyond it, requests are rejected. */
+public static final ConfigKey<Integer> GEOCODER_CLIENT_QUEUE_SIZE = new IntegerConfigKey(
+        "geocoder.client.queueSize",
+        List.of(KeyType.CONFIG),
+        512);
+
+/**
+ * Maximum positions buffered per device in {@code ProcessingHandler}. The queue drains only as
+ * each position finishes the handler chain, so a stalled external call holds it open; without a
+ * bound it grows for as long as the device keeps reporting. Positions beyond this are dropped
+ * with a warning.
+ */
+public static final ConfigKey<Integer> PROCESSING_QUEUE_MAX_SIZE = new IntegerConfigKey(
+        "processing.queue.maxSize",
+        List.of(KeyType.CONFIG),
+        1000);
+
+/**
  * Minimal toll duration to trigger the event. Value in seconds.
  */
 public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new IntegerConfigKey(

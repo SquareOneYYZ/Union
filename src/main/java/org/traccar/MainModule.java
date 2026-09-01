@@ -116,10 +116,16 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.util.Properties;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class MainModule extends AbstractModule {
+
+    private static final org.slf4j.Logger LOGGER =
+            org.slf4j.LoggerFactory.getLogger(MainModule.class);
 
     private final String configFile;
 
@@ -164,6 +170,86 @@ public class MainModule extends AbstractModule {
     @Provides
     public static Client provideClient(ObjectMapperContextResolver objectMapperContextResolver) {
         return ClientBuilder.newClient().register(objectMapperContextResolver);
+    }
+
+    /**
+     * Builds a bounded JAX-RS client for one of the position-chain call sites.
+     *
+     * <p>Three bounds, and they interlock:
+     *
+     * <ul>
+     *   <li>connect and read timeouts, so a single hung request cannot occupy a worker forever;</li>
+     *   <li>a fixed worker pool, so concurrent in-flight requests are capped - Jersey's default
+     *       client async executor is {@code DefaultClientAsyncExecutorProvider}, which sizes from
+     *       {@code ClientProperties.ASYNC_THREADPOOL_SIZE} and defaults to 0, i.e. an unbounded
+     *       cached pool with one platform thread per in-flight request;</li>
+     *   <li>a bounded queue with {@code AbortPolicy}, so work beyond it is rejected immediately and
+     *       surfaces to the caller as a lookup failure instead of accumulating in memory.</li>
+     * </ul>
+     *
+     * <p>Together they put a ceiling on outbound volume that holds even when a caller retries
+     * freely: at most {@code maxConcurrent} requests in flight, each for at most the read timeout.
+     */
+    private static Client boundedClient(
+            String name, ObjectMapperContextResolver objectMapperContextResolver,
+            int connectTimeout, int readTimeout, int maxConcurrent, int queueSize) {
+
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                maxConcurrent, maxConcurrent,
+                60L, TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(queueSize),
+                runnable -> {
+                    Thread thread = new Thread(runnable, name);
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
+        executor.allowCoreThreadTimeOut(true);
+
+        LOGGER.info("{} HTTP client: connect {} ms, read {} ms, {} workers, queue {}",
+                name, connectTimeout, readTimeout, maxConcurrent, queueSize);
+
+        return ClientBuilder.newBuilder()
+                .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
+                .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
+                .executorService(executor)
+                .build()
+                .register(objectMapperContextResolver);
+    }
+
+    /**
+     * The client for the toll, region and speed-limit providers. See {@link EnrichmentClient} for
+     * why these are separated from the client every other subsystem shares, and
+     * {@code Keys.ENRICHMENT_MAX_CONCURRENT} for the sizing arithmetic.
+     */
+    @Singleton
+    @Provides
+    @EnrichmentClient
+    public static Client provideEnrichmentClient(
+            Config config, ObjectMapperContextResolver objectMapperContextResolver) {
+        return boundedClient("enrichment", objectMapperContextResolver,
+                config.getInteger(Keys.ENRICHMENT_CONNECT_TIMEOUT),
+                config.getInteger(Keys.ENRICHMENT_READ_TIMEOUT),
+                config.getInteger(Keys.ENRICHMENT_MAX_CONCURRENT),
+                config.getInteger(Keys.ENRICHMENT_QUEUE_SIZE));
+    }
+
+    /**
+     * The client for {@code GeocoderHandler}. Bounded for the same reason as the enrichment one -
+     * it is in the position chain, so a hang there stalls a device and costs positions - but with
+     * its own pool, so a LocationIQ stall cannot consume Overpass workers. See
+     * {@link GeocoderClient}.
+     */
+    @Singleton
+    @Provides
+    @GeocoderClient
+    public static Client provideGeocoderClient(
+            Config config, ObjectMapperContextResolver objectMapperContextResolver) {
+        return boundedClient("geocoder", objectMapperContextResolver,
+                config.getInteger(Keys.GEOCODER_CLIENT_CONNECT_TIMEOUT),
+                config.getInteger(Keys.GEOCODER_CLIENT_READ_TIMEOUT),
+                config.getInteger(Keys.GEOCODER_CLIENT_MAX_CONCURRENT),
+                config.getInteger(Keys.GEOCODER_CLIENT_QUEUE_SIZE));
     }
 
     @Singleton
@@ -217,7 +303,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static Geocoder provideGeocoder(Config config, Client client, StatisticsManager statisticsManager) {
+    public static Geocoder provideGeocoder(
+            Config config, @GeocoderClient Client client, StatisticsManager statisticsManager) {
         if (config.getBoolean(Keys.GEOCODER_ENABLE)) {
             String type = config.getString(Keys.GEOCODER_TYPE);
             String url = config.getString(Keys.GEOCODER_URL);
@@ -273,7 +360,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static SpeedLimitProvider provideSpeedLimitProvider(Config config, Client client) {
+    public static SpeedLimitProvider provideSpeedLimitProvider(
+            Config config, @EnrichmentClient Client client) {
         if (config.getBoolean(Keys.SPEED_LIMIT_ENABLE)) {
             String type = config.getString(Keys.SPEED_LIMIT_TYPE, "overpass");
             String url = config.getString(Keys.SPEED_LIMIT_URL);
@@ -287,7 +375,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static TollRouteProvider provideTollRouteProvider(Config config, Client client, RedisCache redisCache) {
+    public static TollRouteProvider provideTollRouteProvider(
+            Config config, @EnrichmentClient Client client, RedisCache redisCache) {
         if (config.getBoolean(Keys.TOLL_ROUTE_ENABLE)) {
             String type = config.getString(Keys.TOLL_ROUTE_TYPE);
             String url = config.getString(Keys.TOLL_ROUTE_URL);
@@ -324,7 +413,8 @@ public class MainModule extends AbstractModule {
 
     @Singleton
     @Provides
-    public static RegionProvider provideRegionProvider(Config config, Client client, RedisCache redisCache) {
+    public static RegionProvider provideRegionProvider(
+            Config config, @EnrichmentClient Client client, RedisCache redisCache) {
         String type = config.getString(Keys.REGION_PROVIDER_TYPE, "locationiq");
         String url = config.getString(Keys.REGION_PROVIDER_URL);
         return switch (type) {
