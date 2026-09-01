@@ -27,6 +27,7 @@ import java.util.AbstractMap;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Locale;
 
 public abstract class JsonGeocoder implements Geocoder {
 
@@ -107,7 +108,7 @@ public abstract class JsonGeocoder implements Geocoder {
             statisticsManager.registerGeocoderRequest();
         }
 
-        var request = client.target(String.format(url, latitude, longitude)).request();
+        var request = client.target(String.format(Locale.ROOT, url, latitude, longitude)).request();
 
         if (callback != null) {
             request.async().get(new InvocationCallback<JsonObject>() {
