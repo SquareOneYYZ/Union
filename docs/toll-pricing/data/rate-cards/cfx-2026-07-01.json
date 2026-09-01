@@ -1,0 +1,887 @@
+{
+ "facility": "Central Florida Expressway Authority",
+ "operator": "Central Florida Expressway Authority",
+ "country": "US",
+ "region": "FL",
+ "currency": "USD",
+ "rate_model_type": "flat",
+ "rate_model_note": "Flat amount per plaza/gantry. NOT distance-based.",
+ "valid_from": "2026-07-01",
+ "valid_to": null,
+ "reprices_on": "July 1 (CFX fiscal year; PDF is internally titled 'FY 2027')",
+ "source_url": "https://www.cfxway.com/wp-content/uploads/2026/07/CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf",
+ "source_type": "published",
+ "payment_premium_note": "Pay By Plate is exactly 2.00x Electronic on 57 of 58 plazas. The single exception is Beachline West Main Plaza (TPK), a Turnpike-operated plaza, where the two are equal.",
+ "plazas": [
+  {
+   "plaza_name": "Beachline West Main Plaza (TPK) B",
+   "electronic": {
+    "2_axle": 1.38,
+    "3_axle": 2.08,
+    "4_axle": 2.4,
+    "5_axle": 3.11
+   },
+   "pay_by_plate": {
+    "2_axle": 1.38,
+    "3_axle": 2.08,
+    "4_axle": 2.4,
+    "5_axle": 3.11
+   }
+  },
+  {
+   "plaza_name": "Boggy Creek Road/McCoy Road",
+   "electronic": {
+    "2_axle": 1.38,
+    "3_axle": 1.38,
+    "4_axle": 1.38,
+    "5_axle": 1.38
+   },
+   "pay_by_plate": {
+    "2_axle": 2.76,
+    "3_axle": 2.76,
+    "4_axle": 2.76,
+    "5_axle": 2.76
+   }
+  },
+  {
+   "plaza_name": "Conway Road/Tradeport Drive",
+   "electronic": {
+    "2_axle": 1.38,
+    "3_axle": 1.38,
+    "4_axle": 1.38,
+    "5_axle": 1.38
+   },
+   "pay_by_plate": {
+    "2_axle": 2.76,
+    "3_axle": 2.76,
+    "4_axle": 2.76,
+    "5_axle": 2.76
+   }
+  },
+  {
+   "plaza_name": "Beachline Main Plaza",
+   "electronic": {
+    "2_axle": 1.08,
+    "3_axle": 2.17,
+    "4_axle": 2.51,
+    "5_axle": 3.21
+   },
+   "pay_by_plate": {
+    "2_axle": 2.16,
+    "3_axle": 4.34,
+    "4_axle": 5.02,
+    "5_axle": 6.42
+   }
+  },
+  {
+   "plaza_name": "Innovation Way",
+   "electronic": {
+    "2_axle": 0.74,
+    "3_axle": 0.74,
+    "4_axle": 0.74,
+    "5_axle": 0.74
+   },
+   "pay_by_plate": {
+    "2_axle": 1.48,
+    "3_axle": 1.48,
+    "4_axle": 1.48,
+    "5_axle": 1.48
+   }
+  },
+  {
+   "plaza_name": "Dallas Blvd.",
+   "electronic": {
+    "2_axle": 0.64,
+    "3_axle": 0.64,
+    "4_axle": 0.64,
+    "5_axle": 0.64
+   },
+   "pay_by_plate": {
+    "2_axle": 1.28,
+    "3_axle": 1.28,
+    "4_axle": 1.28,
+    "5_axle": 1.28
+   }
+  },
+  {
+   "plaza_name": "Dallas Main Plaza C",
+   "electronic": {
+    "2_axle": 0.64,
+    "3_axle": 0.95,
+    "4_axle": 1.27,
+    "5_axle": 1.27
+   },
+   "pay_by_plate": {
+    "2_axle": 1.28,
+    "3_axle": 1.9,
+    "4_axle": 2.54,
+    "5_axle": 2.54
+   }
+  },
+  {
+   "plaza_name": "Good Homes Road D",
+   "electronic": {
+    "2_axle": 0.28,
+    "3_axle": 0.28,
+    "4_axle": 0.28,
+    "5_axle": 0.28
+   },
+   "pay_by_plate": {
+    "2_axle": 0.56,
+    "3_axle": 0.56,
+    "4_axle": 0.56,
+    "5_axle": 0.56
+   }
+  },
+  {
+   "plaza_name": "Hiawassee Main Plaza",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 2.08,
+    "4_axle": 2.4,
+    "5_axle": 3.11
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 4.16,
+    "4_axle": 4.8,
+    "5_axle": 6.22
+   }
+  },
+  {
+   "plaza_name": "Hiawassee Road",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Pine Hills Main Plaza",
+   "electronic": {
+    "2_axle": 1.38,
+    "3_axle": 2.08,
+    "4_axle": 2.4,
+    "5_axle": 3.11
+   },
+   "pay_by_plate": {
+    "2_axle": 2.76,
+    "3_axle": 4.16,
+    "4_axle": 4.8,
+    "5_axle": 6.22
+   }
+  },
+  {
+   "plaza_name": "Old Winter Garden Road",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 1.02,
+    "4_axle": 1.02,
+    "5_axle": 1.02
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 2.04,
+    "4_axle": 2.04,
+    "5_axle": 2.04
+   }
+  },
+  {
+   "plaza_name": "John Young Parkway (S.R. 423)",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 1.02,
+    "4_axle": 1.02,
+    "5_axle": 1.02
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 2.04,
+    "4_axle": 2.04,
+    "5_axle": 2.04
+   }
+  },
+  {
+   "plaza_name": "Orange Blossom Trail",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Mills Avenue",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Bumby Avenue",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Conway Road",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 1.02,
+    "4_axle": 1.02,
+    "5_axle": 1.02
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 2.04,
+    "4_axle": 2.04,
+    "5_axle": 2.04
+   }
+  },
+  {
+   "plaza_name": "Andes/Semoran Blvd.",
+   "electronic": {
+    "2_axle": 1.38,
+    "3_axle": 1.38,
+    "4_axle": 1.38,
+    "5_axle": 1.38
+   },
+   "pay_by_plate": {
+    "2_axle": 2.76,
+    "3_axle": 2.76,
+    "4_axle": 2.76,
+    "5_axle": 2.76
+   }
+  },
+  {
+   "plaza_name": "Conway Main Plaza",
+   "electronic": {
+    "2_axle": 1.38,
+    "3_axle": 2.08,
+    "4_axle": 2.4,
+    "5_axle": 3.11
+   },
+   "pay_by_plate": {
+    "2_axle": 2.76,
+    "3_axle": 4.16,
+    "4_axle": 4.8,
+    "5_axle": 6.22
+   }
+  },
+  {
+   "plaza_name": "Semoran Blvd. (S.R. 436)",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 1.02,
+    "4_axle": 1.02,
+    "5_axle": 1.02
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 2.04,
+    "4_axle": 2.04,
+    "5_axle": 2.04
+   }
+  },
+  {
+   "plaza_name": "Dean Road",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Dean Main Plaza",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 2.08,
+    "4_axle": 2.4,
+    "5_axle": 3.11
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 4.16,
+    "4_axle": 4.8,
+    "5_axle": 6.22
+   }
+  },
+  {
+   "plaza_name": "Rouse Road",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "John Young Main Plaza",
+   "electronic": {
+    "2_axle": 1.72,
+    "3_axle": 2.4,
+    "4_axle": 3.11,
+    "5_axle": 3.78
+   },
+   "pay_by_plate": {
+    "2_axle": 3.44,
+    "3_axle": 4.8,
+    "4_axle": 6.22,
+    "5_axle": 7.56
+   }
+  },
+  {
+   "plaza_name": "John Young Parkway (S.R. 423)",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 1.02,
+    "4_axle": 1.02,
+    "5_axle": 1.02
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 2.04,
+    "4_axle": 2.04,
+    "5_axle": 2.04
+   }
+  },
+  {
+   "plaza_name": "Orange Blossom Trail",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Landstar Boulevard D",
+   "electronic": {
+    "2_axle": 0.5,
+    "3_axle": 0.5,
+    "4_axle": 0.5,
+    "5_axle": 0.5
+   },
+   "pay_by_plate": {
+    "2_axle": 1.0,
+    "3_axle": 1.0,
+    "4_axle": 1.0,
+    "5_axle": 1.0
+   }
+  },
+  {
+   "plaza_name": "Boggy Creek Main Plaza",
+   "electronic": {
+    "2_axle": 1.72,
+    "3_axle": 2.4,
+    "4_axle": 3.11,
+    "5_axle": 3.78
+   },
+   "pay_by_plate": {
+    "2_axle": 3.44,
+    "3_axle": 4.8,
+    "4_axle": 6.22,
+    "5_axle": 7.56
+   }
+  },
+  {
+   "plaza_name": "South Access Rd/Int'l Airport",
+   "electronic": {
+    "2_axle": 1.38,
+    "3_axle": 1.38,
+    "4_axle": 1.38,
+    "5_axle": 1.38
+   },
+   "pay_by_plate": {
+    "2_axle": 2.76,
+    "3_axle": 2.76,
+    "4_axle": 2.76,
+    "5_axle": 2.76
+   }
+  },
+  {
+   "plaza_name": "Boggy Creek Road",
+   "electronic": {
+    "2_axle": 1.38,
+    "3_axle": 1.38,
+    "4_axle": 1.38,
+    "5_axle": 1.38
+   },
+   "pay_by_plate": {
+    "2_axle": 2.76,
+    "3_axle": 2.76,
+    "4_axle": 2.76,
+    "5_axle": 2.76
+   }
+  },
+  {
+   "plaza_name": "Lake Nona Blvd.",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 1.02,
+    "4_axle": 1.02,
+    "5_axle": 1.02
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 2.04,
+    "4_axle": 2.04,
+    "5_axle": 2.04
+   }
+  },
+  {
+   "plaza_name": "Narcoossee Road",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 1.02,
+    "4_axle": 1.02,
+    "5_axle": 1.02
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 2.04,
+    "4_axle": 2.04,
+    "5_axle": 2.04
+   }
+  },
+  {
+   "plaza_name": "Moss Park Road",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Dowden Road",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Lee Vista Blvd.",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Curry Ford Main Plaza",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 2.08,
+    "4_axle": 2.4,
+    "5_axle": 3.11
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 4.16,
+    "4_axle": 4.8,
+    "5_axle": 6.22
+   }
+  },
+  {
+   "plaza_name": "Curry Ford Road (S.R. 552)",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Colonial Drive (S.R. 50)",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "University Main Plaza",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 2.08,
+    "4_axle": 2.4,
+    "5_axle": 3.11
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 4.16,
+    "4_axle": 4.8,
+    "5_axle": 6.22
+   }
+  },
+  {
+   "plaza_name": "University Blvd.",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Schofield Road",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "New Independence Parkway",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 1.02,
+    "4_axle": 1.02,
+    "5_axle": 1.02
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 2.04,
+    "4_axle": 2.04,
+    "5_axle": 2.04
+   }
+  },
+  {
+   "plaza_name": "Independence Main Plaza",
+   "electronic": {
+    "2_axle": 1.72,
+    "3_axle": 2.4,
+    "4_axle": 3.11,
+    "5_axle": 3.78
+   },
+   "pay_by_plate": {
+    "2_axle": 3.44,
+    "3_axle": 4.8,
+    "4_axle": 6.22,
+    "5_axle": 7.56
+   }
+  },
+  {
+   "plaza_name": "Stoneybrook Parkway",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "C.R. 535",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "S.R. 438",
+   "electronic": {
+    "2_axle": 0.35,
+    "3_axle": 0.35,
+    "4_axle": 0.35,
+    "5_axle": 0.35
+   },
+   "pay_by_plate": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   }
+  },
+  {
+   "plaza_name": "West Road",
+   "electronic": {
+    "2_axle": 1.02,
+    "3_axle": 1.02,
+    "4_axle": 1.02,
+    "5_axle": 1.02
+   },
+   "pay_by_plate": {
+    "2_axle": 2.04,
+    "3_axle": 2.04,
+    "4_axle": 2.04,
+    "5_axle": 2.04
+   }
+  },
+  {
+   "plaza_name": "Forest Lake Main Plaza",
+   "electronic": {
+    "2_axle": 1.72,
+    "3_axle": 2.4,
+    "4_axle": 3.11,
+    "5_axle": 3.78
+   },
+   "pay_by_plate": {
+    "2_axle": 3.44,
+    "3_axle": 4.8,
+    "4_axle": 6.22,
+    "5_axle": 7.56
+   }
+  },
+  {
+   "plaza_name": "C.R. 437A",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Ponkan Main Plaza",
+   "electronic": {
+    "2_axle": 0.98,
+    "3_axle": 1.48,
+    "4_axle": 1.98,
+    "5_axle": 2.46
+   },
+   "pay_by_plate": {
+    "2_axle": 1.96,
+    "3_axle": 2.96,
+    "4_axle": 3.96,
+    "5_axle": 4.92
+   }
+  },
+  {
+   "plaza_name": "Mt. Plymouth Main Plaza",
+   "electronic": {
+    "2_axle": 0.93,
+    "3_axle": 1.41,
+    "4_axle": 1.84,
+    "5_axle": 2.32
+   },
+   "pay_by_plate": {
+    "2_axle": 1.86,
+    "3_axle": 2.82,
+    "4_axle": 3.68,
+    "5_axle": 4.64
+   }
+  },
+  {
+   "plaza_name": "Coral Hills Main Plaza",
+   "electronic": {
+    "2_axle": 1.38,
+    "3_axle": 2.08,
+    "4_axle": 2.74,
+    "5_axle": 3.45
+   },
+   "pay_by_plate": {
+    "2_axle": 2.76,
+    "3_axle": 4.16,
+    "4_axle": 5.48,
+    "5_axle": 6.9
+   }
+  },
+  {
+   "plaza_name": "Keene Road",
+   "electronic": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   },
+   "pay_by_plate": {
+    "2_axle": 1.4,
+    "3_axle": 1.4,
+    "4_axle": 1.4,
+    "5_axle": 1.4
+   }
+  },
+  {
+   "plaza_name": "Hiawassee Road",
+   "electronic": {
+    "2_axle": 0.35,
+    "3_axle": 0.35,
+    "4_axle": 0.35,
+    "5_axle": 0.35
+   },
+   "pay_by_plate": {
+    "2_axle": 0.7,
+    "3_axle": 0.7,
+    "4_axle": 0.7,
+    "5_axle": 0.7
+   }
+  },
+  {
+   "plaza_name": "Coronado Main Plaza",
+   "electronic": {
+    "2_axle": 0.79,
+    "3_axle": 1.22,
+    "4_axle": 1.62,
+    "5_axle": 2.03
+   },
+   "pay_by_plate": {
+    "2_axle": 1.58,
+    "3_axle": 2.44,
+    "4_axle": 3.24,
+    "5_axle": 4.06
+   }
+  },
+  {
+   "plaza_name": "Marigold Main Plaza D",
+   "electronic": {
+    "2_axle": 2.22,
+    "3_axle": 3.36,
+    "4_axle": 4.43,
+    "5_axle": 5.58
+   },
+   "pay_by_plate": {
+    "2_axle": 4.44,
+    "3_axle": 6.72,
+    "4_axle": 8.86,
+    "5_axle": 11.16
+   }
+  },
+  {
+   "plaza_name": "Koa Main Plaza D",
+   "electronic": {
+    "2_axle": 0.55,
+    "3_axle": 0.81,
+    "4_axle": 1.09,
+    "5_axle": 1.36
+   },
+   "pay_by_plate": {
+    "2_axle": 1.1,
+    "3_axle": 1.62,
+    "4_axle": 2.18,
+    "5_axle": 2.72
+   }
+  },
+  {
+   "plaza_name": "Goldenrod Main Plaza D",
+   "electronic": {
+    "2_axle": 0.5,
+    "3_axle": 0.5,
+    "4_axle": 0.5,
+    "5_axle": 0.5
+   },
+   "pay_by_plate": {
+    "2_axle": 1.0,
+    "3_axle": 1.0,
+    "4_axle": 1.0,
+    "5_axle": 1.0
+   }
+  }
+ ]
+}
