@@ -19,6 +19,7 @@ import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.model.Position;
+import org.traccar.speedlimit.SpeedLimitException;
 import org.traccar.speedlimit.SpeedLimitProvider;
 
 public class SpeedLimitHandler extends BasePositionHandler {
@@ -45,7 +46,18 @@ public class SpeedLimitHandler extends BasePositionHandler {
 
             @Override
             public void onFailure(Throwable e) {
-                LOGGER.warn("Speed limit provider failed", e);
+                // "Not found" is the ordinary answer for a coordinate with no maxspeed way
+                // nearby - most of them - not an exceptional condition. Logging it at WARN with
+                // a stack trace produced ~7 traces/second in production, ~25 lines each, every
+                // line synchronously flushed to disk by Log.RollingFileHandler.
+                //
+                // Expected outcomes log one DEBUG line; anything else keeps the WARN and the
+                // trace, because a real provider fault still needs to be visible.
+                if (e instanceof SpeedLimitException) {
+                    LOGGER.debug("Speed limit unavailable: {}", e.getMessage());
+                } else {
+                    LOGGER.warn("Speed limit provider failed", e);
+                }
                 callback.processed(false);
             }
         });
