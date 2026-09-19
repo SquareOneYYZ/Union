@@ -1,6 +1,6 @@
 # Speed Camera Detection — Fix Plan
 
-**Status:** Plan r2.1 (no code written) · **r2.1 date:** 2026-09-16 (r2: 2026-09-13, r1: 2026-09-09) · **Branch for the work:** new branch off `master` (`riq-speed-camera-fix`) · **Single source of truth:** this file. `claude-code-speed-camera-fix-prompt.md` is generated from it and never edited on its own.
+**Status:** Plan r2.2 (stage A in review) · **r2.2 date:** 2026-09-18 (r2.1: 2026-09-16, r2: 2026-09-13, r1: 2026-09-09) · **Branch for the work:** new branch off `master` (`riq-speed-camera-fix`) · **Single source of truth:** this file. `claude-code-speed-camera-fix-prompt.md` is generated from it and never edited on its own.
 
 Goal: a `speedCamera` event means **"this vehicle is likely exposed to a fine"**: it passed a known,
 operating speed camera, in the direction that camera enforces, faster than the limit that applies
@@ -30,6 +30,7 @@ with the code. It is proven offline against the full prod export before it ships
 | 0.8 | **Dataset owner: Luke, in the role of dev lead** (2026-09-16). | Name in the file header, role in this plan. The CI PR is assigned to the owner. |
 | 0.9 | **Québec mobile radar sites emit**, with `speedCameraKind = mobile_site` (2026-09-16). | Baseline is reported as **fixed and mobile separately**. Mobile-site events are **excluded from stage B acceptance counts** and **included in the counters** (`emittedMobileSite`). Enforcing: `shouldFire` does not test `kind`; the harness and §4.3 split on it. |
 | 0.10 | **The Routes speed-zone event builds on `speedCamera`** (2026-09-16). It and its historical pull ship after stages A and D; **the historical pull excludes rows tagged `suspect` by stage D.** | Procedural; the pull's query must carry `JSON_EXTRACT(attributes,'$.suspect') IS NULL`. |
+| 0.11 | **A 5 km/h buffer over the limit before a detection fires** (2026-09-18), from stage A on. | Declared key `event.speedCamera.buffer` (km/h, default 5), read once and converted to knots. Enforcing: `SpeedCameraEventHandler` compare (stage A), `shouldFire` (stage B). **Open:** whether 5 km/h also replaces the 3 km/h fallback tolerance in stage B's calendar (§2.3); published per-program values still override. |
 
 ---
 
@@ -360,6 +361,7 @@ has tagged history. `templates/*/speedCamera.vm`: speed and limit through the sp
 |---|---|---|
 | `event.speedCamera.radius` | 30 | metres, point-to-segment match distance |
 | `event.speedCamera.directionTolerance` | 60 | degrees; `-1` disables (V2 decides the final value) |
+| `event.speedCamera.buffer` | 5 | **km/h** over the limit before a detection fires (stage A, decision 0.11); stage B adds per-program tolerance on top or in its place (§2.3, open) |
 | `event.speedCamera.thresholdMultiplier` | 0 | fraction over the limit, applied before the absolute tolerance |
 | `event.speedCamera.lockSeconds` | 300 | per device per camera id |
 | `event.speedCamera.segment.maxSeconds` | 60 | segment cap |
@@ -379,7 +381,7 @@ Removed after one deprecation release (kept as no-ops that log a WARN at startup
 
 | Stage | Scope | Notes |
 |---|---|---|
-| **A — Hotfix** (ship first, alone) | D1, D2, D6, half of D7: compare in knots (`position.getSpeed() > limitKnots + SPEED_EQUALITY_EPSILON_KNOTS`, epsilon **0.01 kn**: an equality guard for km/h-to-knots conversion noise, not a tolerance — see build note 7.2), treat `speedLimit <= 0` or absent as missing with a `readNoLimit` counter (counted only inside a camera zone), write `speed` + `speedLimit` in knots and keep `deviceSpeed` km/h; FE case for `speedCamera` reading both payload shapes; templates print speed and limit; state key written with **`setWithTTL(key, json, 3600)`** (the state carries only the 60 s highway lock, one hour is ample). ~40 lines, trivially reviewable. **Built 2026-09-16 on `riq-speed-camera-fix`; V1-A = 11,638 exactly.** | Expected prod rate after A under the current gate: 27.6 % × 462 ≈ **125/day** (was "~80/day of 292" in r1). Acceptance §4.1 V1-A. |
+| **A — Hotfix** (ship first, alone) | D1, D2, D6, half of D7: compare in knots (`position.getSpeed() > limitKnots + bufferKnots + SPEED_EQUALITY_EPSILON_KNOTS`; **buffer = `event.speedCamera.buffer`, 5 km/h default, decision 0.11**; epsilon **0.01 kn**: an equality guard for km/h-to-knots conversion noise, not a tolerance — see build note 7.2), treat `speedLimit <= 0` or absent as missing with a `readNoLimit` counter (counted only inside a camera zone), write `speed` + `speedLimit` in knots and keep `deviceSpeed` km/h; FE case for `speedCamera` reading both payload shapes; templates print speed and limit; state key written with **`setWithTTL(key, json, 3600)`** (the state carries only the 60 s highway lock, one hour is ample). ~40 lines, trivially reviewable. **Built 2026-09-16 on `riq-speed-camera-fix`, buffer added 2026-09-18; V1-A = 7,567 exactly (11,638 at buffer 0).** In review: SquareOneYYZ/Union PR #149, Union-fe PR #180. | Expected prod rate after A under the current gate: 17.9 % × 462 ≈ **83/day** (27.6 % ≈ 125/day without the buffer; r1 said "~80/day of 292"). Acceptance §4.1 V1-A. |
 | **B — Segment matching against the curated dataset** | `build_dataset.py`, `cameras.json`, `calendar.json`, `SegmentBuilder`, `CameraDataset`, `SpeedCameraMatcher`, `SpeedCameraHandler`, rewritten `SpeedCameraEventHandler`, toll-provider cleanup (D13), removal of D8 keys. **No flip-back flag: revert is the rollback.** | Depends on A's payload shape and on the owner being named (§2.2.1). |
 | **C — Nearest-road limit for `deviceOverspeed`** | `OverpassSpeedLimitProvider` geometry pick + cell cache (D3). | Independent of B (principle 3). Own before/after count; 45–55 k events/day are affected. |
 | **D — Historical events** | *Procedural, user decision.* Tag, never delete: `UPDATE tc_events SET attributes = JSON_SET(attributes,'$.suspect',true) WHERE type='speedCamera' AND eventtime < '<stage A deploy time>' AND (JSON_EXTRACT(attributes,'$.speedLimit') IS NULL OR JSON_EXTRACT(attributes,'$.speedLimit') = 0 OR JSON_EXTRACT(attributes,'$.deviceSpeed') <= JSON_EXTRACT(attributes,'$.speedLimit') * 1.852);` — the `eventtime` bound makes it idempotent, `IS NULL` catches absent limits. | ~30,600 of 42,210 rows in the window are known not to be fine exposure. |
@@ -413,7 +415,7 @@ events, misses, and events without a pass.
 
 | # | Dataset | Question | Acceptance |
 |---|---|---|---|
-| V1-A | Pinned export, 42,210 event positions | Stage A regression pin: the hotfix rule reproduces the audit's unit-fix column. | **11,638 ± 1 %**. This pins the rule against the spreadsheet that produced it; it is not validation of correctness. **Result 2026-09-16: 11,638 (+0.00 %), 42,210 of 42,210 rows agree with the audit column; old rule reproduces all 42,210.** Output `data prod/stage-a/v1a_summary.md`, `v1a_verdicts.tsv`. |
+| V1-A | Pinned export, 42,210 event positions | Stage A regression pin: the hotfix rule reproduces two independent references from the audit file: `verdict_unit_fix_only` at buffer 0, and `speed_kmh − stored_limit_kmh > 5` on the audit's own km/h columns at the default buffer. | **7,567 ± 1 % at buffer 5 km/h** and **11,638 ± 1 % at buffer 0** (continuity). Pins the rule against the spreadsheet that produced it; not validation of correctness. **Result 2026-09-18: 7,567 (+0.00 %) and 11,638 (+0.00 %); 42,210 of 42,210 rows agree on both checks; old rule reproduces all 42,210.** Output `data prod/stage-a/v1a_summary.md`, `v1a_verdicts.tsv`. |
 | V1-B | Same | Stage B rule at 100 m point radius without official overlay / with overlay / with calendar, direction, plausibility, tolerance | **7,030 / 4,477 / 2,361 fixed** ± 1 %, with **1,347 mobile-site** events reported beside them and not counted toward acceptance (decision 0.9); strict ticket rule **44 + 218**. |
 | V2 | `positions_sep3.tsv`, `positions_sep8.tsv` (all moving fixes, all devices) | How many passes exist (segment definition) vs how many a 50 m / 100 m point radius sees; how many the gate hid; what the new rule fires. **This is the stage B acceptance for "all data points".** | Zero events without a pass; zero events with `distance > radius`; zero events failing the direction check; every pass over limit+tolerance in the enforced direction at an active-or-unknown program produces exactly one event. **Acceptance is computed on fixed-site cameras; mobile-site passes and events are reported in a separate column and feed the `emittedMobileSite` counter check** (decision 0.9). Report the Sep 3 / Sep 8 event counts beside the 223 / 452 that prod fired. Decide `directionTolerance` and `radius` here. |
 | V3 | Same days, `deviceOverspeed` positions | Stage C side-effect: how many limits change when the nearest road replaces the first. | Reported, no threshold. |
@@ -427,7 +429,7 @@ events, misses, and events without a pass.
 | T-2 | limit 26.998 kn, speed 20 kn (37 km/h in a 50 zone) → no event | D1 |
 | T-3 | limit 26.998 kn, speed 30 kn, tolerance 1.62 kn → event with `speed`/`speedLimit` in knots and `deviceSpeed` km/h duplicate | D1, D6, 0.6 |
 | T-3b | **equality guard**: speed 26.9979 kn vs limit 26.9978 kn (50 km/h through two conversions) → no event; 0.26 kn over → event | build note 7.2 |
-| T-4 | limit 26.998 kn, speed 27.5 kn (limit + 1 km/h), fallback tolerance → **no event**; tolerance 0 → event | tolerance |
+| T-4 | **buffer**: limit 50 km/h, speed 54.9 → no event; 55.0 → no event (at the buffer); 55.1 → event; `event.speedCamera.buffer = 10` → 59.9 no, 60.1 yes (stage A, decision 0.11) | 0.11 |
 | T-5 | **direction wrap**: camera `one_way` 350°, bearing 10° → accept; bearing 190° → reject | D11 |
 | T-6 | **filter-then-nearest**: two `one_way` cameras 20 m apart facing 90° and 270°, segment bearing 88°, the 270° one nearer → matches the 90° camera | D12 |
 | T-7 | **segment match with caps**: camera 25 m off the segment midpoint, 140 m from both fixes → event at radius 30; same with `dt` 61 s → no segment, point-only, no event; same with length 1,001 m → no event | D9 |
@@ -460,7 +462,7 @@ Baselines, all from the pinned data:
 | Baseline | Value |
 |---|---|
 | Pre-fix, current gate (Sep 7 to 10) | **462/day** (Sep 1 to 6: 280/day; Apr 1 to Sep 10: 263/day) |
-| After stage A (27.6 % of the above) | **≈ 125/day** |
+| After stage A with the 5 km/h buffer (17.9 % of the above) | **≈ 83/day** (≈ 125/day at buffer 0) |
 | **Fine exposure under current sampling, fixed sites** (2,361 over 163 days) | **≈ 14.5/day** |
 | **Fine exposure under current sampling, Québec mobile sites** (1,347 over 163 days; `kind = mobile_site`) | **≈ 8.3/day**, reported as its own line and never merged into the fixed figure |
 | After stage B | the V2 pass count on Sep 3 / Sep 8 scaled to the fleet; **not predictable from the export** because stage B sees passes the gate hid |
@@ -483,6 +485,7 @@ A–D. Stage D's SQL needs the stage A deploy timestamp, known at deploy time.
 - **Québec mobile sites:** emit as `mobile_site`, counted separately, decision 0.9. Resolved
   2026-09-16. Residual risk: some mobile-site events are passes where no unit was present; the
   kind flag lets a customer filter them.
+- **Stage B fallback tolerance:** the calendar's fallback is 3 km/h (§2.3, user amendment 2026-09-13); stage A now applies 5 km/h flat (decision 0.11). **Decision requested:** make 5 km/h the fallback so A and B agree where no program value is published, or keep 3 km/h and let the published/assumed per-program values take over in B.
 - **Direction tolerance 60° and radius 30 m** are r2 defaults; V2 fixes them.
 - **Tolerances are assumed** for Québec (10 km/h), Alberta mobile (10), B.C. (20). A wrong assumption
   moves events across the fine line, not into or out of the annotation.
@@ -554,3 +557,14 @@ A–D. Stage D's SQL needs the stage A deploy timestamp, known at deploy time.
 | Old rule reproduces the export | The harness's copy of the pre-fix rule fires on all 42,210 exported rows from their stored attributes, so the export is a faithful record of what prod evaluated. |
 | Export `valid` column is empty | All 42,210 rows carry an empty `valid`; they fired, so they were valid at the time. The harness does not filter on it. |
 | Not done in stage A | Nothing else from stages B–D; `highwayTypes`/`enforcementTypes` stay undeclared (D8) until B. |
+
+### 7.3 r2.1 → r2.2 (2026-09-18)
+
+| Change | Why | Source |
+|---|---|---|
+| 5 km/h detection buffer from stage A on, as declared key `event.speedCamera.buffer` (km/h, default 5), converted once to knots and added to the compare; equality guard kept underneath it | user wants a buffer on detections | user decision 0.11 |
+| V1-A acceptance becomes 7,567 at the default buffer with 11,638 kept as the buffer-0 continuity check; both references computed independently from the audit file | the pin must follow the rule | harness, audit km/h columns |
+| Expected prod rate after A: ≈ 83/day (17.9 % of 462) | follows from the buffer | daily counts |
+| Tests: T-4 rewritten for the buffer (4.9 / 5.0 / 5.1 km/h and a 10 km/h override); T-3b now runs on a zero-buffer handler | pin the buffer and keep the guard pinned separately | build |
+| Stage A PRs: SquareOneYYZ/Union #149 (fix + docs commits), Union-fe #180; targets are the SquareOneYYZ masters | user: there is no Rides-IQ git to PR into | user 2026-09-18 |
+| Open: stage B fallback tolerance 3 vs 5 km/h | A and B should agree where no program value exists | this revision |

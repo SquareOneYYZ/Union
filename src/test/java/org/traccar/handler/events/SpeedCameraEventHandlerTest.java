@@ -4,6 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.traccar.BaseTest;
 import org.traccar.config.Config;
+import org.traccar.config.Keys;
+import org.traccar.helper.UnitsConverter;
 import org.traccar.model.Event;
 import org.traccar.model.Position;
 import org.traccar.storage.localCache.RedisCache;
@@ -22,9 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Stage A of docs/plans/speed-camera-fix-plan.md: the handler compares knots to knots,
- * treats a missing or non-positive limit as a non-reading, writes the payload in Traccar
- * units (knots) with the km/h duplicate kept for one release, and persists its state with a
- * TTL. Test ids (T-n) refer to plan section 4.2.
+ * fires only past a configurable buffer over the limit (event.speedCamera.buffer, 5 km/h
+ * default), treats a missing or non-positive limit as a non-reading, writes the payload in
+ * Traccar units (knots) with the km/h duplicate kept for one release, and persists its state
+ * with a TTL. Test ids (T-n) refer to plan section 4.2.
  *
  * The camera signal in these tests is {@code enforcement=maxspeed}, which is both the code
  * default and the prod value; the {@code highway} list is undeclared config until stage B
@@ -133,18 +136,45 @@ public class SpeedCameraEventHandlerTest extends BaseTest {
     }
 
     @Test
-    public void atLimitThroughADifferentConversionDoesNotFire() {
-        // 50 km/h from a decoder that rounds differently than knotsFromKph: 26.9979 vs 26.9978 kn.
-        // 539 exported events sat here; a strict compare fires on the fifth decimal.
-        process(cameraPosition(0, 26.9979, 26.9978));
-        assertTrue(events.isEmpty(), "the same km/h value must not fire because of conversion noise");
-        // The smallest genuine over-limit reading in the export was 0.26 kn over; that must still fire.
-        process(cameraPosition(120, 26.9978 + 0.26, 26.9978));
-        assertEquals(1, events.size());
+    public void bufferOfFiveKphIsAppliedOverTheLimit() { // T-4: event.speedCamera.buffer default 5 km/h
+        process(cameraPosition(0, UnitsConverter.knotsFromKph(54.9), LIMIT_50_KMH_IN_KNOTS));
+        assertTrue(events.isEmpty(), "4.9 km/h over a 50 limit is inside the 5 km/h buffer");
+        process(cameraPosition(120, UnitsConverter.knotsFromKph(55.0), LIMIT_50_KMH_IN_KNOTS));
+        assertTrue(events.isEmpty(), "exactly 5.0 km/h over is at the buffer, not past it");
+        process(cameraPosition(240, UnitsConverter.knotsFromKph(55.1), LIMIT_50_KMH_IN_KNOTS));
+        assertEquals(1, events.size(), "5.1 km/h over clears the buffer");
+        assertEquals(UnitsConverter.knotsFromKph(55.1), events.get(0).getDouble("speed"), 0.0001);
     }
 
     @Test
-    public void overLimitFiresWithPayloadInKnots() { // T-3: 55.6 km/h in a 50 zone
+    public void bufferIsConfigurable() {
+        Config config = new Config();
+        config.setString(Keys.EVENT_SPEED_CAMERA_BUFFER, "10");
+        SpeedCameraEventHandler tenKph = new SpeedCameraEventHandler(new FakeRedisCache(), config);
+        List<Event> got = new ArrayList<>();
+        tenKph.onPosition(cameraPosition(0, UnitsConverter.knotsFromKph(59.9), LIMIT_50_KMH_IN_KNOTS), got::add);
+        assertTrue(got.isEmpty(), "9.9 km/h over is inside a 10 km/h buffer");
+        tenKph.onPosition(cameraPosition(120, UnitsConverter.knotsFromKph(60.1), LIMIT_50_KMH_IN_KNOTS), got::add);
+        assertEquals(1, got.size());
+    }
+
+    @Test
+    public void atLimitThroughADifferentConversionDoesNotFireEvenWithZeroBuffer() { // T-3b, equality guard
+        Config config = new Config();
+        config.setString(Keys.EVENT_SPEED_CAMERA_BUFFER, "0");
+        SpeedCameraEventHandler noBuffer = new SpeedCameraEventHandler(new FakeRedisCache(), config);
+        List<Event> got = new ArrayList<>();
+        // 50 km/h from a decoder that rounds differently than knotsFromKph: 26.9979 vs 26.9978 kn.
+        // 539 exported events sat here; a strict compare fires on the fifth decimal.
+        noBuffer.onPosition(cameraPosition(0, 26.9979, 26.9978), got::add);
+        assertTrue(got.isEmpty(), "the same km/h value must not fire because of conversion noise");
+        // The smallest genuine over-limit reading in the export was 0.26 kn over; with no buffer that fires.
+        noBuffer.onPosition(cameraPosition(120, 26.9978 + 0.26, 26.9978), got::add);
+        assertEquals(1, got.size());
+    }
+
+    @Test
+    public void overLimitFiresWithPayloadInKnots() { // T-3: 55.6 km/h in a 50 zone clears the 5 km/h buffer
         process(cameraPosition(0, 30, LIMIT_50_KMH_IN_KNOTS));
         assertEquals(1, events.size());
         Event event = events.get(0);

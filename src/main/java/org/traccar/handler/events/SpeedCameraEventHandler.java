@@ -6,6 +6,8 @@ import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.config.Config;
+import org.traccar.config.Keys;
+import org.traccar.helper.UnitsConverter;
 import org.traccar.model.Event;
 import org.traccar.model.Position;
 import org.traccar.session.state.SpeedCameraState;
@@ -47,11 +49,19 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
      */
     static final double SPEED_EQUALITY_EPSILON_KNOTS = 0.01;
 
+    /**
+     * Policy buffer over the limit before an event fires, from {@code event.speedCamera.buffer}
+     * (km/h, default 5) converted once to knots. This is the operator-style tolerance; the epsilon
+     * above is only the equality guard and applies on top of it.
+     */
+    private final double bufferKnots;
+
     @Inject
     public SpeedCameraEventHandler(RedisCache redisCache, Config config) {
         this.redisCache = redisCache;
         this.config = config;
         this.objectMapper = new ObjectMapper();
+        this.bufferKnots = UnitsConverter.knotsFromKph(config.getDouble(Keys.EVENT_SPEED_CAMERA_BUFFER));
     }
 
     public long getReadNoLimit() {
@@ -142,15 +152,15 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
             LOGGER.debug("Skipping speed camera: no speedLimit for deviceId={} in zone highway='{}',"
                     + " enforcement='{}', speed={} kn (readNoLimit={})",
                     deviceId, highwayTag, enforcementTag, speedKnots, skipped);
-        } else if (speedKnots > speedLimitKnots + SPEED_EQUALITY_EPSILON_KNOTS) {
-            LOGGER.debug("Speed camera triggered: highway='{}', enforcement='{}', speed={} kn > limit {} kn",
-                    highwayTag, enforcementTag, speedKnots, speedLimitKnots);
+        } else if (speedKnots > speedLimitKnots + bufferKnots + SPEED_EQUALITY_EPSILON_KNOTS) {
+            LOGGER.debug("Speed camera triggered: highway='{}', enforcement='{}', speed={} kn > limit {} kn"
+                    + " + buffer {} kn", highwayTag, enforcementTag, speedKnots, speedLimitKnots, bufferKnots);
 
             cameraState.addDetection(position, confidenceWindow, highwayTag, speedKnots, speedLimitKnots);
 
         } else {
-            LOGGER.debug("Skipping speed camera: highway='{}', enforcement='{}', speed={} kn <= limit {} kn",
-                    highwayTag, enforcementTag, speedKnots, speedLimitKnots);
+            LOGGER.debug("Skipping speed camera: highway='{}', enforcement='{}', speed={} kn <= limit {} kn"
+                    + " + buffer {} kn", highwayTag, enforcementTag, speedKnots, speedLimitKnots, bufferKnots);
         }
 
 
