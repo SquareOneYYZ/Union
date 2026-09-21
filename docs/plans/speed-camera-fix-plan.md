@@ -1,6 +1,6 @@
 # Speed Camera Detection — Fix Plan
 
-**Status:** Plan r2.2 (stage A in review) · **r2.2 date:** 2026-09-18 (r2.1: 2026-09-16, r2: 2026-09-13, r1: 2026-09-09) · **Branch for the work:** new branch off `master` (`riq-speed-camera-fix`) · **Single source of truth:** this file. `claude-code-speed-camera-fix-prompt.md` is generated from it and never edited on its own.
+**Status:** Plan r2.3 (stage A in review) · **r2.3 date:** 2026-09-20 (r2.2: 2026-09-18, r2.1: 2026-09-16, r2: 2026-09-13, r1: 2026-09-09) · **Branch for the work:** new branch off `master` (`riq-speed-camera-fix`) · **Single source of truth:** this file. `claude-code-speed-camera-fix-prompt.md` is generated from it and never edited on its own.
 
 Goal: a `speedCamera` event means **"this vehicle is likely exposed to a fine"**: it passed a known,
 operating speed camera, in the direction that camera enforces, faster than the limit that applies
@@ -30,7 +30,7 @@ with the code. It is proven offline against the full prod export before it ships
 | 0.8 | **Dataset owner: Luke, in the role of dev lead** (2026-09-16). | Name in the file header, role in this plan. The CI PR is assigned to the owner. |
 | 0.9 | **Québec mobile radar sites emit**, with `speedCameraKind = mobile_site` (2026-09-16). | Baseline is reported as **fixed and mobile separately**. Mobile-site events are **excluded from stage B acceptance counts** and **included in the counters** (`emittedMobileSite`). Enforcing: `shouldFire` does not test `kind`; the harness and §4.3 split on it. |
 | 0.10 | **The Routes speed-zone event builds on `speedCamera`** (2026-09-16). It and its historical pull ship after stages A and D; **the historical pull excludes rows tagged `suspect` by stage D.** | Procedural; the pull's query must carry `JSON_EXTRACT(attributes,'$.suspect') IS NULL`. |
-| 0.11 | **A 5 km/h buffer over the limit before a detection fires** (2026-09-18), from stage A on. | Declared key `event.speedCamera.buffer` (km/h, default 5), read once and converted to knots. Enforcing: `SpeedCameraEventHandler` compare (stage A), `shouldFire` (stage B). **Open:** whether 5 km/h also replaces the 3 km/h fallback tolerance in stage B's calendar (§2.3); published per-program values still override. |
+| 0.11 | **A 5 km/h buffer over the limit before a detection fires** (2026-09-18), from stage A on. | Declared key `event.speedCamera.buffer` (km/h, default 5), read once and converted to knots. Enforcing: `SpeedCameraEventHandler` compare (stage A), `shouldFire` (stage B). **Resolved 2026-09-20: 5 km/h is also stage B's calendar fallback tolerance**, so A and B agree wherever no program value is published; published or assumed per-program values still override. |
 
 ---
 
@@ -154,7 +154,7 @@ Also measured: `course == 0` with `speed > 0` on 9,444 of 1,039,054 Sep 3 moving
 ### 2.2 Camera dataset (`src/main/resources/speedcamera/cameras.json`)
 
 **2.2.1 Ownership and lifecycle (procedural, decisions 0.5 and 0.8).** Owner: **Luke, dev lead**
-(GitHub assignee `lakha-riq`, the account the user is logged in with; stated 2026-09-16). The name
+(GitHub assignee `lakha-riq`; confirmed by the user 2026-09-20). The name
 goes in the file header (`"owner": "Luke"`); the role and the handle live here so the header does
 not have to change when either does. Lifecycle:
 
@@ -263,7 +263,7 @@ annotation can say why they do not emit (decision 0.2).
 when inside `[activeFrom, activeTo)` and the hours rule (evaluated in the camera's local time
 zone) passes; `INACTIVE` when outside or when the entry is a verified-absent program; `UNKNOWN`
 when `programId` is null or has no entry. `UNKNOWN` emits (decision 0.4). **Fallback tolerance
-3 km/h (1.62 knots)** for `UNKNOWN` and for entries without a published or assumed value.
+5 km/h (2.70 knots)**, the same value as stage A's `event.speedCamera.buffer` (decision 0.11), for `UNKNOWN` and for entries without a published or assumed value.
 `EnforcementCalendar.toleranceKnots(programId)` returns the entry's value or the fallback.
 
 | programId | Jurisdiction / kinds | activeFrom | activeTo | Hours | Tolerance | Source (checked) |
@@ -274,12 +274,12 @@ when `programId` is null or has no entry. `UNKNOWN` emits (decision 0.4). **Fall
 | `ab_mobile_photo_radar` | Alberta mobile, school/playground/construction zones only | 2025-04-01 | open | none | 10 km/h assumed | same as above; no site list → rows stay `UNKNOWN` unless the OSM node is inside such a zone |
 | `il_chicago_ase` | Chicago fixed cameras, school and park zones | per-camera go-live from the city list | open | none | **6 mph (5.2 kn) published** | City of Chicago list; WTTW 2025-02-19 on the 30 mph default (2026-09-11) |
 | `bc_isc_speed` | B.C. speed-enabled intersection cameras | — | open | none | 20 km/h assumed ("well above the limit") | news.gov.bc.ca 2026AG0062 (2026-09-10) |
-| `sk_sgi_photo_speed` | Saskatchewan | — | open, **inactive 2026-05-31 to 2026-08-31** | none | fallback 3 km/h | Global News 11997164 (2026-09-11) |
+| `sk_sgi_photo_speed` | Saskatchewan | — | open, **inactive 2026-05-31 to 2026-08-31** | none | fallback 5 km/h | Global News 11997164 (2026-09-11) |
 | `ga_school_zone` | Georgia school-zone cameras | — | open | school days, 1 h before to 1 h after classes; school calendar **not verified** | 10 mph (fires at 11+) | Gwinnett County police page; statute amended 2026-07-01, text not retrieved |
 | `in_none` | Indiana (no ASE outside interstate work zones) | — | — | — | — | WFYI (2026-09-11) → `INACTIVE` |
 | `us_no_ase_nc_oh_wy` | North Carolina, Ohio, Wyoming | — | — | — | — | *source not recorded in the audit; to be added by the owner* → `INACTIVE` |
-| `co_lakewood` | Lakewood, CO | — | open | none | fallback 3 km/h | lakewood.municipal.codes LMC 10.04.040 (2026-09-11) → `UNKNOWN` (code allows school zones, red lights, rail crossings; site on no list) |
-| *(no entry)* | anything else | | | | fallback 3 km/h | → `UNKNOWN`, emits |
+| `co_lakewood` | Lakewood, CO | — | open | none | fallback 5 km/h | lakewood.municipal.codes LMC 10.04.040 (2026-09-11) → `UNKNOWN` (code allows school zones, red lights, rail crossings; site on no list) |
+| *(no entry)* | anything else | | | | fallback 5 km/h | → `UNKNOWN`, emits |
 
 ### 2.4 Runtime components
 
@@ -329,7 +329,7 @@ distanceM, bearingOk, onWay}` or `null`, in this order (enforcing: `SpeedCameraM
 - `PlausibilityCheck.accepts(segment)`: speed ≤ 180 km/h (97.2 kn) and, when the segment exists,
   reported ÷ distance-over-time speed within 0.5–1.35;
 - `speedKnots > limitKnots * (1 + thresholdMultiplier) + toleranceKnots` where tolerance comes
-  from the calendar (fallback 1.62 kn);
+  from the calendar (fallback 2.70 kn = 5 km/h, the stage A buffer value);
 - not locked: `SpeedCameraState.isLocked(cameraId, now, lockSeconds)` — one event per device per
   **camera id** per `event.speedCamera.lockSeconds` (default 300).
 State: `SpeedCameraState{ Map<cameraId, lastEmitEpochMs> }`, written with
@@ -427,7 +427,7 @@ events, misses, and events without a pass.
 |---|---|---|
 | T-1 | limit absent → no event, `readNoLimit` incremented | D2 |
 | T-2 | limit 26.998 kn, speed 20 kn (37 km/h in a 50 zone) → no event | D1 |
-| T-3 | limit 26.998 kn, speed 30 kn, tolerance 1.62 kn → event with `speed`/`speedLimit` in knots and `deviceSpeed` km/h duplicate | D1, D6, 0.6 |
+| T-3 | limit 26.998 kn, speed 30 kn (5.56 km/h over, clears the 5 km/h buffer) → event with `speed`/`speedLimit` in knots and `deviceSpeed` km/h duplicate | D1, D6, 0.6, 0.11 |
 | T-3b | **equality guard**: speed 26.9979 kn vs limit 26.9978 kn (50 km/h through two conversions) → no event; 0.26 kn over → event | build note 7.2 |
 | T-4 | **buffer**: limit 50 km/h, speed 54.9 → no event; 55.0 → no event (at the buffer); 55.1 → event; `event.speedCamera.buffer = 10` → 59.9 no, 60.1 yes (stage A, decision 0.11) | 0.11 |
 | T-5 | **direction wrap**: camera `one_way` 350°, bearing 10° → accept; bearing 190° → reject | D11 |
@@ -485,7 +485,7 @@ A–D. Stage D's SQL needs the stage A deploy timestamp, known at deploy time.
 - **Québec mobile sites:** emit as `mobile_site`, counted separately, decision 0.9. Resolved
   2026-09-16. Residual risk: some mobile-site events are passes where no unit was present; the
   kind flag lets a customer filter them.
-- **Stage B fallback tolerance:** the calendar's fallback is 3 km/h (§2.3, user amendment 2026-09-13); stage A now applies 5 km/h flat (decision 0.11). **Decision requested:** make 5 km/h the fallback so A and B agree where no program value is published, or keep 3 km/h and let the published/assumed per-program values take over in B.
+- **Stage B fallback tolerance:** 5 km/h, matching stage A's buffer (decision 0.11). Resolved 2026-09-20.
 - **Direction tolerance 60° and radius 30 m** are r2 defaults; V2 fixes them.
 - **Tolerances are assumed** for Québec (10 km/h), Alberta mobile (10), B.C. (20). A wrong assumption
   moves events across the fine line, not into or out of the annotation.
@@ -568,3 +568,10 @@ A–D. Stage D's SQL needs the stage A deploy timestamp, known at deploy time.
 | Tests: T-4 rewritten for the buffer (4.9 / 5.0 / 5.1 km/h and a 10 km/h override); T-3b now runs on a zero-buffer handler | pin the buffer and keep the guard pinned separately | build |
 | Stage A PRs: SquareOneYYZ/Union #149 (fix + docs commits), Union-fe #180; targets are the SquareOneYYZ masters | user: there is no Rides-IQ git to PR into | user 2026-09-18 |
 | Open: stage B fallback tolerance 3 vs 5 km/h | A and B should agree where no program value exists | this revision |
+
+### 7.4 r2.2 → r2.3 (2026-09-20)
+
+| Change | Why | Source |
+|---|---|---|
+| Stage B calendar fallback tolerance 3 → 5 km/h (2.70 kn), matching stage A's buffer; §2.3 entries, `shouldFire` note and T-3 updated | stages A and B must agree where no program value is published | user decision 2026-09-20 |
+| Dataset PR assignee `lakha-riq` confirmed | the plan carried it as stated, not confirmed | user 2026-09-20 |
