@@ -87,7 +87,7 @@
     </div>
     <div class="title">Speed Camera Alert</div>
     <div class="content">
-      <p>Your device passed a known speed camera over the posted limit:</p>
+      <p>Your device passed a known speed camera above the speed limit on record for that location:</p>
       <table class="info-table">
         <tr><td class="label">Device:</td><td>$device.name</td></tr>
         <tr><td class="label">Speed:</td><td>$speedString</td></tr>

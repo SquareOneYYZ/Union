@@ -10,4 +10,4 @@
 #set($speedString = $numberTool.format("0.0 kn", $position.speed))
 #if($limitKnots)#set($limitString = $numberTool.format("0.0 kn", $limitKnots))#end
 #end
-$device.name passed a known speed camera at $speedString#{if}($limitString) (limit $limitString)#{end} at $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)
+$device.name passed a known speed camera at $speedString#{if}($limitString) (limit $limitString)#{end} on $dateTool.format("YYYY-MM-dd HH:mm:ss", $event.eventTime, $locale, $timezone)

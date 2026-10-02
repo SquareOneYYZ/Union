@@ -1,6 +1,6 @@
 # Speed Camera Detection — Fix Plan
 
-**Status:** Plan r2.3 (stage A in review) · **r2.3 date:** 2026-09-20 (r2.2: 2026-09-18, r2.1: 2026-09-16, r2: 2026-09-13, r1: 2026-09-09) · **Branch for the work:** new branch off `master` (`riq-speed-camera-fix`) · **Single source of truth:** this file. `claude-code-speed-camera-fix-prompt.md` is generated from it and never edited on its own.
+**Status:** Plan r2.4 (stage A in review) · **r2.4 date:** 2026-10-01 (r2.3: 2026-09-20, r2.2: 2026-09-18, r2.1: 2026-09-16, r2: 2026-09-13, r1: 2026-09-09) · **Branch for the work:** new branch off `master` (`riq-speed-camera-fix`) · **Single source of truth:** this file. `claude-code-speed-camera-fix-prompt.md` is generated from it and never edited on its own.
 
 Goal: a `speedCamera` event means **"this vehicle is likely exposed to a fine"**: it passed a known,
 operating speed camera, in the direction that camera enforces, faster than the limit that applies
@@ -381,7 +381,7 @@ Removed after one deprecation release (kept as no-ops that log a WARN at startup
 
 | Stage | Scope | Notes |
 |---|---|---|
-| **A — Hotfix** (ship first, alone) | D1, D2, D6, half of D7: compare in knots (`position.getSpeed() > limitKnots + bufferKnots + SPEED_EQUALITY_EPSILON_KNOTS`; **buffer = `event.speedCamera.buffer`, 5 km/h default, decision 0.11**; epsilon **0.01 kn**: an equality guard for km/h-to-knots conversion noise, not a tolerance — see build note 7.2), treat `speedLimit <= 0` or absent as missing with a `readNoLimit` counter (counted only inside a camera zone), write `speed` + `speedLimit` in knots and keep `deviceSpeed` km/h; FE case for `speedCamera` reading both payload shapes; templates print speed and limit; state key written with **`setWithTTL(key, json, 3600)`** (the state carries only the 60 s highway lock, one hour is ample). ~40 lines, trivially reviewable. **Built 2026-09-16 on `riq-speed-camera-fix`, buffer added 2026-09-18; V1-A = 7,567 exactly (11,638 at buffer 0).** In review: SquareOneYYZ/Union PR #149, Union-fe PR #180. | Expected prod rate after A under the current gate: 17.9 % × 462 ≈ **83/day** (27.6 % ≈ 125/day without the buffer; r1 said "~80/day of 292"). Acceptance §4.1 V1-A. |
+| **A — Hotfix** (ship first, alone) | D1, D2, D6, half of D7: compare in knots (`position.getSpeed() > limitKnots + bufferKnots + SPEED_EQUALITY_EPSILON_KNOTS`; **buffer = `event.speedCamera.buffer`, 5 km/h default, decision 0.11**; epsilon **0.01 kn**: an equality guard for km/h-to-knots conversion noise, not a tolerance — see build note 7.2), treat a limit that is absent, `<= 0`, NaN or infinite as missing with a `readNoLimit` counter (counted only inside a camera zone; counters `cameraZoneReads` / `readNoLimit` / `overLimit` logged at INFO every 100 camera-zone reads by `SpeedCameraEventHandler.onPosition`), a negative `event.speedCamera.buffer` clamped to 0 with a WARN (constructor), write `speed` + `speedLimit` in knots and keep `deviceSpeed` km/h; FE case for `speedCamera` reading both payload shapes; templates print speed and limit (the full template moves to the house HTML layout every other `templates/full/*.vm` uses, subject "Speed Camera Alert" like "Overspeed Alert", and says "above the speed limit on record" rather than "posted limit" because the stored limit can be another road's until stage C, D3/D4); state key written with **`setWithTTL(key, json, 3600)`** (the state carries only the 60 s highway lock, one hour is ample). ~40 lines, trivially reviewable. **Built 2026-09-16 on `riq-speed-camera-fix`, buffer added 2026-09-18; V1-A = 7,567 exactly (11,638 at buffer 0).** In review: SquareOneYYZ/Union PR #149, Union-fe PR #180. | Expected prod rate after A under the current gate: 17.9 % × 462 ≈ **83/day** (27.6 % ≈ 125/day without the buffer; r1 said "~80/day of 292"). Acceptance §4.1 V1-A. |
 | **B — Segment matching against the curated dataset** | `build_dataset.py`, `cameras.json`, `calendar.json`, `SegmentBuilder`, `CameraDataset`, `SpeedCameraMatcher`, `SpeedCameraHandler`, rewritten `SpeedCameraEventHandler`, toll-provider cleanup (D13), removal of D8 keys. **No flip-back flag: revert is the rollback.** | Depends on A's payload shape and on the owner being named (§2.2.1). |
 | **C — Nearest-road limit for `deviceOverspeed`** | `OverpassSpeedLimitProvider` geometry pick + cell cache (D3). | Independent of B (principle 3). Own before/after count; 45–55 k events/day are affected. |
 | **D — Historical events** | *Procedural, user decision.* Tag, never delete: `UPDATE tc_events SET attributes = JSON_SET(attributes,'$.suspect',true) WHERE type='speedCamera' AND eventtime < '<stage A deploy time>' AND (JSON_EXTRACT(attributes,'$.speedLimit') IS NULL OR JSON_EXTRACT(attributes,'$.speedLimit') = 0 OR JSON_EXTRACT(attributes,'$.deviceSpeed') <= JSON_EXTRACT(attributes,'$.speedLimit') * 1.852);` — the `eventtime` bound makes it idempotent, `IS NULL` catches absent limits. | ~30,600 of 42,210 rows in the window are known not to be fine exposure. |
@@ -425,10 +425,10 @@ events, misses, and events without a pass.
 
 | # | Case | Pins |
 |---|---|---|
-| T-1 | limit absent → no event, `readNoLimit` incremented | D2 |
+| T-1 | limit absent, 0, negative, NaN or infinite → no event, `readNoLimit` incremented | D2 |
 | T-2 | limit 26.998 kn, speed 20 kn (37 km/h in a 50 zone) → no event | D1 |
 | T-3 | limit 26.998 kn, speed 30 kn (5.56 km/h over, clears the 5 km/h buffer) → event with `speed`/`speedLimit` in knots and `deviceSpeed` km/h duplicate | D1, D6, 0.6, 0.11 |
-| T-3b | **equality guard**: speed 26.9979 kn vs limit 26.9978 kn (50 km/h through two conversions) → no event; 0.26 kn over → event | build note 7.2 |
+| T-3b | **equality guard**: speed `float32(knotsFromKph(50))` vs limit `knotsFromKph(50)` (how the replay reads the FLOAT column) → no event; 0.26 kn over → event | build note 7.2 |
 | T-4 | **buffer**: limit 50 km/h, speed 54.9 → no event; 55.0 → no event (at the buffer); 55.1 → event; `event.speedCamera.buffer = 10` → 59.9 no, 60.1 yes (stage A, decision 0.11) | 0.11 |
 | T-5 | **direction wrap**: camera `one_way` 350°, bearing 10° → accept; bearing 190° → reject | D11 |
 | T-6 | **filter-then-nearest**: two `one_way` cameras 20 m apart facing 90° and 270°, segment bearing 88°, the 270° one nearer → matches the 90° camera | D12 |
@@ -449,13 +449,25 @@ events, misses, and events without a pass.
 | T-21 | `EnforcementCalendarTest`: every entry has `source.url` and `source.checked`; every entry with a tolerance has `toleranceSource` | calendar hygiene |
 
 Test fakes must express: dataset load failure, calendar entry missing, previous position missing,
-Redis unavailable.
+Redis unavailable. Stage A's `FakeRedisCache` expresses unavailable, a failing read and corrupt
+stored JSON: both rebuild fresh state, still evaluate, and rewrite with the TTL; a failing read
+loses the 60 s lock, so a repeat can fire (fails open on dedupe, never on detection). Negative
+buffer → clamped to 0.
 
 ### 4.3 Prod metrics after each deploy (procedural)
 
 `speedCamera` per day per group, **split by `speedCameraKind` (fixed vs `mobile_site`)**; share
 with `limitSource=camera`; share with `distance > 20 m`; share `programStatus=unknown`; counters
 `readNoLimit`, `programInactive`, `segmentRejected`, `emittedMobileSite`.
+
+Where the counters come from: from stage A, the INFO line `SpeedCamera counters since startup:
+cameraZoneReads=…, readNoLimit=…, overLimit=…` written by `SpeedCameraEventHandler.onPosition`
+every 100 camera-zone reads; the counters reset on restart, so the last line before the next
+deploy is that deploy's figure. Stage B adds its own counters to the same line.
+
+After the stage A deploy (procedural, once): keys written before A have no TTL and keep none until
+their device writes again, so retired devices' keys never expire. Against the prod Valkey, `SCAN`
+for `speed_camera:*` and `EXPIRE <key> 3600` each key with `TTL = -1`; record the count here.
 
 Baselines, all from the pinned data:
 
@@ -552,7 +564,7 @@ A–D. Stage D's SQL needs the stage A deploy timestamp, known at deploy time.
 
 | Note | Detail |
 |---|---|
-| **Equality guard added to the knots compare** | First V1-A run with a strict `speed > limit` gave 12,177 (+4.6 %). All 539 extra rows were vehicles at exactly the posted limit whose speed and limit differ in the fifth decimal (50 km/h: 26.9979 vs 26.9978 kn) because protocol decoders and `UnitsConverter.knotsFromKph` convert km/h with slightly different constants. The smallest genuine over-limit reading in the agreed set is 0.26 kn. `SPEED_EQUALITY_EPSILON_KNOTS = 0.01` (0.02 km/h) separates the two by two orders of magnitude on each side. With it V1-A is 11,638 exactly and every row agrees with the audit. This is not an operator tolerance; those stay in stage B's calendar. **Reviewer to confirm.** |
+| **Equality guard added to the knots compare** | First V1-A run with a strict `speed > limit` gave 12,177 (+4.6 %). All 539 extra rows were vehicles at exactly the posted limit whose speed and limit differ in the fifth decimal (50 km/h: 26.9979 vs 26.9978 kn) because `tc_positions.speed` is a FLOAT column: the export reads float32(26.99785) = 26.9978504 against the double limit 26.99785 in the attributes JSON. **Corrected 2026-10-01 by the fresh review:** at runtime there is no such noise; the decoders (141 call sites) and `OverpassSpeedLimitProvider.parseSpeed` both use `UnitsConverter.knotsFromKph`, so a vehicle at exactly the limit compares equal and a strict compare would not fire (only DC600 differs, at ulp level). The guard is kept because it makes the replay match and costs 0.02 km/h under a 5 km/h buffer. The smallest genuine over-limit reading in the agreed set is 0.26 kn. `SPEED_EQUALITY_EPSILON_KNOTS = 0.01` (0.02 km/h) separates the two by two orders of magnitude on each side. With it V1-A is 11,638 exactly and every row agrees with the audit. This is not an operator tolerance; those stay in stage B's calendar. |
 | `readNoLimit` counts only inside a camera zone | Counting every position without a limit would count the 20 % of fixes the ungated limit provider misses; the plan's intent is "camera seen, no limit". |
 | Old rule reproduces the export | The harness's copy of the pre-fix rule fires on all 42,210 exported rows from their stored attributes, so the export is a faithful record of what prod evaluated. |
 | Export `valid` column is empty | All 42,210 rows carry an empty `valid`; they fired, so they were valid at the time. The harness does not filter on it. |
@@ -575,3 +587,15 @@ A–D. Stage D's SQL needs the stage A deploy timestamp, known at deploy time.
 |---|---|---|
 | Stage B calendar fallback tolerance 3 → 5 km/h (2.70 kn), matching stage A's buffer; §2.3 entries, `shouldFire` note and T-3 updated | stages A and B must agree where no program value is published | user decision 2026-09-20 |
 | Dataset PR assignee `lakha-riq` confirmed | the plan carried it as stated, not confirmed | user 2026-09-20 |
+
+### 7.5 r2.3 → r2.4 (2026-10-01, fresh review of #149 / #180)
+
+| Change | Why | Source |
+|---|---|---|
+| `readNoLimit` made observable: INFO counter line every 100 camera-zone reads (`cameraZoneReads`, `readNoLimit`, `overLimit`); §4.3 names it | §4.3 relied on a counter nothing in prod could read | fresh review, major 1 |
+| Equality-guard justification corrected in the javadoc, 7.2 and T-3b: export FLOAT storage, not runtime conversion; guard kept | the stated runtime cause does not exist | fresh review, major 2 |
+| Limit guard catches NaN and infinite; negative buffer clamped to 0 with a WARN | `NaN <= 0` is false, so NaN passed as "under the limit"; a negative buffer fired under the limit | fresh review, minor 3–4 |
+| Fake Redis can fail reads; tests for failing read, corrupt state, negative/NaN/infinite limit, negative buffer, counters (17 tests) | ground rule: fakes must express failure states | fresh review, minor 5 |
+| Procedural one-off in §4.3: expire pre-A `speed_camera:*` keys | old keys keep no TTL | fresh review, minor 6 |
+| Full template's layout, subject and wording recorded in stage A; "posted limit" → "speed limit on record" | template change went beyond the plan; stored limit can be wrong until C | fresh review, minor 7 |
+| Harness line references updated; harness mirrors the NaN guard. V1-A unchanged: 7,567 at 5 km/h, 11,638 at 0, 42,210/42,210 agree | handler lines moved | re-run 2026-10-01 |

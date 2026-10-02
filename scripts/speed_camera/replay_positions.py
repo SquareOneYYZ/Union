@@ -19,13 +19,15 @@ code cannot drift silently:
     :113  fire if isSpeedCamera && speedKmh > speedLimit            -> km/h vs knots (finding D1)
 
   new rule (this branch, SpeedCameraEventHandler.java)
-    :50   SPEED_EQUALITY_EPSILON_KNOTS = 0.01                        -> equality guard for conversion noise
-    :64   bufferKnots = UnitsConverter.knotsFromKph(event.speedCamera.buffer)   (km/h, default 5; Keys.java)
-    :127  speedLimitKnots = position.getDouble(KEY_SPEED_LIMIT)     -> 0.0 when absent
-    :128  speedKnots = position.getSpeed()
-    :134/:141  isSpeedCamera as before
-    :149  if speedLimitKnots <= 0 -> non-reading, readNoLimit++   (finding D2)
-    :155  fire if speedKnots > speedLimitKnots + bufferKnots + SPEED_EQUALITY_EPSILON_KNOTS
+    :62   SPEED_EQUALITY_EPSILON_KNOTS = 0.01                        -> equality guard; absorbs this export's
+                                                                        FLOAT-stored speeds (plan 7.2)
+    :82   bufferKnots = UnitsConverter.knotsFromKph(event.speedCamera.buffer)   (km/h, default 5; Keys.java;
+                                                                        :77 clamps a negative value to 0)
+    :153  speedLimitKnots = position.getDouble(KEY_SPEED_LIMIT)     -> 0.0 when absent
+    :154  speedKnots = position.getSpeed()
+    :160/:167  isSpeedCamera as before
+    :177  if !(speedLimitKnots > 0) or infinite -> non-reading, readNoLimit++   (finding D2; catches NaN)
+    :184  fire if speedKnots > speedLimitKnots + bufferKnots + SPEED_EQUALITY_EPSILON_KNOTS
 
   UnitsConverter.java:20  KNOTS_TO_KPH_RATIO = 0.539957; knotsFromKph(v) = v * ratio
 
@@ -46,12 +48,13 @@ Usage:
 import argparse
 import collections
 import csv
+import math
 import os
 import sys
 
 KNOTS_TO_KMH = 1.852  # SpeedCameraEventHandler.java:91 (old rule) literal
 KNOTS_TO_KPH_RATIO = 0.539957  # UnitsConverter.java:20
-SPEED_EQUALITY_EPSILON_KNOTS = 0.01  # SpeedCameraEventHandler.java:50
+SPEED_EQUALITY_EPSILON_KNOTS = 0.01  # SpeedCameraEventHandler.java:62
 
 # Prod values from data prod/traccar.xml (received 2026-09-10). Code defaults differ
 # (highwayTypes defaults to motorway_link), which is finding D8; the harness takes prod values.
@@ -83,7 +86,7 @@ def parse_double_or_zero(value):
 
 
 def is_speed_camera(highway, enforcement, highway_types, enforcement_types):
-    """SpeedCameraEventHandler.java:96-107 (old) / :131-144 (new): same logic in both."""
+    """SpeedCameraEventHandler.java:96-107 (old) / :158-170 (new): same logic in both."""
     zone = False
     if highway and highway.upper() != "NULL" and highway.lower() in highway_types:
         zone = True
@@ -100,12 +103,12 @@ def old_rule(speed_knots, limit_knots, zone):
 
 
 def new_rule(speed_knots, limit_knots, zone, buffer_knots):
-    """this branch :127-:155. Returns one of: not_camera, no_limit, under_limit, fires."""
+    """this branch :153-:184. Returns one of: not_camera, no_limit, under_limit, fires."""
     if not zone:
         return "not_camera"
-    if limit_knots <= 0:  # :149
+    if not limit_knots > 0 or math.isinf(limit_knots):  # :177
         return "no_limit"
-    if speed_knots > limit_knots + buffer_knots + SPEED_EQUALITY_EPSILON_KNOTS:  # :155
+    if speed_knots > limit_knots + buffer_knots + SPEED_EQUALITY_EPSILON_KNOTS:  # :184
         return "fires"
     return "under_limit"
 
@@ -254,7 +257,7 @@ def run_v1a(args):
     lines.append(f"| old (origin/master :113, km/h vs knots) | fires | {old_fires:,} | {old_fires / n:.1%} |")
     lines.append(f"| old | would not fire on the exported row | {n - old_fires:,} | {(n - old_fires) / n:.1%} |")
     for key in ("fires", "under_limit", "no_limit", "not_camera"):
-        lines.append(f"| new, buffer {args.buffer_kph:g} km/h (this branch :149/:155) | {key} | {counts[key]:,} | {counts[key] / n:.1%} |")
+        lines.append(f"| new, buffer {args.buffer_kph:g} km/h (this branch :177/:184) | {key} | {counts[key]:,} | {counts[key] / n:.1%} |")
     lines.append(f"| new, buffer 0 (same rule, for continuity with the audit column) | fires | {nb_fires:,} | {nb_fires / n:.1%} |")
     lines.append("")
     lines.append(f"**Acceptance V1-A (buffer {args.buffer_kph:g} km/h):** fires = **{new_fires:,}** vs target {target:,} "

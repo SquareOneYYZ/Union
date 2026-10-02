@@ -39,13 +39,15 @@ public class SpeedCameraEventHandlerTest extends BaseTest {
 
     /**
      * In-memory stand-in for RedisCache. Records whether each write carried a TTL so the
-     * test can pin the stage A requirement that state never lands without one.
+     * test can pin the stage A requirement that state never lands without one, and can fail
+     * reads the way a dropped connection does.
      */
     private static final class FakeRedisCache extends RedisCache {
         private final Map<String, String> store = new HashMap<>();
         private final Map<String, Integer> ttls = new HashMap<>();
         private int plainSets;
         private boolean available = true;
+        private boolean failReads;
 
         FakeRedisCache() {
             super((JedisPooled) null);
@@ -63,6 +65,9 @@ public class SpeedCameraEventHandlerTest extends BaseTest {
 
         @Override
         public String get(String key) {
+            if (failReads) {
+                throw new IllegalStateException("simulated Redis read failure");
+            }
             return store.get(key);
         }
 
@@ -123,6 +128,16 @@ public class SpeedCameraEventHandlerTest extends BaseTest {
     }
 
     @Test
+    public void limitNegativeOrNotFiniteIsNonReading() { // T-1, values parseSpeed can produce
+        process(cameraPosition(0, 30, -26.998));
+        process(cameraPosition(120, 30, Double.NaN));
+        process(cameraPosition(240, 30, Double.POSITIVE_INFINITY));
+        assertTrue(events.isEmpty(), "NaN slips past `<= 0`; none of these is a usable limit");
+        assertEquals(3, handler.getReadNoLimit());
+        assertEquals(0, handler.getOverLimit());
+    }
+
+    @Test
     public void underLimitInKnotsDoesNotFire() { // T-2: 37 km/h in a 50 zone
         process(cameraPosition(0, 20, LIMIT_50_KMH_IN_KNOTS));
         assertTrue(events.isEmpty(), "20 kn is under a 26.998 kn limit; the old km/h compare fired here");
@@ -159,15 +174,29 @@ public class SpeedCameraEventHandlerTest extends BaseTest {
     }
 
     @Test
-    public void atLimitThroughADifferentConversionDoesNotFireEvenWithZeroBuffer() { // T-3b, equality guard
+    public void negativeBufferFallsBackToZero() {
+        Config config = new Config();
+        config.setString(Keys.EVENT_SPEED_CAMERA_BUFFER, "-10");
+        SpeedCameraEventHandler negative = new SpeedCameraEventHandler(new FakeRedisCache(), config);
+        List<Event> got = new ArrayList<>();
+        negative.onPosition(cameraPosition(0, UnitsConverter.knotsFromKph(45), LIMIT_50_KMH_IN_KNOTS), got::add);
+        assertTrue(got.isEmpty(), "a -10 buffer must not fire 45 km/h in a 50 zone");
+        negative.onPosition(cameraPosition(120, UnitsConverter.knotsFromKph(50.1), LIMIT_50_KMH_IN_KNOTS), got::add);
+        assertEquals(1, got.size(), "clamped to 0, anything past the limit fires");
+    }
+
+    @Test
+    public void atLimitWithFloatStoredSpeedDoesNotFireEvenWithZeroBuffer() { // T-3b, equality guard
         Config config = new Config();
         config.setString(Keys.EVENT_SPEED_CAMERA_BUFFER, "0");
         SpeedCameraEventHandler noBuffer = new SpeedCameraEventHandler(new FakeRedisCache(), config);
         List<Event> got = new ArrayList<>();
-        // 50 km/h from a decoder that rounds differently than knotsFromKph: 26.9979 vs 26.9978 kn.
-        // 539 exported events sat here; a strict compare fires on the fifth decimal.
-        noBuffer.onPosition(cameraPosition(0, 26.9979, 26.9978), got::add);
-        assertTrue(got.isEmpty(), "the same km/h value must not fire because of conversion noise");
+        // 50 km/h as the offline replay sees it: tc_positions.speed is FLOAT, so the exported speed is
+        // float32(26.99785) against the double limit. 539 exported rows sat here; at runtime both
+        // values come from knotsFromKph and compare equal, so this pins the replay, not live traffic.
+        noBuffer.onPosition(cameraPosition(0, (float) UnitsConverter.knotsFromKph(50),
+                UnitsConverter.knotsFromKph(50)), got::add);
+        assertTrue(got.isEmpty(), "float storage noise at the limit must not fire");
         // The smallest genuine over-limit reading in the export was 0.26 kn over; with no buffer that fires.
         noBuffer.onPosition(cameraPosition(120, 26.9978 + 0.26, 26.9978), got::add);
         assertEquals(1, got.size());
@@ -177,6 +206,9 @@ public class SpeedCameraEventHandlerTest extends BaseTest {
     public void overLimitFiresWithPayloadInKnots() { // T-3: 55.6 km/h in a 50 zone clears the 5 km/h buffer
         process(cameraPosition(0, 30, LIMIT_50_KMH_IN_KNOTS));
         assertEquals(1, events.size());
+        assertEquals(1, handler.getCameraZoneReads());
+        assertEquals(1, handler.getOverLimit());
+        assertEquals(0, handler.getReadNoLimit());
         Event event = events.get(0);
         assertEquals(Event.TYPE_SPEED_CAMERA, event.getType());
         assertEquals(1, event.getDeviceId());
@@ -193,6 +225,8 @@ public class SpeedCameraEventHandlerTest extends BaseTest {
         position.getAttributes().remove(Position.KEY_ENFORCEMENT);
         process(position);
         assertTrue(events.isEmpty());
+        assertEquals(0, handler.getCameraZoneReads(), "outside a camera zone nothing is counted");
+        assertEquals(0, handler.getReadNoLimit());
     }
 
     @Test
@@ -227,5 +261,26 @@ public class SpeedCameraEventHandlerTest extends BaseTest {
         process(cameraPosition(30, 31, LIMIT_50_KMH_IN_KNOTS));
         assertEquals(1, events.size(), "the lock must work from the local cache too");
         assertFalse(redis.store.containsKey("speed_camera:1"));
+    }
+
+    @Test
+    public void redisReadFailureStillEvaluatesAndRewritesStateWithTtl() {
+        process(cameraPosition(0, 30, LIMIT_50_KMH_IN_KNOTS));
+        redis.failReads = true;
+        process(cameraPosition(30, 31, LIMIT_50_KMH_IN_KNOTS));
+        // Fails open on dedupe: the lock lives in the unreadable state, so the repeat fires. A
+        // duplicate is cheaper than losing detections while Redis is degraded.
+        assertEquals(2, events.size());
+        assertEquals(3600, redis.ttls.get("speed_camera:1"));
+        assertEquals(0, redis.plainSets);
+    }
+
+    @Test
+    public void corruptStateIsReplaced() {
+        redis.store.put("speed_camera:1", "{not json");
+        process(cameraPosition(0, 30, LIMIT_50_KMH_IN_KNOTS));
+        assertEquals(1, events.size(), "unreadable state starts fresh instead of blocking detection");
+        assertTrue(redis.store.get("speed_camera:1").startsWith("{\""), "state rewritten as valid JSON");
+        assertEquals(3600, redis.ttls.get("speed_camera:1"));
     }
 }

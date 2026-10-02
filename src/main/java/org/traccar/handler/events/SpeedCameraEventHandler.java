@@ -36,16 +36,29 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
      */
     static final int STATE_TTL_SECONDS = 3600;
 
-    /** Camera zones seen without a usable limit; exposed for tests and, later, metrics (plan D2). */
+    /**
+     * Camera-zone counters since startup (plan D2, section 4.3). They reset on restart, so the INFO
+     * summary below reads as a per-deploy figure; the getters are for tests.
+     */
+    private final AtomicLong cameraZoneReads = new AtomicLong();
     private final AtomicLong readNoLimit = new AtomicLong();
+    private final AtomicLong overLimit = new AtomicLong();
 
     /**
-     * Equality guard, not a tolerance. Device speeds arrive as km/h and are converted to knots by the
-     * protocol decoders; the limit is km/h converted by UnitsConverter.knotsFromKph. The two paths can
-     * differ in the fifth decimal for the same km/h value (50 km/h: 26.9979 vs 26.9978 kn), and a strict
-     * compare then fires on a vehicle travelling exactly at the posted limit. On the pinned export that
-     * was 539 of 42,210 events, all within 0.0001 kn; the smallest genuine over-limit reading was
-     * 0.26 kn. 0.01 kn (0.02 km/h) sits far from both. Operator tolerances are stage B's calendar.
+     * Camera-zone positions between INFO summaries of the counters. Pre-fix prod fired about 460
+     * events a day after the 60 s lock, so camera-zone reads are in the low thousands a day and this
+     * is a few dozen lines a day at most.
+     */
+    static final long COUNTER_LOG_INTERVAL = 100;
+
+    /**
+     * Equality guard, not a tolerance. At runtime a vehicle at exactly the limit compares equal: the
+     * decoders and OverpassSpeedLimitProvider both convert km/h with UnitsConverter.knotsFromKph, so a
+     * strict compare would not fire and the guard only absorbs ulp-level noise. It exists for the
+     * offline replay (plan 7.2): tc_positions.speed is a FLOAT column, so an exported 50 km/h reads
+     * 26.9978504 against a double limit of 26.99785, and 539 of 42,210 exported rows sit there. The
+     * smallest genuine over-limit reading was 0.26 kn; 0.01 kn (0.02 km/h) sits far from both and is
+     * negligible under the buffer. Operator tolerances are stage B's calendar.
      */
     static final double SPEED_EQUALITY_EPSILON_KNOTS = 0.01;
 
@@ -61,11 +74,25 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
         this.redisCache = redisCache;
         this.config = config;
         this.objectMapper = new ObjectMapper();
-        this.bufferKnots = UnitsConverter.knotsFromKph(config.getDouble(Keys.EVENT_SPEED_CAMERA_BUFFER));
+        double bufferKph = config.getDouble(Keys.EVENT_SPEED_CAMERA_BUFFER);
+        if (!(bufferKph >= 0) || Double.isInfinite(bufferKph)) {
+            // A negative buffer would fire under the limit; 0 means "anything past the limit".
+            LOGGER.warn("event.speedCamera.buffer={} is not a finite value >= 0; using 0 km/h", bufferKph);
+            bufferKph = 0;
+        }
+        this.bufferKnots = UnitsConverter.knotsFromKph(bufferKph);
     }
 
-    public long getReadNoLimit() {
+    long getCameraZoneReads() {
+        return cameraZoneReads.get();
+    }
+
+    long getReadNoLimit() {
         return readNoLimit.get();
+    }
+
+    long getOverLimit() {
+        return overLimit.get();
     }
 
     @Override
@@ -143,16 +170,20 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
                          enforcementTag, allowedEnforcements);
         }
 
+        long zoneReads = isSpeedCamera ? cameraZoneReads.incrementAndGet() : 0;
+
         if (!isSpeedCamera) {
             LOGGER.debug("Skipping speed camera: highway='{}', enforcement='{}' not a camera zone for deviceId={}",
                     highwayTag, enforcementTag, deviceId);
-        } else if (speedLimitKnots <= 0) {
-            // A camera zone with no usable limit is a non-reading, never a 0 km/h zone (plan D2).
+        } else if (!(speedLimitKnots > 0) || Double.isInfinite(speedLimitKnots)) {
+            // A camera zone with no usable limit is a non-reading, never a 0 km/h zone (plan D2). The
+            // negated compare also catches NaN, which parseSpeed accepts and every ordered compare rejects.
             long skipped = readNoLimit.incrementAndGet();
             LOGGER.debug("Skipping speed camera: no speedLimit for deviceId={} in zone highway='{}',"
                     + " enforcement='{}', speed={} kn (readNoLimit={})",
                     deviceId, highwayTag, enforcementTag, speedKnots, skipped);
         } else if (speedKnots > speedLimitKnots + bufferKnots + SPEED_EQUALITY_EPSILON_KNOTS) {
+            overLimit.incrementAndGet();
             LOGGER.debug("Speed camera triggered: highway='{}', enforcement='{}', speed={} kn > limit {} kn"
                     + " + buffer {} kn", highwayTag, enforcementTag, speedKnots, speedLimitKnots, bufferKnots);
 
@@ -163,6 +194,10 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
                     + " + buffer {} kn", highwayTag, enforcementTag, speedKnots, speedLimitKnots, bufferKnots);
         }
 
+        if (zoneReads > 0 && zoneReads % COUNTER_LOG_INTERVAL == 0) {
+            LOGGER.info("SpeedCamera counters since startup: cameraZoneReads={}, readNoLimit={}, overLimit={}",
+                    zoneReads, readNoLimit.get(), overLimit.get());
+        }
 
         Event event = cameraState.getEvent();
         if (event != null) {
