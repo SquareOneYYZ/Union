@@ -107,7 +107,7 @@
       <p>Speed camera events are based on known camera locations and map speed limits. Please review this incident.</p>
     </div>
     <div class="footer">
-      &copy; 2025 RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy">Privacy Policy</a><br/>
+      &copy; $dateTool.get('yyyy') RidesIQ. All rights reserved. | <a href="https://www.ridesiq.com/privacy-policy">Privacy Policy</a><br/>
       <a href="$webUrl/settings/notifications?token=$token">Unsubscribe</a>
     </div>
   </div>
