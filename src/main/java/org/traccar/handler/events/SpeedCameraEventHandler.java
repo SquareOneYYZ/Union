@@ -6,6 +6,8 @@ import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.traccar.config.Config;
+import org.traccar.config.Keys;
+import org.traccar.helper.UnitsConverter;
 import org.traccar.model.Event;
 import org.traccar.model.Position;
 import org.traccar.session.state.SpeedCameraState;
@@ -15,6 +17,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Singleton
@@ -27,11 +30,69 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
     private final int confidenceWindow = 1; // could be configurable
     private final Map<String, String> localCache = new ConcurrentHashMap<>();
 
+    /**
+     * Per-device state only carries the 60 s re-emission lock, so an hour is ample; without a TTL
+     * one key per device ever seen stayed in Redis forever (plan D7).
+     */
+    static final int STATE_TTL_SECONDS = 3600;
+
+    /**
+     * Camera-zone counters since startup (plan D2, section 4.3). They reset on restart, so the INFO
+     * summary below reads as a per-deploy figure; the getters are for tests.
+     */
+    private final AtomicLong cameraZoneReads = new AtomicLong();
+    private final AtomicLong readNoLimit = new AtomicLong();
+    private final AtomicLong overLimit = new AtomicLong();
+
+    /**
+     * Camera-zone positions between INFO summaries of the counters. Pre-fix prod fired about 460
+     * events a day after the 60 s lock, so camera-zone reads are in the low thousands a day and this
+     * is a few dozen lines a day at most.
+     */
+    static final long COUNTER_LOG_INTERVAL = 100;
+
+    /**
+     * Equality guard, not a tolerance. At runtime a vehicle at exactly the limit compares equal: the
+     * decoders and OverpassSpeedLimitProvider both convert km/h with UnitsConverter.knotsFromKph, so a
+     * strict compare would not fire and the guard only absorbs ulp-level noise. It exists for the
+     * offline replay (plan 7.2): tc_positions.speed is a FLOAT column, so an exported 50 km/h reads
+     * 26.9978504 against a double limit of 26.99785, and 539 of 42,210 exported rows sit there. The
+     * smallest genuine over-limit reading was 0.26 kn; 0.01 kn (0.02 km/h) sits far from both and is
+     * negligible under the buffer. Operator tolerances are stage B's calendar.
+     */
+    static final double SPEED_EQUALITY_EPSILON_KNOTS = 0.01;
+
+    /**
+     * Policy buffer over the limit before an event fires, from {@code event.speedCamera.buffer}
+     * (km/h, default 5) converted once to knots. This is the operator-style tolerance; the epsilon
+     * above is only the equality guard and applies on top of it.
+     */
+    private final double bufferKnots;
+
     @Inject
     public SpeedCameraEventHandler(RedisCache redisCache, Config config) {
         this.redisCache = redisCache;
         this.config = config;
         this.objectMapper = new ObjectMapper();
+        double bufferKph = config.getDouble(Keys.EVENT_SPEED_CAMERA_BUFFER);
+        if (!(bufferKph >= 0) || Double.isInfinite(bufferKph)) {
+            // A negative buffer would fire under the limit; 0 means "anything past the limit".
+            LOGGER.warn("event.speedCamera.buffer={} is not a finite value >= 0; using 0 km/h", bufferKph);
+            bufferKph = 0;
+        }
+        this.bufferKnots = UnitsConverter.knotsFromKph(bufferKph);
+    }
+
+    long getCameraZoneReads() {
+        return cameraZoneReads.get();
+    }
+
+    long getReadNoLimit() {
+        return readNoLimit.get();
+    }
+
+    long getOverLimit() {
+        return overLimit.get();
     }
 
     @Override
@@ -87,8 +148,11 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
 
-        Double speedLimit = position.getDouble(Position.KEY_SPEED_LIMIT);
-        double speedKmh = position.getSpeed() * 1.852;
+        // Both values are knots: OverpassSpeedLimitProvider.parseSpeed stores the limit in knots and
+        // Position.getSpeed() is knots. ExtendedModel.getDouble returns 0.0 for an absent attribute,
+        // so "no limit" arrives here as 0.0 and is handled as a non-reading below (plan D1, D2).
+        double speedLimitKnots = position.getDouble(Position.KEY_SPEED_LIMIT);
+        double speedKnots = position.getSpeed();
 
         boolean isSpeedCamera = false;
 
@@ -106,21 +170,34 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
                          enforcementTag, allowedEnforcements);
         }
 
-         // If speed limit is missing, skip event
-        if (speedLimit == null) {
-            LOGGER.debug("Skipping speed camera: No speedLimit provided for deviceId={}, speed={} km/h",
-                    deviceId, speedKmh);
-        } else if (isSpeedCamera && speedKmh > speedLimit) {
-            LOGGER.debug("Speed camera triggered: highway='{}', enforcement='{}', speed={} km/h > limit {} km/h",
-                    highwayTag, enforcementTag, speedKmh, speedLimit);
+        long zoneReads = isSpeedCamera ? cameraZoneReads.incrementAndGet() : 0;
 
-            cameraState.addDetection(position, confidenceWindow, highwayTag, speedKmh, speedLimit);
+        if (!isSpeedCamera) {
+            LOGGER.debug("Skipping speed camera: highway='{}', enforcement='{}' not a camera zone for deviceId={}",
+                    highwayTag, enforcementTag, deviceId);
+        } else if (!(speedLimitKnots > 0) || Double.isInfinite(speedLimitKnots)) {
+            // A camera zone with no usable limit is a non-reading, never a 0 km/h zone (plan D2). The
+            // negated compare also catches NaN, which parseSpeed accepts and every ordered compare rejects.
+            long skipped = readNoLimit.incrementAndGet();
+            LOGGER.debug("Skipping speed camera: no speedLimit for deviceId={} in zone highway='{}',"
+                    + " enforcement='{}', speed={} kn (readNoLimit={})",
+                    deviceId, highwayTag, enforcementTag, speedKnots, skipped);
+        } else if (speedKnots > speedLimitKnots + bufferKnots + SPEED_EQUALITY_EPSILON_KNOTS) {
+            overLimit.incrementAndGet();
+            LOGGER.debug("Speed camera triggered: highway='{}', enforcement='{}', speed={} kn > limit {} kn"
+                    + " + buffer {} kn", highwayTag, enforcementTag, speedKnots, speedLimitKnots, bufferKnots);
+
+            cameraState.addDetection(position, confidenceWindow, highwayTag, speedKnots, speedLimitKnots);
 
         } else {
-            LOGGER.debug("Skipping speed camera: highway='{}', enforcement='{}', isSpeedCamera={}, speed={} km/h,"
-                    + " limit={}", highwayTag, enforcementTag, isSpeedCamera, speedKmh, speedLimit);
+            LOGGER.debug("Skipping speed camera: highway='{}', enforcement='{}', speed={} kn <= limit {} kn"
+                    + " + buffer {} kn", highwayTag, enforcementTag, speedKnots, speedLimitKnots, bufferKnots);
         }
 
+        if (zoneReads > 0 && zoneReads % COUNTER_LOG_INTERVAL == 0) {
+            LOGGER.info("SpeedCamera counters since startup: cameraZoneReads={}, readNoLimit={}, overLimit={}",
+                    zoneReads, readNoLimit.get(), overLimit.get());
+        }
 
         Event event = cameraState.getEvent();
         if (event != null) {
@@ -139,7 +216,7 @@ public class SpeedCameraEventHandler extends BaseEventHandler {
         try {
             String updatedJson = objectMapper.writeValueAsString(cameraState);
             if (redisCache.isAvailable()) {
-                redisCache.set(cacheKey, updatedJson);
+                redisCache.setWithTTL(cacheKey, updatedJson, STATE_TTL_SECONDS);
                 LOGGER.debug("Updated Redis cache for speedCamera deviceId={}", deviceId);
             } else {
                 localCache.put(cacheKey, updatedJson);
