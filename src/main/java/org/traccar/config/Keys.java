@@ -380,6 +380,15 @@ public final class Keys {
             List.of(KeyType.CONFIG));
 
     /**
+     * Speed camera buffer: a speed camera event is generated only when the vehicle speed exceeds the
+     * applicable limit by more than this amount. Value in km/h. Default is 5.
+     */
+    public static final ConfigKey<Double> EVENT_SPEED_CAMERA_BUFFER = new DoubleConfigKey(
+            "event.speedCamera.buffer",
+            List.of(KeyType.CONFIG),
+            5.0);
+
+    /**
      * Driver behavior acceleration threshold. Value is in meter per second squared.
      */
     public static final ConfigKey<Double> EVENT_BEHAVIOR_ACCELERATION_THRESHOLD = new DoubleConfigKey(
