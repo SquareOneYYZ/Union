@@ -431,4 +431,8 @@ public class ConnectionManager implements BroadcastInterface {
         }
     }
 
+    public synchronized int getWebSocketClientCount() {
+        return listeners.values().stream().mapToInt(Set::size).sum();
+    }
+
 }

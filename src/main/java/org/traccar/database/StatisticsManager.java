@@ -93,11 +93,7 @@ public class StatisticsManager {
                 statistics.setGeocoderRequests(geocoderRequests);
                 statistics.setGeolocationRequests(geolocationRequests);
                 if (!deviceProtocols.isEmpty()) {
-                    Map<String, Integer> protocols = new HashMap<>();
-                    for (String protocol : deviceProtocols.values()) {
-                        protocols.compute(protocol, (key, count) -> count != null ? count + 1 : 1);
-                    }
-                    statistics.setProtocols(protocols);
+                    statistics.setProtocols(tallyProtocols());
                 }
 
                 users.clear();
@@ -202,6 +198,24 @@ public class StatisticsManager {
     public synchronized void registerGeolocationRequest() {
         checkSplit();
         geolocationRequests += 1;
+    }
+
+    private Map<String, Integer> tallyProtocols() {
+        Map<String, Integer> protocols = new HashMap<>();
+        for (String protocol : deviceProtocols.values()) {
+            protocols.compute(protocol, (key, count) -> count != null ? count + 1 : 1);
+        }
+        return protocols;
+    }
+
+    public synchronized Map<String, Integer> getProtocolBreakdown() {
+        checkSplit();
+        return tallyProtocols();
+    }
+
+    public synchronized int getMessagesStoredToday() {
+        checkSplit();
+        return messagesStored;
     }
 
 }
