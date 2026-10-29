@@ -2,10 +2,13 @@
 #
 # Runs ON the target host (piped over ssh by .github/workflows/deploy.yml).
 #
-#   deploy-remote.sh WORKDIR HEALTHCHECK_URL ARCHIVER_SHA256 REQUIREMENTS_SHA256
+#   deploy-remote.sh WORKDIR HEALTHCHECK_URL ARCHIVER_SHA256 REQUIREMENTS_SHA256 ENV
 #
-# WORKDIR already holds traccar-linux-64-*.zip and, optionally, traccar.xml
-# (written from the TRACCAR_XML environment secret). Steps:
+# WORKDIR already holds traccar-linux-64-*.zip, check-config.py,
+# config-rules.txt and, optionally, traccar.xml (written from the TRACCAR_XML
+# environment secret). Steps:
+#   0. check the config this deploy will run with; stop before touching
+#      anything if it fails
 #   1. back up the current install's code + config to /opt/traccar-backups/
 #   2. save root's crontab, run the makeself installer (setup.sh preserves the
 #      existing traccar.xml), then put the saved crontab back
@@ -28,6 +31,7 @@ WORKDIR="${1:?usage: deploy-remote.sh WORKDIR HEALTHCHECK_URL}"
 HEALTHCHECK_URL="${2:?usage: deploy-remote.sh WORKDIR HEALTHCHECK_URL}"
 EXPECTED_ARCHIVER_SHA="${3:?missing expected archive_cold_storage.py sha256}"
 EXPECTED_REQUIREMENTS_SHA="${4:?missing expected requirements.txt sha256}"
+DEPLOY_ENV="${5:?missing environment name}"
 INSTALL_DIR=/opt/traccar
 BACKUP_ROOT=/opt/traccar-backups
 KEEP_BACKUPS=5
@@ -39,6 +43,20 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 cd "$WORKDIR"
+# The secret-derived config must not outlive this run in /tmp, pass or fail
+trap 'rm -f "$WORKDIR/traccar.xml"' EXIT
+
+# 0. Config check, before anything on the host changes
+if [ -f traccar.xml ]; then
+    CONFIG_TO_CHECK="$WORKDIR/traccar.xml"
+else
+    CONFIG_TO_CHECK="$INSTALL_DIR/conf/traccar.xml"
+fi
+echo "Checking $CONFIG_TO_CHECK against config-rules.txt ($DEPLOY_ENV)"
+if ! $SUDO /usr/bin/python3 check-config.py "$CONFIG_TO_CHECK" config-rules.txt "$DEPLOY_ENV"; then
+    echo "!! Config check FAILED, nothing was changed on this host"
+    exit 1
+fi
 
 # 1. Backup (code + config only; data/ and logs/ are left in place)
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
