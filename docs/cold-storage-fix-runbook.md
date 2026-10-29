@@ -19,6 +19,14 @@ from deletion; dependencies via `requirements.txt` + system pip in `setup.sh`.
   (below) is resolved and staging is confirmed to use a bucket or prefix that prod will
   never read. If staging shares the prod bucket, fixing that isolation is a prerequisite to
   using staging for anything.
+- **D6 (replaced 2026-10-28):** "the last hop stays human / no transfer automation" is
+  replaced by `.github/workflows/deploy.yml`. Staging deploys automatically on every push
+  to `master` once the Java build and `python-tests.yml` pass; production deploys only by
+  manual dispatch, gated by required reviewers on the `production` environment. The
+  deploy saves root's crontab before `traccar.run` and restores it after
+  (`.github/scripts/deploy-remote.sh`, step 2), so a deploy never changes the archive
+  schedule, and it fails unless the installed `archive_cold_storage.py` and
+  `requirements.txt` match the commit's sha256 (step 3).
 - **C1 lock-design input (open):** with a confirmed second environment, the lock choice
   (per-host `flock` vs. Spaces lock object) is decided by whether staging and prod could
   ever run against the same DB or the same bucket. Recorded under "C1 lock decision input"
@@ -821,7 +829,12 @@ outside a planned sequence either (an installer run re-arms the cron to monthly 
    WHERE fixtime < '2015-01-01' OR fixtime IS NULL;
    ```
 
-## Phase 4 — deploy & upgrade procedure (D6: the last hop stays human, now provable)
+## Phase 4 — deploy & upgrade procedure
+
+**Automated path (D6 replaced, 2026-10-28):** `.github/workflows/deploy.yml` performs steps
+1, 3, 5, 6, 7 and 8 below and keeps the crontab as it was before the install (step 9), so
+the archive schedule is only ever changed by hand. The manual procedure below remains the
+fallback and the rollback reference.
 
 1. **Build:** dispatch `release.yml` with a version. Two independent gates must be green:
    the `python-tests` workflow on the same commit (test suite + the packaging-verifier
@@ -832,7 +845,7 @@ outside a planned sequence either (an installer run re-arms the cron to monthly 
    (`release.yml:53` names `s3://traccar/builds/` with `--host-bucket=iotrides`); record
    the answer in the local answers file before relying on the download path.
 3. **Transfer:** download `traccar-linux-64-<version>.zip`, move it to the host by the
-   normal manual means. No transfer automation exists or gets added (D6).
+   normal manual means (or let `deploy.yml` do it, see "Automated path" above).
 4. **Pre-install awareness:** `setup.sh` overwrites `/opt/traccar` IN PLACE (only
    `conf/traccar.xml` is preserved) and re-installs the monthly cron wherever
    `archive.spaces.bucket` is present in the config. On staging: re-park the cron after

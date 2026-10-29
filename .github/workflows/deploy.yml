@@ -1,0 +1,138 @@
+name: Deploy
+
+# Staging deploys automatically on every push to master (i.e. a merged PR),
+# once the Java build/tests and the archive script tests pass.
+# Production deploys only via "Run workflow" (environment: production), and
+# should be gated by required reviewers on the production environment.
+#
+# Before anything on the host changes, the config the deploy will run with is
+# checked against .github/scripts/config-rules.txt (check-config.yml runs the
+# same check on demand, without deploying).
+#
+# Per-environment secrets (Settings -> Environments -> staging / production):
+#   SSH_HOST         host or IP of the droplet
+#   SSH_USER         login user (root, or a user with passwordless sudo)
+#   SSH_PRIVATE_KEY  private key whose public half is in that user's authorized_keys
+#   SSH_KNOWN_HOSTS  output of `ssh-keyscan -p PORT HOST` (pins the host key)
+#   SSH_PORT         optional, default 22
+#   TRACCAR_XML      optional, full conf/traccar.xml; when unset the host's
+#                    existing config is kept
+# Optional per-environment variable:
+#   HEALTHCHECK_URL  default http://localhost:8082/api/server (checked on the host)
+# Optional repository secret:
+#   SUBMODULE_TOKEN  PAT with read access to the traccar-web repo, if it is private
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        type: choice
+        options: [ staging, production ]
+        default: staging
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+
+    uses: ./.github/workflows/python-tests.yml
+
+  build:
+
+    runs-on: ubuntu-22.04
+
+    steps:
+      # traccar-web is built at the commit pinned in this repo (bumped with
+      # "chore(traccar-web): bump submodule" commits), not at FE master's tip
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN || github.token }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: ./gradlew build --no-daemon
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 21
+          cache: npm
+          cache-dependency-path: traccar-web/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: ./traccar-web
+      - run: sudo apt-get update && sudo apt-get install -y makeself zip unzip
+      - name: Build installers
+        working-directory: ./setup
+        run: |
+          wget -q https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4+7/OpenJDK21U-jdk_x64_linux_hotspot_21.0.4_7.tar.gz
+          wget -q https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4+7/OpenJDK21U-jdk_aarch64_linux_hotspot_21.0.4_7.tar.gz
+          ./package.sh ${{ github.sha }}
+      - name: Verify packaged archive script against repo
+        working-directory: ./setup
+        run: bash verify_artifacts.sh ${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: traccar-linux-64
+          path: setup/traccar-linux-64-${{ github.sha }}.zip
+          retention-days: 14
+
+  deploy:
+
+    needs: [ tests, build ]
+    runs-on: ubuntu-22.04
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+    concurrency:
+      group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+      cancel-in-progress: false
+
+    env:
+      DEPLOY_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+      HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL || 'http://localhost:8082/api/server' }}
+      REMOTE_DIR: /tmp/traccar-deploy-${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github
+            scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: traccar-linux-64
+          path: dist
+      - uses: ./.github/actions/ssh-target
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          user: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known-hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+      - name: Check TRACCAR_XML
+        env:
+          TRACCAR_XML: ${{ secrets.TRACCAR_XML }}
+        run: |
+          if [ -n "$TRACCAR_XML" ]; then
+            printf '%s\n' "$TRACCAR_XML" > dist/traccar.xml
+            python3 .github/scripts/check-config.py dist/traccar.xml .github/scripts/config-rules.txt "$DEPLOY_ENV"
+          else
+            echo "TRACCAR_XML not set, the host's config is checked on the host instead"
+          fi
+      - name: Upload to host
+        run: |
+          cp .github/scripts/check-config.py .github/scripts/config-rules.txt dist/
+          ssh target "rm -rf '$REMOTE_DIR' && mkdir -p '$REMOTE_DIR' && chmod 700 '$REMOTE_DIR'"
+          scp -q dist/* "target:$REMOTE_DIR/"
+          rm -f dist/traccar.xml
+      - name: Check config, install, restart and health check
+        run: |
+          archiver_sha=$(sha256sum scripts/archive_cold_storage.py | cut -d' ' -f1)
+          requirements_sha=$(sha256sum scripts/requirements.txt | cut -d' ' -f1)
+          ssh target "bash -s -- '$REMOTE_DIR' '$HEALTHCHECK_URL' $archiver_sha $requirements_sha $DEPLOY_ENV" < .github/scripts/deploy-remote.sh
+      - name: Clean up SSH material
+        if: always()
+        run: rm -rf ~/.ssh

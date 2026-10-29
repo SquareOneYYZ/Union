@@ -5,6 +5,7 @@ on:
     branches: [ master, riq-cold-storage-hardening ]
   pull_request:
     branches: [ master ]
+  workflow_call:
 
 permissions:
   contents: read

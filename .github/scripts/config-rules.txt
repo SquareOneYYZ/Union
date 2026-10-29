@@ -1,0 +1,30 @@
+# Rules check-config.py applies to conf/traccar.xml before every deploy.
+#
+#   required   KEY             [ENV,...]   key present with a non-empty value
+#   when       KEY=VALUE KEY2  [ENV,...]   if KEY is VALUE, KEY2 is required
+#   forbidden  PREFIX*|KEY     [ENV,...]   key (or any key under PREFIX) absent
+#
+# ENV list is comma-separated (staging,production); omitted = every environment.
+# Values are never printed, only key names.
+
+required   database.driver
+required   database.url
+required   database.user
+required   database.password
+
+# RedisCache is always constructed and only logs a warning when these are
+# missing, which silently disables region-event and toll-route caching
+required   redis.host
+required   redis.port
+required   redis.username
+required   redis.password
+
+when       tollRoute.enable=true   tollRoute.type
+when       tollRoute.enable=true   tollRoute.url
+when       speedLimit.enable=true  speedLimit.url
+when       media.enable=true       media.path
+when       mail.smtp.auth=true     mail.smtp.username
+when       mail.smtp.auth=true     mail.smtp.password
+
+# Runbook Phase 1 item 0: archive.* keys on prod arm the archive cron
+forbidden  archive.*               production

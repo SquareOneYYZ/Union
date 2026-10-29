@@ -1,0 +1,98 @@
+name: Check Config
+
+# Read-only: checks each environment's traccar.xml against
+# .github/scripts/config-rules.txt (the same check every deploy runs first),
+# and with "both" lists keys set in one environment but not the other.
+# Only key names are printed, never values.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment(s) to check'
+        type: choice
+        options: [ staging, production, both ]
+        default: staging
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJSON(inputs.environment == 'both' && '["staging","production"]' || format('["{0}"]', inputs.environment)) }}
+    runs-on: ubuntu-22.04
+    environment: ${{ matrix.environment }}
+
+    env:
+      REMOTE_DIR: /tmp/traccar-config-check-${{ github.run_id }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - uses: ./.github/actions/ssh-target
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          user: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known-hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+      - name: Check config
+        env:
+          TRACCAR_XML: ${{ secrets.TRACCAR_XML }}
+          CHECK_ENV: ${{ matrix.environment }}
+        run: |
+          rules=.github/scripts/config-rules.txt
+          if [ -n "$TRACCAR_XML" ]; then
+            echo "Checking the TRACCAR_XML secret (what a deploy would install)"
+            printf '%s\n' "$TRACCAR_XML" > traccar.xml
+            status=0
+            python3 .github/scripts/check-config.py traccar.xml "$rules" "$CHECK_ENV" keys.txt || status=$?
+            rm -f traccar.xml
+          else
+            echo "Checking the host's /opt/traccar/conf/traccar.xml"
+            ssh target "mkdir -p '$REMOTE_DIR' && chmod 700 '$REMOTE_DIR'"
+            scp -q .github/scripts/check-config.py "$rules" "target:$REMOTE_DIR/"
+            status=0
+            ssh target "cd '$REMOTE_DIR' && SUDO=''; [ \$(id -u) -ne 0 ] && SUDO='sudo -n'; \$SUDO /usr/bin/python3 check-config.py /opt/traccar/conf/traccar.xml config-rules.txt '$CHECK_ENV' keys.txt" || status=$?
+            scp -q "target:$REMOTE_DIR/keys.txt" keys.txt || true
+            ssh target "rm -rf '$REMOTE_DIR'"
+          fi
+          exit $status
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: config-keys-${{ matrix.environment }}
+          path: keys.txt
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Clean up SSH material
+        if: always()
+        run: rm -rf ~/.ssh
+
+  compare:
+
+    needs: check
+    if: always() && inputs.environment == 'both'
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: config-keys-*
+      - name: Keys set in only one environment
+        run: |
+          export LC_ALL=C
+          if [ ! -f config-keys-staging/keys.txt ] || [ ! -f config-keys-production/keys.txt ]; then
+            echo "::error::Need both key lists to compare; see the check jobs above"
+            exit 1
+          fi
+          echo "== In staging, missing from production =="
+          comm -23 config-keys-staging/keys.txt config-keys-production/keys.txt
+          echo "== In production, missing from staging =="
+          comm -13 config-keys-staging/keys.txt config-keys-production/keys.txt
+          echo "(archive.* is expected only on staging; anything else is worth a look)"
