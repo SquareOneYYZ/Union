@@ -84,12 +84,25 @@ if $SUDO crontab -l > crontab.before 2>/dev/null; then
 fi
 unzip -o -q traccar-linux-64-*.zip traccar.run
 $SUDO sh ./traccar.run
+# setup.sh comments out the archive line when the archiver selfcheck fails.
+# That disarm must survive the restore; only a re-arm is undone.
+SELFCHECK_DISARMED=0
+if $SUDO crontab -l 2>/dev/null | grep -q '^#.*archive_cold_storage'; then
+    SELFCHECK_DISARMED=1
+fi
 if [ "$HAD_CRONTAB" -eq 1 ]; then
-    $SUDO crontab crontab.before
+    if [ "$SELFCHECK_DISARMED" -eq 1 ]; then
+        sed 's|^\([^#].*archive_cold_storage.*\)$|#\1|' crontab.before | $SUDO crontab -
+    else
+        $SUDO crontab crontab.before
+    fi
 else
     $SUDO crontab -r 2>/dev/null || true
 fi
-echo "Root crontab restored to its pre-install state:"
+if [ "$SELFCHECK_DISARMED" -eq 1 ]; then
+    echo "::warning::Archiver selfcheck failed during install; the archive cron line stays commented out (see installer output above)"
+fi
+echo "Root crontab after install (archive line):"
 $SUDO crontab -l 2>/dev/null | grep archive_cold_storage || echo "  (no archive cron line)"
 
 # 3. Prove the deploy (runbook Phase 4 step 6)
