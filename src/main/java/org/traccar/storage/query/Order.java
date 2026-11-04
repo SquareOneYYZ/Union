@@ -20,15 +20,21 @@ public class Order {
     private final String column;
     private final boolean descending;
     private final int limit;
+    private final int offset;
 
     public Order(String column) {
-        this(column, false, 0);
+        this(column, false, 0, 0);
     }
 
     public Order(String column, boolean descending, int limit) {
+        this(column, descending, limit, 0);
+    }
+
+    public Order(String column, boolean descending, int limit, int offset) {
         this.column = column;
         this.descending = descending;
         this.limit = limit;
+        this.offset = offset;
     }
 
     public String getColumn() {
@@ -41,6 +47,10 @@ public class Order {
 
     public int getLimit() {
         return limit;
+    }
+
+    public int getOffset() {
+        return offset;
     }
 
 }
