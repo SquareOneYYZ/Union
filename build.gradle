@@ -139,6 +139,10 @@ processResources {
         include 'facilities.json'
         into 'toll-pricing'
     }
+    from('docs/toll-pricing/data/gantries') {
+        include '*.json'
+        into 'toll-pricing/gantries'
+    }
     from('docs/toll-pricing/data/corridors') {
         include '*.json'
         into 'toll-pricing/corridors'

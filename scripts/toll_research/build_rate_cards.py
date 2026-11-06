@@ -152,6 +152,72 @@ def build_etr():
     }
 
 
+# Rows the PDF leaves without a road label. Goldenrod is on SR 551 per the CFX Toll
+# Facilities Reference Manual (October 2024), bookmark "SR 551 > Goldenrod Mainline Plaza".
+CFX_UNLABELLED_ROADS = {"Goldenrod Main Plaza": "SR 551"}
+CFX_MANUAL_URL = ("https://www.cfxway.com/wp-content/uploads/2025/06/"
+                  "Toll-Facilities-Reference-Manual-October-2024-Update-w-Bookmarks.pdf")
+
+
+def add_cfx_roads(page, plazas):
+    """Adds road, plaza_type, name and footnote to each plaza.
+
+    The road column is a set of merged cells: a rotated label ("SR 408") centred between
+    two horizontal borders. A plaza row belongs to the road whose borders enclose it.
+    """
+    # Horizontal borders crossing the road column.
+    borders = set()
+    for drawing in page.get_drawings():
+        for item in drawing["items"]:
+            if item[0] == "l" and abs(item[1].y - item[2].y) < 0.5 \
+                    and min(item[1].x, item[2].x) < 140 < 145 < max(item[1].x, item[2].x):
+                borders.add(round(item[1].y, 1))
+            elif item[0] == "re" and item[1].x0 < 140 and item[1].x1 > 145 and item[1].height < 1.5:
+                borders.add(round(item[1].y0, 1))
+    borders = sorted(borders)
+
+    labels, rows = [], []
+    for block in page.get_text("dict")["blocks"]:
+        for line in block.get("lines", []):
+            text = "".join(s["text"] for s in line["spans"]).strip()
+            x0, y0, _, y1 = line["bbox"]
+            if line["dir"] != (1.0, 0.0) and x0 < 148:
+                labels.append(((y0 + y1) / 2, x0, text))
+            elif 145 < x0 < 160 and text and not text.startswith("$"):
+                rows.append((y0, text))
+    rows.sort()
+
+    def band(y):
+        for lo, hi in zip(borders, borders[1:]):
+            if lo <= y < hi:
+                return lo
+        return None
+
+    label_by_band = {}
+    for y, x, text in sorted(labels, key=lambda t: (t[0], t[1])):
+        label_by_band.setdefault(band(y), []).append(text)
+    label_by_band = {k: re.sub(r"\s+", " ", " ".join(v)).strip() for k, v in label_by_band.items()}
+
+    names = [p["plaza_name"] for p in plazas]
+    row_iter = iter([(y, t) for y, t in rows if t in names])
+    for plaza in plazas:
+        y, text = next(row_iter)
+        if text != plaza["plaza_name"]:
+            sys.exit(f"CFX: row order mismatch at {plaza['plaza_name']!r}")
+        m = re.fullmatch(r"(.*?)\s+([A-D])", plaza["plaza_name"])
+        name = m.group(1) if m else plaza["plaza_name"].strip()
+        plaza["name"] = name
+        plaza["footnote"] = m.group(2) if m else None
+        plaza["plaza_type"] = "mainline" if "Main Plaza" in name else "ramp"
+        road = label_by_band.get(band(y + 1))
+        if road is None and name in CFX_UNLABELLED_ROADS:
+            road = CFX_UNLABELLED_ROADS[name]
+            plaza["road_source"] = CFX_MANUAL_URL
+        if road is None:
+            sys.exit(f"CFX: no road for {name!r}")
+        plaza["road"] = road
+
+
 def build_cfx():
     """CFX: flat per-plaza rates by axle count x payment method."""
     try:
@@ -177,6 +243,7 @@ def build_cfx():
             i += 1
     if not plazas:
         sys.exit("CFX: parsed zero plazas - PDF layout changed")
+    add_cfx_roads(doc[0], plazas)
 
     return {
         "facility": "Central Florida Expressway Authority",

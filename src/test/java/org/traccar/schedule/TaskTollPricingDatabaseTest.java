@@ -18,6 +18,7 @@ import org.traccar.model.TollTraversal;
 import org.traccar.storage.DatabaseStorage;
 import org.traccar.storage.Storage;
 import org.traccar.storage.query.Columns;
+import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
 
@@ -103,7 +104,8 @@ public class TaskTollPricingDatabaseTest {
         event(Event.TYPE_DEVICE_TOLLROUTE_EXIT, 0, "2026-03-16T10:00:00Z", 1000.0);
         TaskTollPricing task = task();
         task.run();
-        assertTrue(storage.getObjects(TollTraversal.class, new Request(new Columns.All())).isEmpty());
+        assertTrue(storage.getObjects(TollTraversal.class,
+                new Request(new Columns.All(), new Condition.Equals("deviceId", deviceId))).isEmpty());
 
         // A full 407 traversal (Hwy 403 -> Hwy 400), then an orphan exit.
         long in = position(43.526442, -79.735966, "2026-03-17T12:12:00Z");
@@ -113,8 +115,8 @@ public class TaskTollPricingDatabaseTest {
         long orphan = event(Event.TYPE_DEVICE_TOLLROUTE_EXIT, out, "2026-03-17T13:00:00Z", 10.0);
         task.run();
 
-        List<TollTraversal> rows = storage.getObjects(TollTraversal.class,
-                new Request(new Columns.All(), new Order("exitEventId")));
+        List<TollTraversal> rows = storage.getObjects(TollTraversal.class, new Request(new Columns.All(),
+                new Condition.Equals("deviceId", deviceId), new Order("exitEventId")));
         assertEquals(2, rows.size());
         TollTraversal priced = rows.get(0);
         assertEquals(exit, priced.getExitEventId());
@@ -137,6 +139,54 @@ public class TaskTollPricingDatabaseTest {
 
         // Re-running finds nothing new: one row per exit, ever.
         task.run();
-        assertEquals(2, storage.getObjects(TollTraversal.class, new Request(new Columns.All())).size());
+        assertEquals(2, storage.getObjects(TollTraversal.class,
+                new Request(new Columns.All(), new Condition.Equals("deviceId", deviceId))).size());
+    }
+
+    /**
+     * A gantry road the map splits in two (the Beachline pattern), on SR 408 eastbound at 100 km/h:
+     * piece 1 ends before Hiawassee Main, piece 2 starts after it. The gap's plaza must be charged
+     * once, on piece 2, whose trail starts at piece 1's exit.
+     */
+    @Test
+    public void fragmentedGantryTripCountsTheGapOnce() throws Exception {
+        Device device = new Device();
+        device.setName("toll-fragment");
+        device.setUniqueId("toll-fragment-1");
+        long fragmentDevice = storage.addObject(device, new Request(new Columns.Exclude("id")));
+        long saved = deviceId;
+        deviceId = fragmentDevice;
+        try {
+            event(Event.TYPE_DEVICE_TOLLROUTE_ENTER, 0, "2026-03-18T09:00:00Z", null); // launch marker
+            TaskTollPricing task = task();
+            task.run();
+
+            long t = Instant.parse("2026-03-18T10:00:00Z").toEpochMilli();
+            long[] ids = new long[31];
+            for (int i = 0; i <= 30; i++) {   // -81.505 .. -81.430, one fix every 10 s
+                ids[i] = position(28.5482, -81.505 + i * 0.0025, Instant.ofEpochMilli(t + i * 10_000L).toString());
+            }
+            // piece 1: fixes 0..2 (to -81.500); piece 2: fixes 7..30 (from -81.4875); Hiawassee Main is at -81.4922
+            event(Event.TYPE_DEVICE_TOLLROUTE_ENTER, ids[0], Instant.ofEpochMilli(t).toString(), null);
+            long exit1 = event(Event.TYPE_DEVICE_TOLLROUTE_EXIT, ids[2],
+                    Instant.ofEpochMilli(t + 20_000L).toString(), 500.0);
+            event(Event.TYPE_DEVICE_TOLLROUTE_ENTER, ids[7], Instant.ofEpochMilli(t + 70_000L).toString(), null);
+            long exit2 = event(Event.TYPE_DEVICE_TOLLROUTE_EXIT, ids[30],
+                    Instant.ofEpochMilli(t + 300_000L).toString(), 5800.0);
+            task.run();
+
+            List<TollTraversal> rows = storage.getObjects(TollTraversal.class, new Request(new Columns.All(),
+                    new Condition.Equals("deviceId", fragmentDevice), new Order("exitEventId")));
+            assertEquals(2, rows.size());
+            assertEquals(exit1, rows.get(0).getExitEventId());
+            assertEquals("NO_PASSAGES", rows.get(0).getReason());
+            assertNull(rows.get(0).getAmount());
+            assertEquals(exit2, rows.get(1).getExitEventId());
+            assertEquals("cfx", rows.get(1).getFacilityId());
+            assertEquals(0, new BigDecimal("4.80").compareTo(rows.get(1).getAmount()));
+            assertTrue(rows.get(1).getInputs().contains("previousFragmentExit"));
+        } finally {
+            deviceId = saved;
+        }
     }
 }

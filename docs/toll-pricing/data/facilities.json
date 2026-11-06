@@ -23,6 +23,23 @@
     "retrieved": "2026-11-05",
     "note": "ETR names no holidays; it says Ontario statutory holidays, which the Employment Standards Act lists as these nine. Civic Holiday, Easter Monday and Remembrance Day are NOT included. date_rule=actual: a holiday falling on a weekend is weekend-priced anyway, and no substitute weekday is assumed (ETR publishes none) - verify against a statement."
    }
+  },
+  {
+   "id": "cfx",
+   "display_name": "Central Florida Expressway",
+   "operator": "Central Florida Expressway Authority",
+   "country": "US",
+   "currency": "USD",
+   "timezone": "America/New_York",
+   "rate_model": "flat",
+   "card": "cfx-2026-07-01.json",
+   "gantries": "cfx.json",
+   "payment_column": "pay_by_plate",
+   "vehicle_column": "2_axle",
+   "ramp_rule": "exclude",
+   "ramp_rule_note": "Mainline plazas only: 30 of 61 ramp booth clusters lie within 50 m of the mainline, so trail distance cannot tell a ramp user from through traffic. Estimates are low by any ramp tolls until ramps are matched to the road (decision pending).",
+   "rate_schedule": "single rate, all days and times: the CFX schedule publishes no peak, off-peak or holiday rates",
+   "rate_schedule_source_url": "https://www.cfxway.com/wp-content/uploads/2026/07/CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf"
   }
  ]
 }

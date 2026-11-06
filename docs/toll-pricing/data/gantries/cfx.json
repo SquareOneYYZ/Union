@@ -1,0 +1,1215 @@
+{
+ "facility": "Central Florida Expressway Authority",
+ "card_valid_from": "2026-07-01",
+ "osm_base": "2026-09-14T20:21:51Z",
+ "generator": "scripts/toll_research/build_cfx_plazas.py",
+ "cluster_m": 150,
+ "plazas": [
+  {
+   "name": "Beachline West Main Plaza (TPK)",
+   "road": "SR 528",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.44402,
+     "lon": -81.384804,
+     "osm_nodes": [
+      5607010106,
+      5607010107
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p65: the mainline west of Beachline Main (Turnpike-operated)"
+    }
+   ]
+  },
+  {
+   "name": "Boggy Creek Road/McCoy Road",
+   "road": "SR 528",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.448473,
+     "lon": -81.354105,
+     "osm_nodes": [
+      4094951759
+     ],
+     "match": "text score 3.0"
+    },
+    {
+     "lat": 28.451008,
+     "lon": -81.342964,
+     "osm_nodes": [
+      5317730225
+     ],
+     "match": "text score 1.5"
+    },
+    {
+     "lat": 28.450315,
+     "lon": -81.347194,
+     "osm_nodes": [
+      5317730244
+     ],
+     "match": "text score 3.5"
+    },
+    {
+     "lat": 28.450097,
+     "lon": -81.352784,
+     "osm_nodes": [
+      5371576557
+     ],
+     "match": "text score 4.5"
+    }
+   ]
+  },
+  {
+   "name": "Conway Road/Tradeport Drive",
+   "road": "SR 528",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.450871,
+     "lon": -81.331189,
+     "osm_nodes": [
+      4094951758
+     ],
+     "match": "text score 2.0"
+    },
+    {
+     "lat": 28.452652,
+     "lon": -81.33073,
+     "osm_nodes": [
+      5317730205
+     ],
+     "match": "text score 4.0"
+    }
+   ]
+  },
+  {
+   "name": "Beachline Main Plaza",
+   "road": "SR 528",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.45153,
+     "lon": -81.2095,
+     "osm_nodes": [
+      616814475,
+      616814476,
+      2859286211,
+      4844628391
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p65: between SR 417 and Innovation Way"
+    }
+   ]
+  },
+  {
+   "name": "Innovation Way",
+   "road": "SR 528",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.450533,
+     "lon": -81.169169,
+     "osm_nodes": [
+      5285164372,
+      8017719220
+     ],
+     "match": "text score 1.5"
+    },
+    {
+     "lat": 28.453147,
+     "lon": -81.168375,
+     "osm_nodes": [
+      5285164733,
+      9984426368
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Dallas Blvd.",
+   "road": "SR 528",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.451611,
+     "lon": -81.096601,
+     "osm_nodes": [
+      1740570116,
+      1740570139,
+      9987310235,
+      9987310241
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Dallas Main Plaza",
+   "road": "SR 528",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.45206,
+     "lon": -81.057923,
+     "osm_nodes": [
+      1740570126,
+      1740570132,
+      1740570136,
+      1740570146
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p63: between Innovation Way and SR 520"
+    }
+   ]
+  },
+  {
+   "name": "Good Homes Road",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.546465,
+     "lon": -81.506013,
+     "osm_nodes": [
+      471266893
+     ],
+     "match": "text score 3.0"
+    },
+    {
+     "lat": 28.545142,
+     "lon": -81.503698,
+     "osm_nodes": [
+      616083266
+     ],
+     "match": "text score 4.0"
+    }
+   ]
+  },
+  {
+   "name": "Hiawassee Main Plaza",
+   "road": "SR 408",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.548066,
+     "lon": -81.49215,
+     "osm_nodes": [
+      503294699,
+      616083255,
+      616083261,
+      616083265
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p9: between Good Homes Rd and Hiawassee Rd"
+    }
+   ]
+  },
+  {
+   "name": "Hiawassee Road",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.548346,
+     "lon": -81.473896,
+     "osm_nodes": [
+      503296115,
+      616083251
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Pine Hills Main Plaza",
+   "road": "SR 408",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.548323,
+     "lon": -81.440005,
+     "osm_nodes": [
+      503333054,
+      616083245,
+      616083248,
+      616083249
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p12: between Hiawassee Rd and John Young Pkwy"
+    }
+   ]
+  },
+  {
+   "name": "Old Winter Garden Road",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.545557,
+     "lon": -81.428983,
+     "osm_nodes": [
+      503338875
+     ],
+     "match": "text score 4.5"
+    },
+    {
+     "lat": 28.546157,
+     "lon": -81.425059,
+     "osm_nodes": [
+      616083229
+     ],
+     "match": "text score 6.0"
+    }
+   ]
+  },
+  {
+   "name": "John Young Parkway (S.R. 423)",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.541506,
+     "lon": -81.41226,
+     "osm_nodes": [
+      503343395,
+      616083235
+     ],
+     "match": "text score 6.0"
+    }
+   ]
+  },
+  {
+   "name": "Orange Blossom Trail",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.535183,
+     "lon": -81.396054,
+     "osm_nodes": [
+      503349971,
+      616083200
+     ],
+     "match": "text score 4.0"
+    }
+   ]
+  },
+  {
+   "name": "Mills Avenue",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.536837,
+     "lon": -81.365757,
+     "osm_nodes": [
+      542892116
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Bumby Avenue",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.538263,
+     "lon": -81.354027,
+     "osm_nodes": [
+      542892997,
+      583468986
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Conway Road",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.538384,
+     "lon": -81.333021,
+     "osm_nodes": [
+      99451435,
+      99451442
+     ],
+     "match": "text score 1.5"
+    }
+   ]
+  },
+  {
+   "name": "Andes/Semoran Blvd.",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": []
+  },
+  {
+   "name": "Conway Main Plaza",
+   "road": "SR 408",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.539464,
+     "lon": -81.323976,
+     "osm_nodes": [
+      599439757,
+      616083083,
+      1609673240
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p17-18: Conway West (WB) and Conway East (EB) mainlines, one card rate"
+    },
+    {
+     "lat": 28.539638,
+     "lon": -81.318137,
+     "osm_nodes": [
+      616083075,
+      1609673389
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p17-18: Conway West (WB) and Conway East (EB) mainlines, one card rate"
+    }
+   ]
+  },
+  {
+   "name": "Semoran Blvd. (S.R. 436)",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.540261,
+     "lon": -81.309181,
+     "osm_nodes": [
+      542893200
+     ],
+     "match": "text score 3.0"
+    },
+    {
+     "lat": 28.539256,
+     "lon": -81.304669,
+     "osm_nodes": [
+      542893216
+     ],
+     "match": "text score 1.0"
+    }
+   ]
+  },
+  {
+   "name": "Dean Road",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.547317,
+     "lon": -81.245491,
+     "osm_nodes": [
+      291215369,
+      291215370
+     ],
+     "match": "text score 1.5"
+    }
+   ]
+  },
+  {
+   "name": "Dean Main Plaza",
+   "road": "SR 408",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.547229,
+     "lon": -81.2346,
+     "osm_nodes": [
+      291212500,
+      291212502,
+      616084945,
+      616084952
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p24: between Dean Rd and Rouse Rd"
+    }
+   ]
+  },
+  {
+   "name": "Rouse Road",
+   "road": "SR 408",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.54694,
+     "lon": -81.221733,
+     "osm_nodes": [
+      291212497
+     ],
+     "match": "text score 1.5"
+    },
+    {
+     "lat": 28.549348,
+     "lon": -81.22304,
+     "osm_nodes": [
+      6991438646
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "John Young Main Plaza",
+   "road": "SR 417",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.355484,
+     "lon": -81.459656,
+     "osm_nodes": [
+      475073346,
+      475073440,
+      7069432212,
+      7069432213
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p32: between International Dr and John Young Pkwy"
+    }
+   ]
+  },
+  {
+   "name": "John Young Parkway (S.R. 423)",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.375068,
+     "lon": -81.421285,
+     "osm_nodes": [
+      469557853
+     ],
+     "match": "text score 6.0"
+    },
+    {
+     "lat": 28.372759,
+     "lon": -81.424384,
+     "osm_nodes": [
+      475074288
+     ],
+     "match": "text score 4.5"
+    }
+   ]
+  },
+  {
+   "name": "Orange Blossom Trail",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.371693,
+     "lon": -81.406181,
+     "osm_nodes": [
+      475075544
+     ],
+     "match": "text score 3.0"
+    },
+    {
+     "lat": 28.375346,
+     "lon": -81.405881,
+     "osm_nodes": [
+      475075713
+     ],
+     "match": "text score 3.0"
+    }
+   ]
+  },
+  {
+   "name": "Landstar Boulevard",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.368401,
+     "lon": -81.369726,
+     "osm_nodes": [
+      475078003,
+      475078039
+     ],
+     "match": "text score 1.0"
+    }
+   ]
+  },
+  {
+   "name": "Boggy Creek Main Plaza",
+   "road": "SR 417",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.367945,
+     "lon": -81.335278,
+     "osm_nodes": [
+      511987402,
+      616840523,
+      616840524,
+      616840528
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p36: between Landstar Blvd and Boggy Creek Rd"
+    }
+   ]
+  },
+  {
+   "name": "South Access Rd/Int'l Airport",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.570063,
+     "lon": -81.267802,
+     "osm_nodes": [
+      616856551
+     ],
+     "match": "text score 4.0"
+    }
+   ]
+  },
+  {
+   "name": "Boggy Creek Road",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.370886,
+     "lon": -81.301058,
+     "osm_nodes": [
+      475081646,
+      512547681,
+      5297018322
+     ],
+     "match": "text score 4.0"
+    },
+    {
+     "lat": 28.370319,
+     "lon": -81.307841,
+     "osm_nodes": [
+      512547687
+     ],
+     "match": "text score 4.0"
+    }
+   ]
+  },
+  {
+   "name": "Lake Nona Blvd.",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.380386,
+     "lon": -81.275556,
+     "osm_nodes": [
+      506911092
+     ],
+     "match": "text score 2.0"
+    },
+    {
+     "lat": 28.378839,
+     "lon": -81.275785,
+     "osm_nodes": [
+      506912406
+     ],
+     "match": "text score 1.5"
+    }
+   ]
+  },
+  {
+   "name": "Narcoossee Road",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.401913,
+     "lon": -81.243015,
+     "osm_nodes": [
+      475082904
+     ],
+     "match": "text score 1.5"
+    },
+    {
+     "lat": 28.400456,
+     "lon": -81.242698,
+     "osm_nodes": [
+      507358512
+     ],
+     "match": "text score 1.5"
+    }
+   ]
+  },
+  {
+   "name": "Moss Park Road",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.413336,
+     "lon": -81.226244,
+     "osm_nodes": [
+      616848928
+     ],
+     "match": "text score 3.0"
+    },
+    {
+     "lat": 28.415998,
+     "lon": -81.229443,
+     "osm_nodes": [
+      616849031
+     ],
+     "match": "text score 3.0"
+    }
+   ]
+  },
+  {
+   "name": "Dowden Road",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.426429,
+     "lon": -81.226056,
+     "osm_nodes": [
+      616852073
+     ],
+     "match": "text score 1.5"
+    },
+    {
+     "lat": 28.42936,
+     "lon": -81.230693,
+     "osm_nodes": [
+      616852116
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Lee Vista Blvd.",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.475913,
+     "lon": -81.239043,
+     "osm_nodes": [
+      474847995,
+      512872129
+     ],
+     "match": "text score 3.0"
+    }
+   ]
+  },
+  {
+   "name": "Curry Ford Main Plaza",
+   "road": "SR 417",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.487936,
+     "lon": -81.242088,
+     "osm_nodes": [
+      616853761,
+      616853778,
+      616853795,
+      616853807
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p42: between Lee Vista Blvd and Curry Ford Rd"
+    }
+   ]
+  },
+  {
+   "name": "Curry Ford Road (S.R. 552)",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.511293,
+     "lon": -81.247607,
+     "osm_nodes": [
+      616856552
+     ],
+     "match": "text score 3.0"
+    },
+    {
+     "lat": 28.512046,
+     "lon": -81.249601,
+     "osm_nodes": [
+      616856556
+     ],
+     "match": "text score 4.0"
+    }
+   ]
+  },
+  {
+   "name": "Colonial Drive (S.R. 50)",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.566276,
+     "lon": -81.265521,
+     "osm_nodes": [
+      551098977
+     ],
+     "match": "text score 4.0"
+    }
+   ]
+  },
+  {
+   "name": "University Main Plaza",
+   "road": "SR 417",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.587533,
+     "lon": -81.255464,
+     "osm_nodes": [
+      54728282,
+      616856534,
+      616856538,
+      616856550
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p45: between SR 50 and University Blvd"
+    }
+   ]
+  },
+  {
+   "name": "University Blvd.",
+   "road": "SR 417",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.599785,
+     "lon": -81.249055,
+     "osm_nodes": [
+      551108829
+     ],
+     "match": "text score 1.0"
+    },
+    {
+     "lat": 28.599253,
+     "lon": -81.252177,
+     "osm_nodes": [
+      616856531
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Schofield Road",
+   "road": "SR 429",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.447632,
+     "lon": -81.640512,
+     "osm_nodes": [
+      7104522772
+     ],
+     "match": "text score 2.0"
+    },
+    {
+     "lat": 28.447602,
+     "lon": -81.643215,
+     "osm_nodes": [
+      7104522773
+     ],
+     "match": "text score 1.5"
+    },
+    {
+     "lat": 28.445721,
+     "lon": -81.646626,
+     "osm_nodes": [
+      12644917292,
+      12644917430,
+      12644917431,
+      12644917432
+     ],
+     "match": "text score 1.0"
+    },
+    {
+     "lat": 28.446095,
+     "lon": -81.649841,
+     "osm_nodes": [
+      12644917451,
+      12644917458
+     ],
+     "match": "text score 1.0"
+    }
+   ]
+  },
+  {
+   "name": "New Independence Parkway",
+   "road": "SR 429",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.472811,
+     "lon": -81.632542,
+     "osm_nodes": [
+      616902378
+     ],
+     "match": "text score 3.0"
+    },
+    {
+     "lat": 28.473038,
+     "lon": -81.630557,
+     "osm_nodes": [
+      616902387
+     ],
+     "match": "text score 4.0"
+    }
+   ]
+  },
+  {
+   "name": "Independence Main Plaza",
+   "road": "SR 429",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.498965,
+     "lon": -81.617013,
+     "osm_nodes": [
+      616902370,
+      616902379,
+      616902381,
+      616902384
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p53: between New Independence Pkwy and C.R. 535"
+    }
+   ]
+  },
+  {
+   "name": "Stoneybrook Parkway",
+   "road": "SR 429",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.512937,
+     "lon": -81.602273,
+     "osm_nodes": [
+      12788681939
+     ],
+     "match": "text score 1.5"
+    },
+    {
+     "lat": 28.514296,
+     "lon": -81.601644,
+     "osm_nodes": [
+      12788681940
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "C.R. 535",
+   "road": "SR 429",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.520635,
+     "lon": -81.582374,
+     "osm_nodes": [
+      470109627
+     ],
+     "match": "text score 2.0"
+    },
+    {
+     "lat": 28.519012,
+     "lon": -81.582866,
+     "osm_nodes": [
+      616902376
+     ],
+     "match": "override: 160 m from the C.R. 535 ramp booth, 2 km from the Stoneybrook interchange"
+    }
+   ]
+  },
+  {
+   "name": "S.R. 438",
+   "road": "SR 429",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.57328,
+     "lon": -81.558697,
+     "osm_nodes": [
+      616904548
+     ],
+     "match": "text score 1.0"
+    },
+    {
+     "lat": 28.57327,
+     "lon": -81.55656,
+     "osm_nodes": [
+      12081629669
+     ],
+     "match": "text score 1.5"
+    }
+   ]
+  },
+  {
+   "name": "West Road",
+   "road": "SR 429",
+   "plaza_type": "ramp",
+   "clusters": []
+  },
+  {
+   "name": "Forest Lake Main Plaza",
+   "road": "SR 429",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.614925,
+     "lon": -81.536723,
+     "osm_nodes": [
+      616904486,
+      616904495,
+      616904502,
+      616904515
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p49: between West Rd and C.R. 437A"
+    }
+   ]
+  },
+  {
+   "name": "C.R. 437A",
+   "road": "SR 429",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.635711,
+     "lon": -81.542933,
+     "osm_nodes": [
+      1448579945,
+      5827548985
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Ponkan Main Plaza",
+   "road": "SR 429",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.721269,
+     "lon": -81.562936,
+     "osm_nodes": [
+      7104526488,
+      7104526489
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p58: between US 441 and W Kelly Park Rd; 841 m from Ponkan Road"
+    }
+   ]
+  },
+  {
+   "name": "Mt. Plymouth Main Plaza",
+   "road": "SR 429",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.775816,
+     "lon": -81.541566,
+     "osm_nodes": [
+      7104526494,
+      7104526495
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p59: between SR 453 and SR 46, north of Ponkan"
+    }
+   ]
+  },
+  {
+   "name": "Coral Hills Main Plaza",
+   "road": "SR 414",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.644096,
+     "lon": -81.507489,
+     "osm_nodes": [
+      475188624,
+      475189137,
+      1300153935,
+      1300154194
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Keene Road",
+   "road": "SR 414",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.638869,
+     "lon": -81.495179,
+     "osm_nodes": [
+      600076621,
+      616917860,
+      14089455432
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Hiawassee Road",
+   "road": "SR 414",
+   "plaza_type": "ramp",
+   "clusters": [
+    {
+     "lat": 28.634165,
+     "lon": -81.474127,
+     "osm_nodes": [
+      600088225,
+      600088227
+     ],
+     "match": "text score 2.0"
+    }
+   ]
+  },
+  {
+   "name": "Coronado Main Plaza",
+   "road": "SR 453",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.793984,
+     "lon": -81.580663,
+     "osm_nodes": [
+      9989679400,
+      9989679401
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p61: the only SR 453 mainline plaza"
+    }
+   ]
+  },
+  {
+   "name": "Marigold Main Plaza",
+   "road": "SR 538",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.202945,
+     "lon": -81.508177,
+     "osm_nodes": [
+      5332344276,
+      7079738664
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p71: between US 17-92 and Marigold Ave; the cluster nearer US 17-92"
+    }
+   ]
+  },
+  {
+   "name": "Koa Main Plaza",
+   "road": "SR 538",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.166852,
+     "lon": -81.503766,
+     "osm_nodes": [
+      5332344106,
+      7079738649
+     ],
+     "match": "override: CFX Toll Facilities Reference Manual Oct 2024 p72: between Marigold Ave and KOA St; 1.4 km from KOA Street"
+    }
+   ]
+  },
+  {
+   "name": "Goldenrod Main Plaza",
+   "road": "SR 551",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 28.454605,
+     "lon": -81.285828,
+     "osm_nodes": [
+      602692930,
+      602692956
+     ],
+     "match": "override: CFX booths on SR 551 Goldenrod Rd; OSM charge $0.50 equals the card's rate"
+    }
+   ]
+  }
+ ],
+ "review": {
+  "plazas_without_location": [
+   "Andes/Semoran Blvd. (SR 408)",
+   "West Road (SR 429)"
+  ],
+  "cfx_clusters_without_plaza": [
+   {
+    "lat": 28.417464,
+    "lon": -81.631276,
+    "road": "SR 429",
+    "mainline": false,
+    "operators": [
+     "Central Florida Expressway",
+     "Florida Turnpike"
+    ],
+    "osm_nodes": [
+     470112456,
+     470112602
+    ],
+    "evidence": [
+     "loop",
+     "tuller",
+     "seidel",
+     "pointe",
+     "lakeshore",
+     "place",
+     "topsail",
+     "falls"
+    ]
+   },
+   {
+    "lat": 28.654928,
+    "lon": -81.23382,
+    "road": "SR 417",
+    "mainline": false,
+    "operators": [
+     "Central Florida Expressway"
+    ],
+    "osm_nodes": [
+     595490736
+    ],
+    "evidence": [
+     "orlando",
+     "417",
+     "bug",
+     "red",
+     "crossing",
+     "terrace",
+     "oviedo",
+     "lukas"
+    ]
+   },
+   {
+    "lat": 28.444787,
+    "lon": -81.381785,
+    "road": "SR 528",
+    "mainline": false,
+    "operators": [
+     "Central Florida Expressway"
+    ],
+    "osm_nodes": [
+     4831090160,
+     4831090175
+    ],
+    "evidence": [
+     "goodman",
+     "horizon",
+     "park",
+     "trussway",
+     "gills",
+     "outlook",
+     "point",
+     "beacon"
+    ]
+   }
+  ]
+ }
+}

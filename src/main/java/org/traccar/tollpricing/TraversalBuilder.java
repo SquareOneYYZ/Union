@@ -7,7 +7,9 @@ import org.traccar.model.TollTraversal;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * Builds the one row a toll exit produces, from values the job has already read. No I/O, so every
@@ -46,6 +48,17 @@ public final class TraversalBuilder {
      */
     public TollTraversal build(long deviceId, long exitEventId, long enterEventId,
                                Edge enter, Edge exit, double tollDistance, Date now) {
+        return build(deviceId, exitEventId, enterEventId, enter, exit, tollDistance, now, () -> null, null);
+    }
+
+    /**
+     * @param trail      reads the positions to test against flat facilities' toll points; only called
+     *                   when the traversal is not on a distance-zoned corridor
+     * @param trailStart where that trail starts (the enter, or an earlier fragment's exit), for offsets
+     */
+    public TollTraversal build(long deviceId, long exitEventId, long enterEventId,
+                               Edge enter, Edge exit, double tollDistance, Date now,
+                               Supplier<List<PassageDetector.TrailPoint>> trail, Date trailStart) {
         TollTraversal row = new TollTraversal();
         row.setDeviceId(deviceId);
         row.setExitEventId(exitEventId);
@@ -78,7 +91,12 @@ public final class TraversalBuilder {
         Optional<FacilityRegistry.Facility> facility = registry.match(
                 enter.latitude(), enter.longitude(), exit.latitude(), exit.longitude());
         if (facility.isEmpty()) {
-            return unpriced(row, REASON_NO_FACILITY, inputs);
+            List<GantrySet> flat = registry.flatNear(
+                    enter.latitude(), enter.longitude(), exit.latitude(), exit.longitude());
+            if (flat.isEmpty()) {
+                return unpriced(row, REASON_NO_FACILITY, inputs);
+            }
+            return priceFlat(row, flat, trail, trailStart != null ? trailStart : enter.fixTime(), inputs);
         }
         row.setFacilityId(facility.get().id());
         row.setCurrency(facility.get().currency());
@@ -97,6 +115,30 @@ public final class TraversalBuilder {
             inputs.putAll(result.inputs());
             inputs.put("lines", e.getLines());
         } catch (Exception e) {
+            inputs.put("error", e.toString());
+            return unpriced(row, REASON_ERROR, inputs);
+        }
+        row.setInputs(json(inputs));
+        return row;
+    }
+
+    private static TollTraversal priceFlat(TollTraversal row, List<GantrySet> sets,
+                                           Supplier<List<PassageDetector.TrailPoint>> trail, Date start,
+                                           Map<String, Object> inputs) {
+        try {
+            FlatPricer.Result result = FlatPricer.price(trail.get(), sets, start);
+            TollEstimate e = result.estimate();
+            row.setFacilityId(result.facilityId());
+            row.setCurrency(e.getCurrency());
+            row.setAmount(e.getAmount());
+            row.setReason(e.getReason());
+            row.setDayType(e.getDayType());
+            row.setCardValidFrom(e.getCardValidFrom());
+            inputs.putAll(result.inputs());
+            if (start != null && row.getEnterTime() != null && start.before(row.getEnterTime())) {
+                inputs.put("trailFrom", "previousFragmentExit");
+            }
+        } catch (RuntimeException e) {
             inputs.put("error", e.toString());
             return unpriced(row, REASON_ERROR, inputs);
         }

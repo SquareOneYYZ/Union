@@ -25,11 +25,16 @@ public final class FacilityRegistry {
     public record Facility(String id, String currency, DistanceZonedPricer pricer, ZonedCorridor corridor) {
     }
 
+    /** How far beyond a flat facility's outermost toll points an edge may lie and still be "near" it. */
+    static final double FLAT_MARGIN_DEG = 0.05;
+
     private final List<Facility> facilities;
+    private final List<GantrySet> gantrySets;
     private final List<String> skipped;
 
-    private FacilityRegistry(List<Facility> facilities, List<String> skipped) {
+    private FacilityRegistry(List<Facility> facilities, List<GantrySet> gantrySets, List<String> skipped) {
         this.facilities = List.copyOf(facilities);
+        this.gantrySets = List.copyOf(gantrySets);
         this.skipped = List.copyOf(skipped);
     }
 
@@ -45,10 +50,20 @@ public final class FacilityRegistry {
     public static FacilityRegistry load(InputStream in) throws IOException {
         JsonNode root = new ObjectMapper().readTree(in);
         List<Facility> facilities = new ArrayList<>();
+        List<GantrySet> gantrySets = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
         for (JsonNode f : root.path("facilities")) {
             String id = f.path("id").asText();
             String model = f.path("rate_model").asText();
+            if ("flat".equals(model)) {
+                try (InputStream card = resource("cards/" + f.path("card").asText());
+                     InputStream gantries = resource("gantries/" + f.path("gantries").asText())) {
+                    gantrySets.add(GantrySet.load(id, card, gantries,
+                            f.path("payment_column").asText(), f.path("vehicle_column").asText(),
+                            !"exclude".equals(f.path("ramp_rule").asText())));
+                }
+                continue;
+            }
             if (!"distance_zoned".equals(model)) {
                 skipped.add(id + " (" + model + ")");
                 continue;
@@ -68,7 +83,30 @@ public final class FacilityRegistry {
                     card, corridor, ZoneId.of(f.path("timezone").asText()), holidays);
             facilities.add(new Facility(id, card.getCurrency(), pricer, corridor));
         }
-        return new FacilityRegistry(facilities, skipped);
+        return new FacilityRegistry(facilities, gantrySets, skipped);
+    }
+
+    private static InputStream resource(String path) throws IOException {
+        InputStream in = FacilityRegistry.class.getResourceAsStream("/toll-pricing/" + path);
+        if (in == null) {
+            throw new IOException("toll-pricing/" + path + " not on classpath");
+        }
+        return in;
+    }
+
+    /** Flat facilities whose toll points lie near both edges; their gantries are tested against the trail. */
+    public List<GantrySet> flatNear(double entryLat, double entryLon, double exitLat, double exitLon) {
+        List<GantrySet> near = new ArrayList<>();
+        for (GantrySet s : gantrySets) {
+            if (s.near(entryLat, entryLon, FLAT_MARGIN_DEG) && s.near(exitLat, exitLon, FLAT_MARGIN_DEG)) {
+                near.add(s);
+            }
+        }
+        return near;
+    }
+
+    public List<GantrySet> getGantrySets() {
+        return gantrySets;
     }
 
     /** The facility both edges lie on, preferring the one they lie closest to; empty when none. */

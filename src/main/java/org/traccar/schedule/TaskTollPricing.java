@@ -15,9 +15,11 @@ import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
 import org.traccar.tollpricing.FacilityRegistry;
+import org.traccar.tollpricing.PassageDetector;
 import org.traccar.tollpricing.TraversalBuilder;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -47,6 +49,19 @@ public class TaskTollPricing extends SingleScheduleTask {
     static final long MAX_TRAVERSAL_MS = TimeUnit.HOURS.toMillis(12);
 
     static final int BATCH = 500;
+
+    /**
+     * A device whose previous toll exit was this recent before the enter is on one road the map
+     * split in two (the SR 528 Beachline toll=yes/no interleave): the trail is read from that exit,
+     * so gantries in the gap are counted, and the two trails never overlap.
+     */
+    static final long FRAGMENT_GAP_MS = TimeUnit.MINUTES.toMillis(15);
+
+    /** Upper bound on positions read for one traversal's trail. */
+    static final int MAX_TRAIL = 5000;
+
+    private record Pairing(Event enter, Event previousExit) {
+    }
 
     private final Storage storage;
     private final boolean enabled;
@@ -136,21 +151,57 @@ public class TaskTollPricing extends SingleScheduleTask {
     }
 
     private TollTraversal priceOne(Event exit) throws StorageException {
-        Event enter = findEnter(exit);
+        Pairing pairing = findEnter(exit);
+        Event enter = pairing.enter();
         TraversalBuilder.Edge enterEdge = enter != null ? edge(enter.getPositionId()) : null;
         TraversalBuilder.Edge exitEdge = edge(exit.getPositionId());
+        Date trailStart = enterEdge != null ? enterEdge.fixTime() : null;
+        Event previous = pairing.previousExit();
+        if (enter != null && previous != null && previous.getEventTime() != null && enter.getEventTime() != null
+                && enter.getEventTime().getTime() - previous.getEventTime().getTime() <= FRAGMENT_GAP_MS) {
+            TraversalBuilder.Edge previousEdge = edge(previous.getPositionId());
+            if (previousEdge != null && previousEdge.fixTime() != null) {
+                trailStart = previousEdge.fixTime();
+            }
+        }
+        Date from = trailStart;
+        Date to = exitEdge != null ? exitEdge.fixTime() : null;
         return builder.build(exit.getDeviceId(), exit.getId(), enter != null ? enter.getId() : 0,
-                enterEdge, exitEdge, exit.getDouble("tollDistance"), new Date());
+                enterEdge, exitEdge, exit.getDouble("tollDistance"), new Date(),
+                () -> trail(exit.getDeviceId(), from, to), from);
+    }
+
+    /** The device's positions between two fix times, ordered, bounded; null when it cannot be read. */
+    private List<PassageDetector.TrailPoint> trail(long deviceId, Date from, Date to) {
+        if (from == null || to == null || !to.after(from)) {
+            return null;
+        }
+        try {
+            List<Position> positions = storage.getObjects(Position.class, new Request(
+                    new Columns.Include("id", "latitude", "longitude", "fixTime"),
+                    new Condition.And(
+                            new Condition.Equals("deviceId", deviceId),
+                            new Condition.Between("fixTime", "from", from, "to", to)),
+                    new Order("fixTime", false, MAX_TRAIL)));
+            List<PassageDetector.TrailPoint> trail = new ArrayList<>(positions.size());
+            for (Position p : positions) {
+                trail.add(new PassageDetector.TrailPoint(p.getLatitude(), p.getLongitude(), p.getFixTime()));
+            }
+            return trail;
+        } catch (StorageException e) {
+            LOGGER.warn("Toll pricing: trail read failed for device {}", deviceId, e);
+            return null;
+        }
     }
 
     /**
      * The device's latest toll event before this exit, if it is an enter. Another exit in between
      * means this exit has no enter of its own.
      */
-    private Event findEnter(Event exit) throws StorageException {
+    private Pairing findEnter(Event exit) throws StorageException {
         Date to = exit.getEventTime();
         if (to == null) {
-            return null;
+            return new Pairing(null, null);
         }
         List<Event> events = storage.getObjects(Event.class, new Request(
                 new Columns.All(),
@@ -160,17 +211,21 @@ public class TaskTollPricing extends SingleScheduleTask {
                                 "from", new Date(to.getTime() - MAX_TRAVERSAL_MS), "to", to)),
                 new Order("eventTime")));
         Event candidate = null;
+        Event lastExit = null;
+        Event exitBeforeCandidate = null;
         for (Event e : events) {
             if (e.getId() >= exit.getId()) {
                 continue;
             }
             if (Event.TYPE_DEVICE_TOLLROUTE_ENTER.equals(e.getType())) {
                 candidate = e;
+                exitBeforeCandidate = lastExit;
             } else if (Event.TYPE_DEVICE_TOLLROUTE_EXIT.equals(e.getType())) {
                 candidate = null;
+                lastExit = e;
             }
         }
-        return candidate;
+        return new Pairing(candidate, candidate != null ? exitBeforeCandidate : null);
     }
 
     private TraversalBuilder.Edge edge(long positionId) throws StorageException {
