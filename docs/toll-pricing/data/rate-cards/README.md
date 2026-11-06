@@ -89,9 +89,12 @@ MTO-operated 407 East Extension, a different operator on the same route number.
 - **Two cards, one facility.** The pricing job charges each passage from the card in effect on its
   Chicago-local date (`GantrySet.rateAt`), so trips before and after 2027-01-01 are both right
   without a redeploy. A passage before every card is `NO_RATE` (unknown), never a later card's price.
-- **Pay By Plate changes shape.** 2× I-PASS in 2026, **1.5×** from 2027 (Invoice becomes 2×). We
-  price `pay_by_plate`; a vehicle billed by invoice is under-estimated, one with an I-PASS
-  over-estimated (facilities.json `payment_column_note`).
+- **We price the invoice (fleet decision 2026-11-06: no passes, plates not registered).** The 2026
+  table has no invoice column, so the builder derives `invoice.passenger` = Pay Online + the $3 fee
+  per toll (e.g. Touhy 1.90 + 3 = 4.90). From 2027 the published Invoice rate (2× I-PASS, no
+  per-toll fee) applies, so invoiced passenger tolls get *cheaper* on 2027-01-01 (Touhy 3.00).
+  Pay By Plate goes from 2× to 1.5× I-PASS at the same time. Late-payment escalation and violation
+  fines are not estimated (facilities.json `payment_column_note`).
 - **Plaza numbers duplicate on purpose.** Genoa Road (3), Illinois 47 (6), Barrington Road (10) and
   Roselle Road (12) are priced per movement (e.g. "EB Exit/WB Entrance"); Genoa and IL 47 have
   different rates per movement. `build_istha_plazas.py` decides the movement from the ramp geometry.

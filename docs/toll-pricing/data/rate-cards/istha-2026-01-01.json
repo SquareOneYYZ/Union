@@ -11,7 +11,7 @@
  "reprices_on": "1 January 2027 (board vote 2026-08-19); then every two years from 2029 by CPI-U, max 8%",
  "source_url": "https://agency.illinoistollway.com/toll-rates",
  "source_type": "published",
- "source_note": "The rates page embeds the '2026 Toll Rates by Plaza' table as JSON. Passenger rates are unchanged since 2012; truck rates took effect 2026-01-01. The 2026 table publishes no invoice column (invoice = Pay Online + $3 fee per toll).",
+ "source_note": "The rates page embeds the '2026 Toll Rates by Plaza' table as JSON. Passenger rates are unchanged since 2012; truck rates took effect 2026-01-01. The 2026 table publishes no invoice column; invoice.passenger here is DERIVED as Pay Online + the $3 fee charged per toll on an invoice.",
  "payment_premium_note": "Pay By Plate / Pay Online is exactly 2x I-PASS.",
  "plazas": [
   {
@@ -30,6 +30,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.9
+   },
+   "invoice": {
+    "passenger": 4.9
    }
   },
   {
@@ -48,6 +51,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -66,6 +72,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -84,6 +93,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -102,6 +114,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -120,6 +135,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -138,6 +156,9 @@
    },
    "pay_by_plate": {
     "passenger": 3.0
+   },
+   "invoice": {
+    "passenger": 6.0
    }
   },
   {
@@ -156,6 +177,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -174,6 +198,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.6
+   },
+   "invoice": {
+    "passenger": 3.6
    }
   },
   {
@@ -192,6 +219,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -210,6 +240,9 @@
    },
    "pay_by_plate": {
     "passenger": 3.0
+   },
+   "invoice": {
+    "passenger": 6.0
    }
   },
   {
@@ -228,6 +261,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -246,6 +282,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -264,6 +303,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -282,6 +324,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -300,6 +345,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -318,6 +366,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -336,6 +387,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -354,6 +408,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -372,6 +429,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -390,6 +450,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -408,6 +471,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.6
+   },
+   "invoice": {
+    "passenger": 3.6
    }
   },
   {
@@ -426,6 +492,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.6
+   },
+   "invoice": {
+    "passenger": 3.6
    }
   },
   {
@@ -444,6 +513,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -462,6 +534,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -480,6 +555,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -498,6 +576,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -516,6 +597,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -534,6 +618,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -552,6 +639,9 @@
    },
    "pay_by_plate": {
     "passenger": 2.8
+   },
+   "invoice": {
+    "passenger": 5.8
    }
   },
   {
@@ -570,6 +660,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -588,6 +681,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -606,6 +702,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.9
+   },
+   "invoice": {
+    "passenger": 4.9
    }
   },
   {
@@ -624,6 +723,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.9
+   },
+   "invoice": {
+    "passenger": 4.9
    }
   },
   {
@@ -642,6 +744,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.9
+   },
+   "invoice": {
+    "passenger": 4.9
    }
   },
   {
@@ -660,6 +765,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.9
+   },
+   "invoice": {
+    "passenger": 4.9
    }
   },
   {
@@ -678,6 +786,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.9
+   },
+   "invoice": {
+    "passenger": 4.9
    }
   },
   {
@@ -696,6 +807,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.6
+   },
+   "invoice": {
+    "passenger": 4.6
    }
   },
   {
@@ -714,6 +828,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -732,6 +849,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -750,6 +870,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -768,6 +891,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.6
+   },
+   "invoice": {
+    "passenger": 3.6
    }
   },
   {
@@ -786,6 +912,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -804,6 +933,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -822,6 +954,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -840,6 +975,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.6
+   },
+   "invoice": {
+    "passenger": 3.6
    }
   },
   {
@@ -858,6 +996,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -876,6 +1017,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -894,6 +1038,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -912,6 +1059,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -930,6 +1080,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -948,6 +1101,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -966,6 +1122,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -984,6 +1143,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.6
+   },
+   "invoice": {
+    "passenger": 3.6
    }
   },
   {
@@ -1002,6 +1164,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -1020,6 +1185,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -1038,6 +1206,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -1056,6 +1227,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -1074,6 +1248,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -1092,6 +1269,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -1110,6 +1290,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.6
+   },
+   "invoice": {
+    "passenger": 3.6
    }
   },
   {
@@ -1128,6 +1311,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.6
+   },
+   "invoice": {
+    "passenger": 3.6
    }
   },
   {
@@ -1146,6 +1332,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -1164,6 +1353,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -1182,6 +1374,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -1200,6 +1395,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -1218,6 +1416,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -1236,6 +1437,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -1254,6 +1458,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -1272,6 +1479,9 @@
    },
    "pay_by_plate": {
     "passenger": 3.6
+   },
+   "invoice": {
+    "passenger": 6.6
    }
   },
   {
@@ -1290,6 +1500,9 @@
    },
    "pay_by_plate": {
     "passenger": 2.1
+   },
+   "invoice": {
+    "passenger": 5.1
    }
   },
   {
@@ -1308,6 +1521,9 @@
    },
    "pay_by_plate": {
     "passenger": 3.6
+   },
+   "invoice": {
+    "passenger": 6.6
    }
   },
   {
@@ -1326,6 +1542,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.9
+   },
+   "invoice": {
+    "passenger": 4.9
    }
   },
   {
@@ -1344,6 +1563,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -1362,6 +1584,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.3
+   },
+   "invoice": {
+    "passenger": 4.3
    }
   },
   {
@@ -1380,6 +1605,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -1398,6 +1626,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -1416,6 +1647,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.1
+   },
+   "invoice": {
+    "passenger": 4.1
    }
   },
   {
@@ -1434,6 +1668,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.3
+   },
+   "invoice": {
+    "passenger": 4.3
    }
   },
   {
@@ -1452,6 +1689,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.5
+   },
+   "invoice": {
+    "passenger": 4.5
    }
   },
   {
@@ -1470,6 +1710,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.9
+   },
+   "invoice": {
+    "passenger": 4.9
    }
   },
   {
@@ -1488,6 +1731,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -1506,6 +1752,9 @@
    },
    "pay_by_plate": {
     "passenger": 1.9
+   },
+   "invoice": {
+    "passenger": 4.9
    }
   },
   {
@@ -1524,6 +1773,9 @@
    },
    "pay_by_plate": {
     "passenger": 2.4
+   },
+   "invoice": {
+    "passenger": 5.4
    }
   },
   {
@@ -1542,6 +1794,9 @@
    },
    "pay_by_plate": {
     "passenger": 2.8
+   },
+   "invoice": {
+    "passenger": 5.8
    }
   },
   {
@@ -1560,6 +1815,9 @@
    },
    "pay_by_plate": {
     "passenger": 3.8
+   },
+   "invoice": {
+    "passenger": 6.8
    }
   },
   {
@@ -1578,6 +1836,9 @@
    },
    "pay_by_plate": {
     "passenger": 0.9
+   },
+   "invoice": {
+    "passenger": 3.9
    }
   },
   {
@@ -1602,6 +1863,9 @@
     "small_overnight": 0.55,
     "medium_overnight": 0.95,
     "large_overnight": 1.5
+   },
+   "invoice": {
+    "passenger": 3.4
    }
   },
   {
@@ -1626,6 +1890,9 @@
     "small_overnight": 0.55,
     "medium_overnight": 0.95,
     "large_overnight": 1.5
+   },
+   "invoice": {
+    "passenger": 3.4
    }
   },
   {
@@ -1650,6 +1917,9 @@
     "small_overnight": 0.75,
     "medium_overnight": 1.2,
     "large_overnight": 2.0
+   },
+   "invoice": {
+    "passenger": 3.5
    }
   },
   {
@@ -1674,6 +1944,9 @@
     "small_overnight": 0.55,
     "medium_overnight": 0.95,
     "large_overnight": 1.5
+   },
+   "invoice": {
+    "passenger": 3.4
    }
   },
   {
@@ -1698,6 +1971,9 @@
     "small_overnight": 1.6,
     "medium_overnight": 2.7,
     "large_overnight": 4.55
+   },
+   "invoice": {
+    "passenger": 4.2
    }
   },
   {
@@ -1722,6 +1998,9 @@
     "small_overnight": 1.05,
     "medium_overnight": 1.8,
     "large_overnight": 3.0
+   },
+   "invoice": {
+    "passenger": 3.7
    }
   },
   {
@@ -1746,6 +2025,9 @@
     "small_overnight": 0.85,
     "medium_overnight": 1.45,
     "large_overnight": 2.6
+   },
+   "invoice": {
+    "passenger": 3.6
    }
   },
   {

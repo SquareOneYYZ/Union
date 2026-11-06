@@ -23,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Illinois Tollway over the packaged 2026 and 2027 cards. The Tri-State runs north-south past Touhy
  * Avenue mainline (42.0019 N, -87.8669) and Irving Park Road mainline (41.9628 N, -87.8766).
- * Pay By Plate, passenger: Touhy 1.90 (2026) / 2.25 (2027); Irving Park 1.50 / 1.80.
+ * Invoice (unregistered plate), passenger: Touhy 4.90 (2026: Pay Online 1.90 + $3 fee) / 3.00 (2027);
+ * Irving Park 4.50 / 2.40.
  */
 public class IsthaPricingTest {
 
@@ -49,7 +50,7 @@ public class IsthaPricingTest {
     public void chargesThe2026CardBeforeTheReprice() {
         FlatPricer.Result r = touhyAt("2026-11-17T15:00:00Z", "2026-11-17T15:01:00Z");
         assertEquals("istha", r.facilityId());
-        assertEquals(0, new BigDecimal("1.90").compareTo(r.estimate().getAmount()));
+        assertEquals(0, new BigDecimal("4.90").compareTo(r.estimate().getAmount()));
         assertEquals("USD", r.estimate().getCurrency());
         assertEquals("2026-01-01", r.estimate().getCardValidFrom());
     }
@@ -57,7 +58,7 @@ public class IsthaPricingTest {
     @Test
     public void chargesThe2027CardAfterTheReprice() {
         FlatPricer.Result r = touhyAt("2027-01-01T15:00:00Z", "2027-01-01T15:01:00Z");
-        assertEquals(0, new BigDecimal("2.25").compareTo(r.estimate().getAmount()));
+        assertEquals(0, new BigDecimal("3.00").compareTo(r.estimate().getAmount()));
         assertEquals("2027-01-01", r.estimate().getCardValidFrom());
     }
 
@@ -65,7 +66,7 @@ public class IsthaPricingTest {
     public void theRepriceIsChicagoMidnightNotUtc() {
         // 05:30Z on 1 January is 23:30 on 31 December in Chicago: still the 2026 card.
         FlatPricer.Result r = touhyAt("2027-01-01T05:30:00Z", "2027-01-01T05:31:00Z");
-        assertEquals(0, new BigDecimal("1.90").compareTo(r.estimate().getAmount()));
+        assertEquals(0, new BigDecimal("4.90").compareTo(r.estimate().getAmount()));
         assertEquals("2026-01-01", r.estimate().getCardValidFrom());
     }
 
@@ -78,7 +79,7 @@ public class IsthaPricingTest {
                 fix(41.9550, -87.876624, "2027-01-01T06:05:00Z"));   // past Irving Park after midnight
         FlatPricer.Result r = FlatPricer.price(trail, sets, trail.get(0).fixTime());
         assertEquals(2, ((List<?>) r.inputs().get("passages")).size());
-        assertEquals(0, new BigDecimal("3.70").compareTo(r.estimate().getAmount()));   // 1.90 + 1.80
+        assertEquals(0, new BigDecimal("7.30").compareTo(r.estimate().getAmount()));   // 4.90 + 2.40
         assertEquals("2026-01-01", r.estimate().getCardValidFrom());
         assertTrue(((Map<?, ?>) r.inputs().get("cardsUsed")).containsKey("istha"));
     }

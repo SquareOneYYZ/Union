@@ -284,6 +284,9 @@ def istha_tables(page):
     return tables
 
 
+ISTHA_INVOICE_FEE = 3.00   # per toll on a 2026 passenger invoice
+
+
 def istha_pdf_passenger_rates(pdf):
     """Sorted [(plaza number, I-PASS, Pay By Plate, Invoice)] passenger rates from the 2027 PDF."""
     import fitz
@@ -329,6 +332,10 @@ def build_istha():
                             if tier in truck.get(period, {}):
                                 rates[f"{tier}_{period}"] = float(truck[period][tier])
                     row[column] = rates
+                if "invoice" not in row:
+                    # 2026 publishes no invoice column: an unpaid plate toll is invoiced at the
+                    # Pay Online rate plus a $3 fee per toll. Passenger only (truck fees differ).
+                    row["invoice"] = {"passenger": round(row["pay_by_plate"]["passenger"] + ISTHA_INVOICE_FEE, 2)}
                 plazas.append(row)
         is_2027 = year == "2027"
         cards[year] = {
@@ -348,7 +355,8 @@ def build_istha():
                                f"plaza number, to the board-approved PDF {ISTHA_2027_PDF} (titled 'Proposed', "
                                "linked as '2027 Toll Rates')." if is_2027 else
                                "Passenger rates are unchanged since 2012; truck rates took effect 2026-01-01. "
-                               "The 2026 table publishes no invoice column (invoice = Pay Online + $3 fee per toll).")),
+                               "The 2026 table publishes no invoice column; invoice.passenger here is DERIVED as "
+                               "Pay Online + the $3 fee charged per toll on an invoice.")),
             "payment_premium_note": ("Pay By Plate is 1.5x I-PASS and Invoice 2x (rounded to the nickel)."
                                      if is_2027 else "Pay By Plate / Pay Online is exactly 2x I-PASS."),
             "plazas": plazas,
