@@ -21,6 +21,11 @@ import java.util.Map;
  *       {@link #THRESHOLD_M}; only the nearest counts (per-direction pairs are already one cluster);</li>
  *   <li>the same plaza is counted once within {@link #DEBOUNCE_S}, so a cluster straddling two
  *       segments is not charged twice.</li>
+ *   <li>a ramp plaza is never found by distance to its booth - half of CFX's ramp booths lie within
+ *       50 m of the mainline. It is charged only when a fix lies within {@link #ON_RAMP_M} of the
+ *       ramp's own shape and at least {@link #OFF_MAINLINE_M} from the mainline's, i.e. the trail
+ *       proves the vehicle was on the ramp. Sparse fixes can miss a ramp (estimate low); through
+ *       traffic is never charged one.</li>
  * </ul>
  */
 public final class PassageDetector {
@@ -29,6 +34,12 @@ public final class PassageDetector {
     public static final double THRESHOLD_M = 50;
 
     public static final long DEBOUNCE_S = 120;
+
+    /** A fix this close to a ramp's shape is on the ramp (GPS error included). */
+    public static final double ON_RAMP_M = 20;
+
+    /** ...provided it is at least this far from the mainline, where the two shapes have separated. */
+    public static final double OFF_MAINLINE_M = 30;
 
     private static final double EARTH_RADIUS_M = 6371008.8;
     private static final double METRES_PER_DEG = 111320;
@@ -92,7 +103,52 @@ public final class PassageDetector {
             lastByPlaza.put(key, time);
             passages.add(new Passage(best, time, bestDist));
         }
+        passages.addAll(detectRamps(ordered, sets));
+        passages.sort(Comparator.comparing(Passage::time));
         return passages;
+    }
+
+    private static List<Passage> detectRamps(List<TrailPoint> ordered, List<GantrySet> sets) {
+        List<Passage> passages = new ArrayList<>();
+        Map<String, Date> lastByPlaza = new HashMap<>();
+        for (TrailPoint fix : ordered) {
+            GantrySet.Point best = null;
+            double bestDist = ON_RAMP_M;
+            for (GantrySet set : sets) {
+                for (GantrySet.Point ramp : set.queryRamps(fix.lat(), fix.lon())) {
+                    double onRamp = distance(fix, ramp.rampLines());
+                    if (onRamp <= bestDist && distance(fix, ramp.mainlineLines()) >= OFF_MAINLINE_M) {
+                        best = ramp;
+                        bestDist = onRamp;
+                    }
+                }
+            }
+            if (best == null) {
+                continue;
+            }
+            String key = best.facilityId() + "|" + best.plaza();
+            Date last = lastByPlaza.get(key);
+            if (last != null && fix.fixTime().getTime() - last.getTime() < DEBOUNCE_S * 1000) {
+                continue;
+            }
+            lastByPlaza.put(key, fix.fixTime());
+            passages.add(new Passage(best, fix.fixTime(), bestDist));
+        }
+        return passages;
+    }
+
+    /** Metres from a fix to the nearest of a set of [lat, lon] polylines. */
+    static double distance(TrailPoint fix, List<double[][]> lines) {
+        Coordinate p = toMeters(fix.lat(), fix.lon(), fix.lat());
+        double best = Double.MAX_VALUE;
+        for (double[][] line : lines) {
+            for (int i = 1; i < line.length; i++) {
+                LineSegment s = new LineSegment(toMeters(line[i - 1][0], line[i - 1][1], fix.lat()),
+                        toMeters(line[i][0], line[i][1], fix.lat()));
+                best = Math.min(best, s.distance(p));
+            }
+        }
+        return best;
     }
 
     private static Coordinate toMeters(double lat, double lon, double refLat) {

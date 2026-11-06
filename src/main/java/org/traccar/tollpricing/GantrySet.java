@@ -21,9 +21,19 @@ import java.util.Map;
  */
 public final class GantrySet {
 
-    /** One clustered map location of a plaza. */
-    public record Point(String facilityId, String plaza, double lat, double lon, BigDecimal rate) {
+    /**
+     * One clustered map location of a plaza. A ramp point also carries its ramp's shape and the
+     * nearby mainline's, as [lat, lon] lines; a mainline point carries neither.
+     */
+    public record Point(String facilityId, String plaza, double lat, double lon, BigDecimal rate,
+                        List<double[][]> rampLines, List<double[][]> mainlineLines) {
+        public boolean isRamp() {
+            return rampLines != null;
+        }
     }
+
+    /** Ramp points are indexed with this reach so a fix anywhere on the clipped ramp finds its booth. */
+    static final double RAMP_REACH_DEG = 300.0 / 111320;
 
     private final String facilityId;
     private final String currency;
@@ -32,7 +42,9 @@ public final class GantrySet {
     private final List<Point> points = new ArrayList<>();
     private final List<String> unlocated = new ArrayList<>();
     private final List<String> excludedRamps = new ArrayList<>();
+    private final List<String> rampsWithoutGeometry = new ArrayList<>();
     private final STRtree index = new STRtree();
+    private final STRtree rampIndex = new STRtree();
     private final Envelope extent = new Envelope();
 
     private GantrySet(String facilityId, String currency, String cardValidFrom, String osmBase) {
@@ -43,13 +55,12 @@ public final class GantrySet {
     }
 
     /**
-     * @param vehicleColumn card column for the vehicle class, e.g. {@code "2_axle"}
      * @param paymentColumn card column for the payment method, e.g. {@code "pay_by_plate"}
-     */
-    /**
-     * @param includeRamps whether ramp plazas are detected by trail distance. False for CFX: half of
-     *                     its ramp booths lie within 50 m of the mainline, so distance alone would charge
-     *                     through traffic at every interchange. Excluded ramps make the estimate low.
+     * @param vehicleColumn card column for the vehicle class, e.g. {@code "2_axle"}
+     * @param includeRamps  whether ramp plazas are priced. Ramps are never detected by distance to the
+     *                      booth (half of CFX's lie within 50 m of the mainline); a ramp is charged only
+     *                      when a fix lies on its shape and clear of the mainline ({@link PassageDetector}).
+     *                      A ramp without both shapes is left unpriced and listed.
      */
     public static GantrySet load(String facilityId, InputStream card, InputStream gantries,
                                  String paymentColumn, String vehicleColumn, boolean includeRamps)
@@ -88,21 +99,60 @@ public final class GantrySet {
                 set.excludedRamps.add(key);
                 continue;
             }
+            boolean ramp = "ramp".equals(p.path("plaza_type").asText());
             for (JsonNode cl : p.path("clusters")) {
-                Point point = new Point(facilityId, key, cl.path("lat").asDouble(), cl.path("lon").asDouble(), rate);
-                set.points.add(point);
-                Envelope e = new Envelope(point.lon(), point.lon(), point.lat(), point.lat());
-                set.index.insert(e, point);
+                double lat = cl.path("lat").asDouble();
+                double lon = cl.path("lon").asDouble();
+                Envelope e = new Envelope(lon, lon, lat, lat);
                 set.extent.expandToInclude(e);
+                if (!ramp) {
+                    Point point = new Point(facilityId, key, lat, lon, rate, null, null);
+                    set.points.add(point);
+                    set.index.insert(e, point);
+                    continue;
+                }
+                List<double[][]> rampLines = lines(cl.path("ramp_lines"));
+                List<double[][]> mainlineLines = lines(cl.path("mainline_lines"));
+                if (rampLines.isEmpty() || mainlineLines.isEmpty()) {
+                    set.rampsWithoutGeometry.add(key + " @" + lat + "," + lon);
+                    continue;
+                }
+                Point point = new Point(facilityId, key, lat, lon, rate, rampLines, mainlineLines);
+                set.points.add(point);
+                Envelope reach = new Envelope(e);
+                reach.expandBy(RAMP_REACH_DEG);
+                set.rampIndex.insert(reach, point);
             }
         }
         set.index.build();
+        set.rampIndex.build();
         return set;
     }
 
+    private static List<double[][]> lines(JsonNode node) {
+        List<double[][]> result = new ArrayList<>();
+        for (JsonNode line : node) {
+            double[][] points = new double[line.size()][];
+            for (int i = 0; i < line.size(); i++) {
+                points[i] = new double[] {line.get(i).get(0).asDouble(), line.get(i).get(1).asDouble()};
+            }
+            if (points.length >= 2) {
+                result.add(points);
+            }
+        }
+        return result;
+    }
+
+    /** Mainline toll points near an envelope. */
     @SuppressWarnings("unchecked")
     List<Point> query(Envelope envelope) {
         return index.query(envelope);
+    }
+
+    /** Ramp toll points whose clipped ramp could contain the position. */
+    @SuppressWarnings("unchecked")
+    List<Point> queryRamps(double lat, double lon) {
+        return rampIndex.query(new Envelope(lon, lon, lat, lat));
     }
 
     /** True when the position lies within {@code marginDeg} of this facility's toll points. */
@@ -142,5 +192,10 @@ public final class GantrySet {
 
     public boolean rampsExcluded() {
         return !excludedRamps.isEmpty();
+    }
+
+    /** Ramp plazas that cannot be proven from a trail (no ramp or mainline shape); never charged. */
+    public List<String> getRampsWithoutGeometry() {
+        return rampsWithoutGeometry;
     }
 }

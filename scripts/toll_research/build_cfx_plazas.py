@@ -40,6 +40,8 @@ RELATIONS = {222120: "SR 417", 380109: "SR 408", 380127: "SR 429", 2111035: "SR 
 CLUSTER_M = 150
 NEAR_ROAD_M = 600
 MIN_SCORE = 1.0
+RAMP_CLIP_M = 250       # ramp geometry kept within this of the booth (keeps cross-street terminals out)
+MAINLINE_CLIP_M = 400   # mainline geometry kept within this of the booth
 
 GENERIC = {"main", "plaza", "road", "rd", "blvd", "boulevard", "avenue", "ave", "parkway", "pkwy",
            "drive", "dr", "street", "st", "sr", "cr", "s", "r", "c", "the", "int", "l", "access",
@@ -143,6 +145,8 @@ def main():
                  f"[out:json][timeout:600];{toll_set}way(around.t:{NEAR_ROAD_M})"
                  "[highway~\"^(trunk|primary|secondary|tertiary|unclassified|residential|"
                  "trunk_link|primary_link|secondary_link|tertiary_link)$\"][name];out tags geom;")
+    links = load(args.cache, "links.json",
+                 f"[out:json][timeout:600];{toll_set}way(around.t:400)[highway=motorway_link];out body geom;")
     osm_base = main_geom.get("osm3s", {}).get("timestamp_osm_base")
 
     ways = {e["id"]: e for e in main_geom["elements"] if e["type"] == "way"}
@@ -231,15 +235,61 @@ def main():
             owner[ci] = (pi, None)
             pinned[ci] = node_ids["reason"]
 
+    # Ramp geometry: the motorway_link ways a ramp booth sits on, extended through connected links,
+    # and the route's mainline nearby. Pricing charges a ramp only when a GPS fix lies on the ramp and
+    # clear of the mainline (30 of 61 ramp booths are within 50 m of it, so distance to the booth
+    # alone would charge through traffic).
+    link_by_id = {e["id"]: e for e in links["elements"] if e["type"] == "way"}
+    links_of_node = {}
+    for w in link_by_id.values():
+        for n in w.get("nodes", []):
+            links_of_node.setdefault(n, set()).add(w["id"])
+
+    def clip(geometry, lat, lon, radius):
+        """Contiguous runs of a way's points within radius of the booth, as [[lat, lon], ...] lines."""
+        runs, run = [], []
+        for pt in geometry:
+            if metres(lat, lon, pt["lat"], pt["lon"]) <= radius:
+                run.append([round(pt["lat"], 6), round(pt["lon"], 6)])
+            elif run:
+                runs.append(run)
+                run = []
+        if run:
+            runs.append(run)
+        return [r for r in runs if len(r) >= 2]
+
+    def ramp_geometry(ci):
+        c = info[ci]
+        seeds = {w for n in c["nodes"] for w in links_of_node.get(n, ())}
+        seen, queue = set(seeds), list(seeds)
+        while queue:
+            w = link_by_id[queue.pop()]
+            for n in w.get("nodes", []):
+                for other in links_of_node.get(n, ()):
+                    if other not in seen and way_dist(c["lat"], c["lon"], link_by_id[other]) <= RAMP_CLIP_M:
+                        seen.add(other)
+                        queue.append(other)
+        ramp = [line for w in sorted(seen) for line in clip(link_by_id[w]["geometry"], c["lat"], c["lon"], RAMP_CLIP_M)]
+        mainline = [line for w in road_ways[c["road"]] if w in ways
+                    and ways[w].get("tags", {}).get("highway") in ("motorway", "trunk")
+                    for line in clip(ways[w]["geometry"], c["lat"], c["lon"], MAINLINE_CLIP_M)]
+        return ramp, mainline
+
     out_plazas = []
+    missing_ramp_geometry = []
     for pi, p in enumerate(plazas):
         mine = [ci for ci, (o, _) in owner.items() if o == pi]
-        out_plazas.append({
-            "name": p["name"], "road": p["road"], "plaza_type": p["plaza_type"],
-            "clusters": [{"lat": info[ci]["lat"], "lon": info[ci]["lon"], "osm_nodes": info[ci]["nodes"],
-                          "match": "override: " + pinned[ci] if ci in pinned
-                          else f"text score {owner[ci][1]:.1f}"} for ci in sorted(mine)],
-        })
+        clusters_out = []
+        for ci in sorted(mine):
+            entry = {"lat": info[ci]["lat"], "lon": info[ci]["lon"], "osm_nodes": info[ci]["nodes"],
+                     "match": "override: " + pinned[ci] if ci in pinned else f"text score {owner[ci][1]:.1f}"}
+            if p["plaza_type"] == "ramp":
+                entry["ramp_lines"], entry["mainline_lines"] = ramp_geometry(ci)
+                if not entry["ramp_lines"] or not entry["mainline_lines"]:
+                    missing_ramp_geometry.append(f"{p['name']} ({p['road']}) {info[ci]['lat']},{info[ci]['lon']}")
+            clusters_out.append(entry)
+        out_plazas.append({"name": p["name"], "road": p["road"], "plaza_type": p["plaza_type"],
+                           "clusters": clusters_out})
     unmatched_plazas = [p["name"] + " (" + p["road"] + ")" for p in out_plazas if not p["clusters"]]
     unclaimed = [{"lat": c["lat"], "lon": c["lon"], "road": c["road"], "mainline": c["mainline"],
                   "operators": c["operators"], "osm_nodes": c["nodes"],
@@ -250,9 +300,11 @@ def main():
 
     out = {"facility": card["facility"], "card_valid_from": card["valid_from"], "osm_base": osm_base,
            "generator": "scripts/toll_research/build_cfx_plazas.py", "cluster_m": CLUSTER_M,
+           "ramp_clip_m": RAMP_CLIP_M, "mainline_clip_m": MAINLINE_CLIP_M,
            "plazas": out_plazas,
            "review": {"plazas_without_location": unmatched_plazas,
-                      "cfx_clusters_without_plaza": unclaimed}}
+                      "cfx_clusters_without_plaza": unclaimed,
+                      "ramp_clusters_without_geometry": missing_ramp_geometry}}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(out, fh, indent=1, ensure_ascii=False)

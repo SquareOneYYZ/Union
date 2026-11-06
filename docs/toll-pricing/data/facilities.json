@@ -36,8 +36,8 @@
    "gantries": "cfx.json",
    "payment_column": "pay_by_plate",
    "vehicle_column": "2_axle",
-   "ramp_rule": "exclude",
-   "ramp_rule_note": "Mainline plazas only: 30 of 61 ramp booth clusters lie within 50 m of the mainline, so trail distance cannot tell a ramp user from through traffic. Estimates are low by any ramp tolls until ramps are matched to the road (decision pending).",
+   "ramp_rule": "track",
+   "ramp_rule_note": "A ramp plaza is charged only when a GPS fix lies within 20 m of that ramp's OSM shape and at least 30 m from the mainline (decided 2026-11-06). Distance to the booth is never used: 30 of 61 CFX ramp booth clusters lie within 50 m of the mainline. Sparse fixes can miss a ramp, so CFX estimates may still run slightly low; 5 ramp clusters cannot be proven (3 without a shape, 2 that never separate 30 m from the mainline) and are never charged.",
    "rate_schedule": "single rate, all days and times: the CFX schedule publishes no peak, off-peak or holiday rates",
    "rate_schedule_source_url": "https://www.cfxway.com/wp-content/uploads/2026/07/CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf"
   }

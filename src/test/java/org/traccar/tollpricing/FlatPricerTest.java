@@ -30,7 +30,6 @@ public class FlatPricerTest {
     public static void load() throws Exception {
         sets = FacilityRegistry.loadResource().getGantrySets();
         assertEquals(1, sets.size());
-        assertTrue(sets.get(0).rampsExcluded());
     }
 
     /** A straight drive between two longitudes at 100 km/h, one fix every {@code cadenceS} seconds. */
@@ -54,7 +53,6 @@ public class FlatPricerTest {
             assertEquals(0, new BigDecimal("4.80").compareTo(r.estimate().getAmount()), "cadence " + cadence);
             assertEquals("USD", r.estimate().getCurrency());
             assertEquals(2, ((List<?>) r.inputs().get("passages")).size());
-            assertEquals(true, r.inputs().get("rampsNotPriced"));
         }
     }
 

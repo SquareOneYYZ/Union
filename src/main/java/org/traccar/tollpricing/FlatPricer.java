@@ -40,6 +40,8 @@ public final class FlatPricer {
         }
         inputs.put("cardValidFrom", cards);
         inputs.put("osmBase", osm);
+        inputs.put("onRampM", PassageDetector.ON_RAMP_M);
+        inputs.put("offMainlineM", PassageDetector.OFF_MAINLINE_M);
         for (GantrySet s : sets) {
             if (s.rampsExcluded()) {
                 // Ramp plazas are not detected yet for this facility: the estimate is a lower bound.

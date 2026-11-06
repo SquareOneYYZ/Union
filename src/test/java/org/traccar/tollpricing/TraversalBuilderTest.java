@@ -76,7 +76,7 @@ public class TraversalBuilderTest {
         assertEquals("cfx", row.getFacilityId());
         assertEquals("USD", row.getCurrency());
         assertEquals(0, new BigDecimal("4.80").compareTo(row.getAmount()));
-        assertTrue(row.getInputs().contains("\"rampsNotPriced\":true"));
+        assertTrue(row.getInputs().contains("\"onRampM\""));
     }
 
     @Test
