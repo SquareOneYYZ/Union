@@ -24,12 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class FlatPricerTest {
 
     private static List<GantrySet> sets;
-    private static final long T0 = 1_773_000_000_000L;
+    private static final long T0 = 1_790_000_000_000L;   // 2026-09-21, inside the 2026-07-01 CFX card
 
     @BeforeAll
     public static void load() throws Exception {
         sets = FacilityRegistry.loadResource().getGantrySets();
-        assertEquals(1, sets.size());
+        assertEquals(2, sets.size());   // CFX and the Illinois Tollway
     }
 
     /** A straight drive between two longitudes at 100 km/h, one fix every {@code cadenceS} seconds. */

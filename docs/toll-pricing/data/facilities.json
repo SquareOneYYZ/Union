@@ -37,9 +37,28 @@
    "payment_column": "pay_by_plate",
    "vehicle_column": "2_axle",
    "ramp_rule": "track",
-   "ramp_rule_note": "A ramp plaza is charged only when a GPS fix lies within 20 m of that ramp's OSM shape and at least 30 m from the mainline (decided 2026-11-06). Distance to the booth is never used: 30 of 61 CFX ramp booth clusters lie within 50 m of the mainline. Sparse fixes can miss a ramp, so CFX estimates may still run slightly low; 5 ramp clusters cannot be proven (3 without a shape, 2 that never separate 30 m from the mainline) and are never charged.",
+   "ramp_rule_note": "A ramp plaza is charged only when a GPS fix lies within 20 m of that ramp's OSM shape and at least 30 m from the mainline (decided 2026-11-06). Distance to the booth is never used: 30 of 61 CFX ramp booth clusters lie within 50 m of the mainline. Sparse fixes can miss a ramp, so CFX estimates may still run slightly low; 4 ramp clusters cannot be proven (Schofield Road's 2, which have no OSM ramp shape; Boggy Creek/McCoy and Semoran, which never separate 30 m from the mainline) and are never charged.",
    "rate_schedule": "single rate, all days and times: the CFX schedule publishes no peak, off-peak or holiday rates",
    "rate_schedule_source_url": "https://www.cfxway.com/wp-content/uploads/2026/07/CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf"
+  },
+  {
+   "id": "istha",
+   "display_name": "Illinois Tollway",
+   "operator": "Illinois State Toll Highway Authority",
+   "country": "US",
+   "currency": "USD",
+   "timezone": "America/Chicago",
+   "rate_model": "flat",
+   "cards": ["istha-2026-01-01.json", "istha-2027-01-01.json"],
+   "cards_note": "Each passage is charged from the card in effect on its Chicago-local date. The board approved the 2027 card on 2026-08-19; from 2029 rates move every two years by CPI-U (max 8%), so a new card is due before 2029-01-01.",
+   "gantries": "istha.json",
+   "payment_column": "pay_by_plate",
+   "payment_column_note": "Fleet decision: priced as license-plate billing. Pay By Plate is 2x I-PASS in 2026 and 1.5x from 2027; an unregistered plate billed by invoice pays 2x (2027) or 2x plus a $3 fee per toll (2026), so a vehicle on invoice is under-estimated and one with an I-PASS is over-estimated.",
+   "vehicle_column": "passenger",
+   "ramp_rule": "track",
+   "ramp_rule_note": "As CFX: a ramp plaza is charged only when a fix lies within 20 m of the ramp's OSM shape and at least 30 m from the mainline. Eola Road (60) and Ogden Avenue (81) are mainline on the card but every gantry sits on a ramp, so they take the ramp rule. Where one plaza number is priced per movement (Genoa Road, Illinois 47, Barrington Road, Roselle Road) the ramp's geometry picks the movement; see gantries/istha.json.",
+   "rate_schedule": "passenger rates have a single rate, all days and times; only truck rates vary (daytime/overnight)",
+   "rate_schedule_source_url": "https://agency.illinoistollway.com/toll-rates"
   }
  ]
 }

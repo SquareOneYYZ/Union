@@ -15,6 +15,7 @@ import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
 import org.traccar.tollpricing.FacilityRegistry;
+import org.traccar.tollpricing.GantrySet;
 import org.traccar.tollpricing.PassageDetector;
 import org.traccar.tollpricing.TraversalBuilder;
 
@@ -92,6 +93,10 @@ public class TaskTollPricing extends SingleScheduleTask {
         for (FacilityRegistry.Facility f : registry.getFacilities()) {
             LOGGER.info("Toll pricing facility {} (card {}, osm_base {})",
                     f.id(), f.pricer().getCardValidFrom(), f.corridor().getOsmBase());
+        }
+        for (GantrySet s : registry.getGantrySets()) {
+            LOGGER.info("Toll pricing facility {} (cards {}, osm_base {}, {} toll points, unlocated plazas {})",
+                    s.getFacilityId(), s.getCards(), s.getOsmBase(), s.getPoints().size(), s.getUnlocated());
         }
         if (!registry.getSkipped().isEmpty()) {
             LOGGER.info("Toll pricing: registry entries not yet priceable: {}", registry.getSkipped());

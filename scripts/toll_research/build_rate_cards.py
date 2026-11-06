@@ -8,13 +8,15 @@ Sources are operator publications, fetched live:
   407 ETR  https://www.407etr.com/en/rate-chart-light   (HTML tables)
   CFX      https://www.cfxway.com/wp-content/uploads/2026/07/
            CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf   (PDF, needs PyMuPDF)
+  ISTHA    https://agency.illinoistollway.com/toll-rates  (2026 and 2027 plaza tables, embedded
+           JSON), 2027 cross-checked against the board-approved PDF (needs PyMuPDF)
 
 Output: docs/toll-pricing/data/rate-cards/*.json
 
 THESE ARE TRANSCRIPTIONS, NOT VALIDATED RATE CARDS. Nothing here has been checked
 against a real invoice. Treat as a sourced draft for Phase 2, not a billing input.
 
-Usage:  python scripts/toll_research/build_rate_cards.py [--etr] [--cfx]
+Usage:  python scripts/toll_research/build_rate_cards.py [--etr] [--cfx] [--istha]
 """
 import argparse
 import json
@@ -24,7 +26,7 @@ import sys
 import urllib.request
 from html.parser import HTMLParser
 
-UA = "RidesIQ-toll-research/1.0 (prab@ridesiq.com)"
+UA = "RidesIQ-toll-research/1.0"
 OUT_DIR = os.path.join("docs", "toll-pricing", "data", "rate-cards")
 
 ETR_URL = "https://www.407etr.com/en/rate-chart-light"
@@ -264,12 +266,103 @@ def build_cfx():
     }
 
 
+ISTHA_URL = "https://agency.illinoistollway.com/toll-rates"
+ISTHA_2027_PDF = "https://agency.illinoistollway.com/documents/d/guest/2026-06_proposedrates-1"
+# OSM gantries are tagged with the plaza number; the Tollway's number for these is 15 (one plaza,
+# one rate) but OSM splits the interchange into 15A (IL 53) and 15B (I-290). Used by the plaza script.
+ISTHA_TRUCK_TIERS = ("small", "medium", "large")
+
+
+def istha_tables(page):
+    """The two plaza tables the rates page embeds (2026, then 2027), each keyed by its heading year."""
+    tables = {}
+    for m in re.finditer(r"var tollRatesDataRaw = '(.*?)';", page, re.S):
+        heading = re.findall(r"(20\d\d) Toll Rates by Plaza", re.sub(r"<[^>]+>", " ", page[:m.start()]), re.I)
+        if not heading:
+            sys.exit("ISTHA: rate table without a year heading - page layout changed")
+        tables[heading[-1]] = json.loads(m.group(1).encode().decode("unicode_escape"))
+    return tables
+
+
+def istha_pdf_passenger_rates(pdf):
+    """Sorted [(plaza number, I-PASS, Pay By Plate, Invoice)] passenger rates from the 2027 PDF."""
+    import fitz
+    doc = fitz.open(stream=pdf, filetype="pdf")
+    lines = [l.strip() for page in doc for l in page.get_text().split("\n") if l.strip()]
+    out = []
+    for i, line in enumerate(lines):
+        if line == "I-PASS" and lines[i + 8] == "Pay By Plate" and lines[i + 16] == "Invoice":
+            out.append((lines[i - 1],) + tuple(lines[i + k].lstrip("$") for k in (1, 9, 17)))
+    return sorted(out)
+
+
+def build_istha():
+    """Illinois Tollway: flat per-plaza rates, 2026 and 2027 cards."""
+    tables = istha_tables(fetch(ISTHA_URL))
+    if set(tables) != {"2026", "2027"}:
+        sys.exit(f"ISTHA: expected 2026 and 2027 tables, found {sorted(tables)}")
+    pdf_rates = istha_pdf_passenger_rates(fetch(ISTHA_2027_PDF, binary=True))
+    web_rates = sorted((p["number"], p["autoRates"]["ipass"], p["autoRates"]["payOnline"], p["autoRates"]["invoice"])
+                       for tw in tables["2027"]["tollways"] for p in tw["plazas"])
+    if pdf_rates != web_rates:
+        bad = sorted(set(web_rates) ^ set(pdf_rates))
+        sys.exit(f"ISTHA: 2027 web table and PDF disagree ({len(web_rates)} vs {len(pdf_rates)} rows): {bad[:6]}")
+
+    cards = {}
+    for year, table in sorted(tables.items()):
+        plazas = []
+        for tw in table["tollways"]:
+            for p in tw["plazas"]:
+                auto = p["autoRates"]
+                columns = {"ipass": "truckRates", "pay_by_plate": "truckRatesPayOnline",
+                           "invoice": "truckRatesInvoice"}
+                row = {"name": p["name"], "number": p["number"], "road": tw["name"],
+                       "plaza_type": "ramp" if p["isRamp"] else "mainline"}
+                for column, truck_key in columns.items():
+                    auto_key = "payOnline" if column == "pay_by_plate" else column
+                    if auto_key not in auto:
+                        continue
+                    rates = {"passenger": float(auto[auto_key])}
+                    truck = p.get(truck_key, {})
+                    for period in ("daytime", "overnight"):
+                        for tier in ISTHA_TRUCK_TIERS:
+                            if tier in truck.get(period, {}):
+                                rates[f"{tier}_{period}"] = float(truck[period][tier])
+                    row[column] = rates
+                plazas.append(row)
+        is_2027 = year == "2027"
+        cards[year] = {
+            "facility": "Illinois Tollway",
+            "operator": "Illinois State Toll Highway Authority",
+            "country": "US", "region": "IL", "currency": "USD",
+            "rate_model_type": "flat",
+            "rate_model_note": "Flat amount per plaza. NOT distance-based. Passenger rates have no "
+                               "time-of-day or day-of-week variation; truck rates are daytime/overnight.",
+            "valid_from": f"{year}-01-01",
+            "valid_to": None if is_2027 else "2026-12-31",
+            "reprices_on": "1 January 2027 (board vote 2026-08-19); then every two years from 2029 by CPI-U, max 8%",
+            "source_url": ISTHA_URL,
+            "source_type": "published",
+            "source_note": (f"The rates page embeds the '{year} Toll Rates by Plaza' table as JSON. "
+                            + (f"Every passenger I-PASS / Pay By Plate / Invoice rate was checked equal, by "
+                               f"plaza number, to the board-approved PDF {ISTHA_2027_PDF} (titled 'Proposed', "
+                               "linked as '2027 Toll Rates')." if is_2027 else
+                               "Passenger rates are unchanged since 2012; truck rates took effect 2026-01-01. "
+                               "The 2026 table publishes no invoice column (invoice = Pay Online + $3 fee per toll).")),
+            "payment_premium_note": ("Pay By Plate is 1.5x I-PASS and Invoice 2x (rounded to the nickel)."
+                                     if is_2027 else "Pay By Plate / Pay Online is exactly 2x I-PASS."),
+            "plazas": plazas,
+        }
+    return cards
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--etr", action="store_true")
     ap.add_argument("--cfx", action="store_true")
+    ap.add_argument("--istha", action="store_true")
     args = ap.parse_args()
-    do_all = not (args.etr or args.cfx)
+    do_all = not (args.etr or args.cfx or args.istha)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     if args.etr or do_all:
@@ -284,6 +377,13 @@ def main():
         json.dump(card, open(path, "w"), indent=1)
         print(f"wrote {path}: {len(card['plazas'])} plazas x 4 axle classes "
               f"x 2 payment methods")
+    if args.istha or do_all:
+        for year, card in build_istha().items():
+            path = os.path.join(OUT_DIR, f"istha-{year}-01-01.json")
+            with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                json.dump(card, fh, indent=1, ensure_ascii=False)
+                fh.write("\n")
+            print(f"wrote {path}: {len(card['plazas'])} plazas")
 
 
 if __name__ == "__main__":

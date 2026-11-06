@@ -56,11 +56,25 @@ public final class FacilityRegistry {
             String id = f.path("id").asText();
             String model = f.path("rate_model").asText();
             if ("flat".equals(model)) {
-                try (InputStream card = resource("cards/" + f.path("card").asText());
-                     InputStream gantries = resource("gantries/" + f.path("gantries").asText())) {
-                    gantrySets.add(GantrySet.load(id, card, gantries,
+                List<String> cardNames = new ArrayList<>();
+                if (f.has("cards")) {
+                    f.path("cards").forEach(c -> cardNames.add(c.asText()));
+                } else {
+                    cardNames.add(f.path("card").asText());
+                }
+                List<InputStream> cards = new ArrayList<>();
+                try (InputStream gantries = resource("gantries/" + f.path("gantries").asText())) {
+                    for (String name : cardNames) {
+                        cards.add(resource("cards/" + name));
+                    }
+                    gantrySets.add(GantrySet.load(id, cards, gantries,
                             f.path("payment_column").asText(), f.path("vehicle_column").asText(),
-                            !"exclude".equals(f.path("ramp_rule").asText())));
+                            !"exclude".equals(f.path("ramp_rule").asText()),
+                            ZoneId.of(f.path("timezone").asText())));
+                } finally {
+                    for (InputStream card : cards) {
+                        card.close();
+                    }
                 }
                 continue;
             }

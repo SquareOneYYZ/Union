@@ -123,6 +123,52 @@ def way_dist(lat, lon, way):
     return min((seg_dist(lat, lon, a, b) for a, b in zip(g, g[1:])), default=float("inf"))
 
 
+def clip(geometry, lat, lon, radius):
+    """The parts of a way within radius of the booth, as [[lat, lon], ...] lines.
+
+    Segments are cut exactly at the radius: a long straight motorway segment can pass metres from a
+    booth with both its nodes far away and must not be lost, and a ramp must not reach past the
+    radius onto the cross street.
+    """
+    kx, ky = 111320 * math.cos(math.radians(lat)), 110540
+
+    def local(pt):
+        return (pt["lon"] - lon) * kx, (pt["lat"] - lat) * ky
+
+    def point(x, y):
+        return [round(lat + y / ky, 6), round(lon + x / kx, 6)]
+
+    runs, run = [], []
+    for a, b in zip(geometry, geometry[1:]):
+        (ax, ay), (bx, by) = local(a), local(b)
+        dx, dy = bx - ax, by - ay
+        qa, qb, qc = dx * dx + dy * dy, 2 * (ax * dx + ay * dy), ax * ax + ay * ay - radius * radius
+        disc = qb * qb - 4 * qa * qc
+        if qa == 0 or disc < 0:
+            t0, t1 = 1.0, 0.0
+        else:
+            t0 = max(0.0, (-qb - math.sqrt(disc)) / (2 * qa))
+            t1 = min(1.0, (-qb + math.sqrt(disc)) / (2 * qa))
+        if t0 >= t1:
+            if run:
+                runs.append(run)
+                run = []
+            continue
+        start, end = point(ax + t0 * dx, ay + t0 * dy), point(ax + t1 * dx, ay + t1 * dy)
+        if run and (t0 > 0 or run[-1] != start):
+            runs.append(run)
+            run = []
+        if not run:
+            run.append(start)
+        run.append(end)
+        if t1 < 1:
+            runs.append(run)
+            run = []
+    if run:
+        runs.append(run)
+    return [r for r in runs if len(r) >= 2]
+
+
 def tokens(text):
     text = text.lower().replace("int'l", "international")
     return {t for t in re.split(r"[^a-z0-9]+", text) if t and t not in GENERIC}
@@ -244,19 +290,6 @@ def main():
     for w in link_by_id.values():
         for n in w.get("nodes", []):
             links_of_node.setdefault(n, set()).add(w["id"])
-
-    def clip(geometry, lat, lon, radius):
-        """Contiguous runs of a way's points within radius of the booth, as [[lat, lon], ...] lines."""
-        runs, run = [], []
-        for pt in geometry:
-            if metres(lat, lon, pt["lat"], pt["lon"]) <= radius:
-                run.append([round(pt["lat"], 6), round(pt["lon"], 6)])
-            elif run:
-                runs.append(run)
-                run = []
-        if run:
-            runs.append(run)
-        return [r for r in runs if len(r) >= 2]
 
     def ramp_geometry(ci):
         c = info[ci]

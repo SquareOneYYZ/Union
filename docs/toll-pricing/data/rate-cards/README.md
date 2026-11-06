@@ -10,6 +10,8 @@ from the operators live, so re-running is also how you detect a reprice.
 |---|---|---|---:|---|---|
 | `407-etr-2026-light.json` | 407 ETR (Ontario) | `distance_zoned` | 288 per-km cells | 2026-01-01 | **1 January** |
 | `cfx-2026-07-01.json` | CFX (Central Florida) | `flat` | 58 plazas × 4 axle × 2 payment | 2026-07-01 | **1 July** (fiscal year) |
+| `istha-2026-01-01.json` | Illinois Tollway | `flat` | 96 plazas × passenger + 3 truck tiers × day/night × 2 payment | 2026-01-01 (passenger since 2012) | until 2026-12-31 |
+| `istha-2027-01-01.json` | Illinois Tollway | `flat` | 96 plazas × same × 3 payment | **2027-01-01** (approved 2026-08-19) | every 2 years from 2029 (CPI-U, max 8 %) |
 
 Every row carries a `source_url`, a `source_type` and a `valid_from`, per the project's
 non-negotiable constraint: never invent a rate, never store one without provenance.
@@ -20,6 +22,12 @@ Both are **operator-published material, free to fetch, no licence purchased**:
 
 - **407 ETR** — the HTML rate tables at <https://www.407etr.com/en/rate-chart-light>. Four
   tables (weekday/weekend × east/west), 12 zones each, plus the fee schedule table.
+- **Illinois Tollway** — <https://agency.illinoistollway.com/toll-rates> embeds both the "2026 Toll
+  Rates by Plaza" and "2027 Toll Rates by Plaza" tables as JSON (with an `isRamp` flag per plaza).
+  The builder takes those, and refuses to write unless every 2027 passenger I-PASS / Pay By Plate /
+  Invoice rate equals, by plaza number, the board-approved PDF
+  `https://agency.illinoistollway.com/documents/d/guest/2026-06_proposedrates-1` (still titled
+  "Proposed", linked from the page as "2027 Toll Rates"). Checked 2026-11-06: 96 of 96 equal.
 - **CFX** — the PDF at
   `https://www.cfxway.com/wp-content/uploads/2026/07/CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf`,
   parsed with PyMuPDF. Per-gantry rates by axle count and payment method.
@@ -67,7 +75,7 @@ MTO-operated 407 East Extension, a different operator on the same route number.
 
 - **407 ETR**: only the **light** class of five. Medium, heavy single unit and heavy multiple
   unit are published at `/en/rate-chart-medium`, `/rate-chart-heavy`, `/rate-chart-multi`.
-- **Operators not yet captured**: Illinois Tollway (ISTHA), Florida's Turnpike Enterprise,
+- **Operators not yet captured**: Florida's Turnpike Enterprise,
   E-470 / Northwest Parkway, Quebec A-30, the MTO 407 East Extension, Georgia SRTA, and
   Miami-Dade Expressway Authority — the last of which appears in no design document but owns
   42 of the priced gantries the facility matrix credits to Florida's Turnpike.
@@ -75,3 +83,20 @@ MTO-operated 407 East Extension, a different operator on the same route number.
   cannot have a static card at all.
 - **Validation.** No card here has been reconciled against an invoice. Until one is, the
   transcription itself is unverified.
+
+## Illinois Tollway notes (2026-11-06)
+
+- **Two cards, one facility.** The pricing job charges each passage from the card in effect on its
+  Chicago-local date (`GantrySet.rateAt`), so trips before and after 2027-01-01 are both right
+  without a redeploy. A passage before every card is `NO_RATE` (unknown), never a later card's price.
+- **Pay By Plate changes shape.** 2× I-PASS in 2026, **1.5×** from 2027 (Invoice becomes 2×). We
+  price `pay_by_plate`; a vehicle billed by invoice is under-estimated, one with an I-PASS
+  over-estimated (facilities.json `payment_column_note`).
+- **Plaza numbers duplicate on purpose.** Genoa Road (3), Illinois 47 (6), Barrington Road (10) and
+  Roselle Road (12) are priced per movement (e.g. "EB Exit/WB Entrance"); Genoa and IL 47 have
+  different rates per movement. `build_istha_plazas.py` decides the movement from the ramp geometry.
+- **The card's ramp flag is not always the map.** Eola Road (60) and Ogden Avenue (81) are mainline
+  on the card but gantries on ramps (priced with the ramp rule); I-80 Westbound/Eastbound (43/45)
+  are ramps on the card but gantries on the I-80 carriageways (proven against the other carriageway).
+- **Not on the map** (never charged, estimate low): Illinois 23 (7A), Roselle Road EB Exit/WB
+  Entrance (12), Meacham Road (12A), and I-490's Acorn Lane (303) and Franklin Avenue (304).

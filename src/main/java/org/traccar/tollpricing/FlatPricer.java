@@ -4,20 +4,25 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Prices a traversal of flat-rate (per-plaza) facilities from the passages its trail made.
  *
  * <p>Each passage is charged by the facility that owns the toll point (decision 23, gap 2 A), so a
  * trip that crosses operators is split correctly; the row's facility is the one with the largest
- * subtotal and {@code breakdown} lists each. No passage means unknown, not zero.
+ * subtotal and {@code breakdown} lists each. Each passage is charged from the card in effect when it
+ * happened, so a trip across a reprice midnight is split correctly too. No passage means unknown,
+ * not zero; a passage no card covers makes the whole trip unknown.
  */
 public final class FlatPricer {
 
     public static final String REASON_NO_TRAIL = "NO_TRAIL";
     public static final String REASON_NO_PASSAGES = "NO_PASSAGES";
+    public static final String REASON_NO_RATE = "NO_RATE";
     public static final String REASON_MIXED_CURRENCY = "MIXED_CURRENCY";
     public static final String DAY_TYPE_ALL = "all_days";
 
@@ -32,10 +37,12 @@ public final class FlatPricer {
         inputs.put("model", "flat");
         inputs.put("thresholdM", PassageDetector.THRESHOLD_M);
         inputs.put("debounceS", PassageDetector.DEBOUNCE_S);
+        Map<String, GantrySet> byFacility = new LinkedHashMap<>();
         Map<String, String> cards = new LinkedHashMap<>();
         Map<String, String> osm = new LinkedHashMap<>();
         for (GantrySet s : sets) {
-            cards.put(s.getFacilityId(), s.getCardValidFrom());
+            byFacility.put(s.getFacilityId(), s);
+            cards.put(s.getFacilityId(), start != null ? s.cardAt(start) : null);
             osm.put(s.getFacilityId(), s.getOsmBase());
         }
         inputs.put("cardValidFrom", cards);
@@ -50,48 +57,58 @@ public final class FlatPricer {
         }
         String fallbackFacility = sets.get(0).getFacilityId();
         String fallbackCurrency = sets.get(0).getCurrency();
+        String fallbackCard = cards.get(fallbackFacility);
         if (trail == null || trail.size() < 2) {
             inputs.put("trailPoints", trail == null ? 0 : trail.size());
             return new Result(TollEstimate.unknown(REASON_NO_TRAIL, fallbackCurrency, DAY_TYPE_ALL, null,
-                    sets.get(0).getCardValidFrom()), fallbackFacility, inputs);
+                    fallbackCard), fallbackFacility, inputs);
         }
         inputs.put("trailPoints", trail.size());
 
         List<PassageDetector.Passage> passages = PassageDetector.detect(trail, sets);
         if (passages.isEmpty()) {
             return new Result(TollEstimate.unknown(REASON_NO_PASSAGES, fallbackCurrency, DAY_TYPE_ALL, null,
-                    sets.get(0).getCardValidFrom()), fallbackFacility, inputs);
+                    fallbackCard), fallbackFacility, inputs);
         }
 
         Map<String, BigDecimal> subtotal = new LinkedHashMap<>();
-        Map<String, String> currency = new LinkedHashMap<>();
+        Map<String, String> firstCard = new LinkedHashMap<>();
+        Map<String, Set<String>> cardsUsed = new LinkedHashMap<>();
         List<TollEstimate.Line> lines = new ArrayList<>();
         List<List<Object>> compact = new ArrayList<>();
         for (PassageDetector.Passage p : passages) {
             GantrySet.Point point = p.point();
-            subtotal.merge(point.facilityId(), point.rate(), BigDecimal::add);
-            for (GantrySet s : sets) {
-                if (s.getFacilityId().equals(point.facilityId())) {
-                    currency.put(point.facilityId(), s.getCurrency());
-                }
-            }
-            lines.add(new TollEstimate.Line(point.facilityId() + ":" + point.plaza(), BigDecimal.ONE,
-                    point.rate(), point.rate()));
+            String label = point.facilityId() + ":" + point.plaza();
             long offset = start != null ? (p.time().getTime() - start.getTime()) / 1000 : 0;
-            compact.add(List.of(point.facilityId() + ":" + point.plaza(), offset, Math.round(p.distanceM())));
+            compact.add(List.of(label, offset, Math.round(p.distanceM())));
+            GantrySet.Rate rate = byFacility.get(point.facilityId()).rateAt(point, p.time());
+            if (rate == null) {
+                inputs.put("passages", compact);
+                inputs.put("noRateFor", label);
+                return new Result(TollEstimate.unknown(REASON_NO_RATE, fallbackCurrency, DAY_TYPE_ALL, null,
+                        fallbackCard), point.facilityId(), inputs);
+            }
+            subtotal.merge(point.facilityId(), rate.amount(), BigDecimal::add);
+            firstCard.putIfAbsent(point.facilityId(), rate.cardValidFrom());
+            cardsUsed.computeIfAbsent(point.facilityId(), k -> new LinkedHashSet<>()).add(rate.cardValidFrom());
+            lines.add(new TollEstimate.Line(label, BigDecimal.ONE, rate.amount(), rate.amount()));
         }
         inputs.put("passages", compact);
         inputs.put("breakdown", subtotal);
+        if (cardsUsed.values().stream().anyMatch(used -> used.size() > 1)) {
+            inputs.put("cardsUsed", cardsUsed);   // the trip crossed a reprice
+        }
 
         String facility = subtotal.entrySet().stream()
                 .max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(fallbackFacility);
-        if (currency.values().stream().distinct().count() > 1) {
+        Set<String> currencies = new LinkedHashSet<>();
+        subtotal.keySet().forEach(f -> currencies.add(byFacility.get(f).getCurrency()));
+        if (currencies.size() > 1) {
             return new Result(TollEstimate.unknown(REASON_MIXED_CURRENCY, null, DAY_TYPE_ALL, null, null),
                     facility, inputs);
         }
         BigDecimal total = subtotal.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        String cardValidFrom = cards.get(facility);
-        return new Result(TollEstimate.priced(total, currency.get(facility), DAY_TYPE_ALL, null, cardValidFrom,
-                lines), facility, inputs);
+        return new Result(TollEstimate.priced(total, byFacility.get(facility).getCurrency(), DAY_TYPE_ALL, null,
+                firstCard.get(facility), lines), facility, inputs);
     }
 }

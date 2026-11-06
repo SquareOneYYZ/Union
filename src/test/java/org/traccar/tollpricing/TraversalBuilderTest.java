@@ -25,15 +25,15 @@ public class TraversalBuilderTest {
     private static final TraversalBuilder.Edge DENVER = new TraversalBuilder.Edge(
             13, 39.75, -104.75, Date.from(java.time.Instant.parse("2026-03-17T12:40:00Z")));
     private static final TraversalBuilder.Edge SR408_WEST = new TraversalBuilder.Edge(
-            21, 28.5482, -81.505, Date.from(java.time.Instant.parse("2026-03-17T12:00:00Z")));
+            21, 28.5482, -81.505, Date.from(java.time.Instant.parse("2026-09-17T12:00:00Z")));
     private static final TraversalBuilder.Edge SR408_EAST = new TraversalBuilder.Edge(
-            22, 28.5482, -81.430, Date.from(java.time.Instant.parse("2026-03-17T12:05:00Z")));
+            22, 28.5482, -81.430, Date.from(java.time.Instant.parse("2026-09-17T12:05:00Z")));
 
     @BeforeAll
     public static void load() throws Exception {
         FacilityRegistry registry = FacilityRegistry.loadResource();
         assertEquals(1, registry.getFacilities().size());
-        assertEquals(1, registry.getGantrySets().size());
+        assertEquals(2, registry.getGantrySets().size());
         builder = new TraversalBuilder(registry);
     }
 

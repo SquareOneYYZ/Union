@@ -157,11 +157,11 @@ public class TaskTollPricingDatabaseTest {
         long saved = deviceId;
         deviceId = fragmentDevice;
         try {
-            event(Event.TYPE_DEVICE_TOLLROUTE_ENTER, 0, "2026-03-18T09:00:00Z", null); // launch marker
+            event(Event.TYPE_DEVICE_TOLLROUTE_ENTER, 0, "2026-09-18T09:00:00Z", null); // launch marker
             TaskTollPricing task = task();
             task.run();
 
-            long t = Instant.parse("2026-03-18T10:00:00Z").toEpochMilli();
+            long t = Instant.parse("2026-09-18T10:00:00Z").toEpochMilli();
             long[] ids = new long[31];
             for (int i = 0; i <= 30; i++) {   // -81.505 .. -81.430, one fix every 10 s
                 ids[i] = position(28.5482, -81.505 + i * 0.0025, Instant.ofEpochMilli(t + i * 10_000L).toString());
