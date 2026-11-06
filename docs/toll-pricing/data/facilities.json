@@ -1,0 +1,28 @@
+{
+ "note": "Facility registry (20 r2 section 3.4). One entry per priced facility; adding a facility is a data change. Every holiday list names its source.",
+ "facilities": [
+  {
+   "id": "407-etr",
+   "display_name": "407 ETR",
+   "operator": "407 International Inc.",
+   "country": "CA",
+   "currency": "CAD",
+   "timezone": "America/Toronto",
+   "rate_model": "distance_zoned",
+   "card": "407-etr-2026-light.json",
+   "corridor": "407-etr.json",
+   "holidays": {
+    "calendar": "ca",
+    "subdivision": "on",
+    "keys": ["NEW_YEAR", "FAMILY_DAY", "christian.GOOD_FRIDAY", "VICTORIA_DAY", "CANADA_DAY", "LABOUR_DAY",
+             "THANKSGIVING", "CHRISTMAS", "BOXING_DAY"],
+    "date_rule": "actual",
+    "operator_wording": "Weekends and Ontario Statutory Holidays",
+    "operator_source_url": "https://www.407etr.com/en/rate-chart-light",
+    "definition_source_url": "https://www.ontario.ca/document/your-guide-employment-standards-act-0/public-holidays",
+    "retrieved": "2026-11-05",
+    "note": "ETR names no holidays; it says Ontario statutory holidays, which the Employment Standards Act lists as these nine. Civic Holiday, Easter Monday and Remembrance Day are NOT included. date_rule=actual: a holiday falling on a weekend is weekend-priced anyway, and no substitute weekday is assumed (ETR publishes none) - verify against a statement."
+   }
+  }
+ ]
+}

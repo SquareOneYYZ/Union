@@ -1,0 +1,613 @@
+{
+ "facility": "407 ETR",
+ "osm_route_relation": 109574,
+ "osm_base": "2026-09-14T20:21:51Z",
+ "generator": "scripts/toll_research/build_407_corridor.py",
+ "sources": {
+  "positions": "http://roadinfo.iotrides.com/api/interpreter",
+  "km_and_names": "https://en.wikipedia.org/wiki/Ontario_Highway_407",
+  "zones": "docs\\toll-pricing\\data\\rate-cards\\407-etr-2026-light.json"
+ },
+ "km_direction": "eastbound = increasing km (exit numbers rise west to east)",
+ "west_terminus_km": 0.0,
+ "west_terminus_note": "km 0 is the Highway 403 junction west of QEW; ETR's Zone 1 starts at QEW, so km 0 to QEW is priced as Zone 1",
+ "interchanges": [
+  {
+   "exit": "1",
+   "name": "Hwy QEW",
+   "km": 1.6,
+   "lat": 43.34392,
+   "lon": -79.831285,
+   "osm_nodes": [
+    26238905
+   ],
+   "km_source": "derived: exit 5 km minus straight-line distance"
+  },
+  {
+   "exit": "5",
+   "name": "Dundas Street",
+   "km": 6.0,
+   "lat": 43.383476,
+   "lon": -79.833451,
+   "osm_nodes": [
+    269037792,
+    286627432
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "9",
+   "name": "Appleby Line",
+   "km": 9.9,
+   "lat": 43.414842,
+   "lon": -79.820857,
+   "osm_nodes": [
+    269034985,
+    269036048
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "13",
+   "name": "Bronte Road",
+   "km": 14.0,
+   "lat": 43.44537,
+   "lon": -79.790422,
+   "osm_nodes": [
+    269026005,
+    269028324
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "18",
+   "name": "Neyagawa Boulevard",
+   "km": 18.9,
+   "lat": 43.484652,
+   "lon": -79.766619,
+   "osm_nodes": [
+    26239018,
+    339034526
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "21",
+   "name": "Trafalgar Road",
+   "km": 22.2,
+   "lat": 43.508778,
+   "lon": -79.747939,
+   "osm_nodes": [
+    386874889,
+    659623758
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "24",
+   "name": "Hwy 403",
+   "km": 24.8,
+   "lat": 43.526442,
+   "lon": -79.735966,
+   "osm_nodes": [
+    26239057,
+    320018232
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "28",
+   "name": "Britannia Road",
+   "km": 28.8,
+   "lat": 43.552119,
+   "lon": -79.763247,
+   "osm_nodes": [
+    319881088,
+    320012596
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "31",
+   "name": "Derry Road",
+   "km": 31.9,
+   "lat": 43.571424,
+   "lon": -79.790129,
+   "osm_nodes": [
+    26239225,
+    32975877
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "34",
+   "name": "Hwy 401",
+   "km": 33.9,
+   "lat": 43.591047,
+   "lon": -79.805688,
+   "osm_nodes": [
+    26239231,
+    32974908,
+    32975865
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "39",
+   "name": "Mississauga Road",
+   "km": 39.7,
+   "lat": 43.618137,
+   "lon": -79.762851,
+   "osm_nodes": [
+    32974869,
+    32975782
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "42",
+   "name": "Mavis Road",
+   "km": 42.9,
+   "lat": 43.640702,
+   "lon": -79.737073,
+   "osm_nodes": [
+    32974849,
+    32975794
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "44",
+   "name": "Hurontario Street",
+   "km": 45.2,
+   "lat": 43.653991,
+   "lon": -79.716241,
+   "osm_nodes": [
+    32975802,
+    230604809
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "46",
+   "name": "Hwy 410",
+   "km": 47.3,
+   "lat": 43.669851,
+   "lon": -79.700818,
+   "osm_nodes": [
+    147146399,
+    291600206
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "48",
+   "name": "Dixie Road",
+   "km": 49.6,
+   "lat": 43.687555,
+   "lon": -79.690552,
+   "osm_nodes": [
+    492013361,
+    492013393
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "50",
+   "name": "Bramalea Road",
+   "km": 51.1,
+   "lat": 43.704029,
+   "lon": -79.681062,
+   "osm_nodes": [
+    32974827
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "53",
+   "name": "Airport Road",
+   "km": 54.2,
+   "lat": 43.725833,
+   "lon": -79.672593,
+   "osm_nodes": [
+    32974814,
+    253359868
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "54",
+   "name": "Goreway Drive",
+   "km": 55.7,
+   "lat": 43.738513,
+   "lon": -79.657258,
+   "osm_nodes": [
+    257902742
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "58",
+   "name": "Hwy 427",
+   "km": 58.9,
+   "lat": 43.753331,
+   "lon": -79.629303,
+   "osm_nodes": [
+    36532943,
+    36533143
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "59",
+   "name": "Highway 27",
+   "km": 60.2,
+   "lat": 43.75728,
+   "lon": -79.620566,
+   "osm_nodes": [
+    36533990,
+    252358566
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "63",
+   "name": "Pine Valley Drive",
+   "km": 64.2,
+   "lat": 43.77429,
+   "lon": -79.569724,
+   "osm_nodes": [
+    391883180,
+    391895371
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "65",
+   "name": "Weston Road",
+   "km": 66.4,
+   "lat": 43.778475,
+   "lon": -79.557889,
+   "osm_nodes": [
+    29659450
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "66",
+   "name": "Hwy 400",
+   "km": 67.1,
+   "lat": 43.783547,
+   "lon": -79.535593,
+   "osm_nodes": [
+    29659182,
+    29659214
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "67",
+   "name": "Jane Street",
+   "km": 68.3,
+   "lat": 43.785976,
+   "lon": -79.524513,
+   "osm_nodes": [
+    29659256,
+    29659299
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "69",
+   "name": "Keele Street",
+   "km": 70.5,
+   "lat": 43.792839,
+   "lon": -79.49733,
+   "osm_nodes": [
+    259741688,
+    1945506328
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "73",
+   "name": "Dufferin Street",
+   "km": 74.0,
+   "lat": 43.816566,
+   "lon": -79.475443,
+   "osm_nodes": [
+    1975505551,
+    1975505622
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "75",
+   "name": "Bathurst Street",
+   "km": 76.2,
+   "lat": 43.827629,
+   "lon": -79.453652,
+   "osm_nodes": [
+    29659492,
+    29659627
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "77",
+   "name": "Yonge Street",
+   "km": 78.4,
+   "lat": 43.834651,
+   "lon": -79.428297,
+   "osm_nodes": [
+    88576242,
+    383283020
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "79",
+   "name": "Bayview Avenue",
+   "km": 80.3,
+   "lat": 43.838053,
+   "lon": -79.406346,
+   "osm_nodes": [
+    29659503,
+    29659614
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "81",
+   "name": "Leslie Street",
+   "km": 82.4,
+   "lat": 43.83652,
+   "lon": -79.389768,
+   "osm_nodes": [
+    29659509
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "83",
+   "name": "Hwy 404",
+   "km": 83.4,
+   "lat": 43.83893,
+   "lon": -79.370218,
+   "osm_nodes": [
+    29659511,
+    29659801
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "84",
+   "name": "Woodbine Avenue",
+   "km": 84.4,
+   "lat": 43.841027,
+   "lon": -79.355369,
+   "osm_nodes": [
+    29659606,
+    29659736
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "86",
+   "name": "Warden Avenue",
+   "km": 86.5,
+   "lat": 43.845258,
+   "lon": -79.330179,
+   "osm_nodes": [
+    315023679,
+    315023792
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "88",
+   "name": "Kennedy Road",
+   "km": 88.4,
+   "lat": 43.850267,
+   "lon": -79.307588,
+   "osm_nodes": [
+    29659601,
+    39600150
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "90",
+   "name": "McCowan Road",
+   "km": 90.5,
+   "lat": 43.856203,
+   "lon": -79.281296,
+   "osm_nodes": [
+    319112962,
+    319113003
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "92",
+   "name": "Markham Road",
+   "km": 92.6,
+   "lat": 43.862992,
+   "lon": -79.258156,
+   "osm_nodes": [
+    29659528,
+    319036030
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "94",
+   "name": "Ninth Line",
+   "km": 94.7,
+   "lat": 43.870429,
+   "lon": -79.233315,
+   "osm_nodes": [
+    319111582,
+    319111720
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "95",
+   "name": "Donald Cousens Parkway",
+   "km": 96.4,
+   "lat": 43.87471,
+   "lon": -79.213384,
+   "osm_nodes": [
+    934209528,
+    934209546
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "98",
+   "name": "York–Durham Line",
+   "km": 99.4,
+   "lat": 43.890563,
+   "lon": -79.185974,
+   "osm_nodes": [
+    319324472,
+    1754184665
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "102",
+   "name": "Whites Road",
+   "km": 102.3,
+   "lat": 43.904711,
+   "lon": -79.145702,
+   "osm_nodes": [
+    29659553,
+    7055847171
+   ],
+   "km_source": "wikipedia_exit_list"
+  },
+  {
+   "exit": "105",
+   "name": "Brock Road",
+   "km": 108.0,
+   "lat": 43.91473,
+   "lon": -79.103255,
+   "osm_nodes": [
+    139273502
+   ],
+   "km_source": "wikipedia_exit_list"
+  }
+ ],
+ "zones": [
+  {
+   "zone_code": "Z1",
+   "from": "QEW",
+   "to": "Dundas",
+   "from_exit": "1",
+   "to_exit": "5",
+   "from_km": 1.6,
+   "to_km": 6.0
+  },
+  {
+   "zone_code": "Z2",
+   "from": "Dundas",
+   "to": "Neyagawa",
+   "from_exit": "5",
+   "to_exit": "18",
+   "from_km": 6.0,
+   "to_km": 18.9
+  },
+  {
+   "zone_code": "Z3",
+   "from": "Neyagawa",
+   "to": "Highway 403",
+   "from_exit": "18",
+   "to_exit": "24",
+   "from_km": 18.9,
+   "to_km": 24.8
+  },
+  {
+   "zone_code": "Z4",
+   "from": "Highway 403",
+   "to": "Highway 401",
+   "from_exit": "24",
+   "to_exit": "34",
+   "from_km": 24.8,
+   "to_km": 33.9
+  },
+  {
+   "zone_code": "Z5",
+   "from": "Highway 401",
+   "to": "Highway 410",
+   "from_exit": "34",
+   "to_exit": "46",
+   "from_km": 33.9,
+   "to_km": 47.3
+  },
+  {
+   "zone_code": "Z6",
+   "from": "Highway 410",
+   "to": "Highway 427",
+   "from_exit": "46",
+   "to_exit": "58",
+   "from_km": 47.3,
+   "to_km": 58.9
+  },
+  {
+   "zone_code": "Z7",
+   "from": "Highway 427",
+   "to": "Highway 400",
+   "from_exit": "58",
+   "to_exit": "66",
+   "from_km": 58.9,
+   "to_km": 67.1
+  },
+  {
+   "zone_code": "Z8",
+   "from": "Highway 400",
+   "to": "Yonge",
+   "from_exit": "66",
+   "to_exit": "77",
+   "from_km": 67.1,
+   "to_km": 78.4
+  },
+  {
+   "zone_code": "Z9",
+   "from": "Yonge",
+   "to": "Highway 404",
+   "from_exit": "77",
+   "to_exit": "83",
+   "from_km": 78.4,
+   "to_km": 83.4
+  },
+  {
+   "zone_code": "Z10",
+   "from": "Highway 404",
+   "to": "McCowan",
+   "from_exit": "83",
+   "to_exit": "90",
+   "from_km": 83.4,
+   "to_km": 90.5
+  },
+  {
+   "zone_code": "Z11",
+   "from": "McCowan",
+   "to": "York Durham Line",
+   "from_exit": "90",
+   "to_exit": "98",
+   "from_km": 90.5,
+   "to_km": 99.4
+  },
+  {
+   "zone_code": "Z12",
+   "from": "York Durham Line",
+   "to": "Brock",
+   "from_exit": "98",
+   "to_exit": "105",
+   "from_km": 99.4,
+   "to_km": 108.0
+  }
+ ]
+}
