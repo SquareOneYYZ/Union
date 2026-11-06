@@ -29,7 +29,7 @@ public class FlatPricerTest {
     @BeforeAll
     public static void load() throws Exception {
         sets = FacilityRegistry.loadResource().getGantrySets();
-        assertEquals(2, sets.size());   // CFX and the Illinois Tollway
+        assertEquals(4, sets.size());   // CFX, the Illinois Tollway, E-470, the Northwest Parkway
     }
 
     /** A straight drive between two longitudes at 100 km/h, one fix every {@code cadenceS} seconds. */

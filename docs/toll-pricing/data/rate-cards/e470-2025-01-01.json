@@ -1,0 +1,90 @@
+{
+ "facility": "E-470",
+ "operator": "E-470 Public Highway Authority",
+ "country": "US",
+ "region": "CO",
+ "currency": "USD",
+ "rate_model_type": "flat",
+ "rate_model_note": "Flat amount per mainline plaza (A-E) and one amount for every toll ramp. 2-axle rates are the same at all hours; 3+ axle ExpressToll rates vary by hour and are not captured.",
+ "valid_from": "2025-01-01",
+ "valid_to": null,
+ "reprices_on": "1 January (when the board changes rates)",
+ "source_url": "https://www.e-470.com/toll-rates/",
+ "source_type": "published",
+ "source_note": "The page states no effective date. The 2-axle rates are identical in every archived copy checked (web.archive.org 2025-01-22, 2025-06-24, 2025-11-17, 2026-01-13) and on the live page 2026-11-06; E-470 changes rates on 1 January, so the card is dated 2025-01-01 - the earliest date the archive proves, not a published one.",
+ "payment_premium_note": "License Plate Toll is what a vehicle without an ExpressToll account pays. A statement not paid by its due date adds a one-time $5 late fee (not estimated).",
+ "plazas": [
+  {
+   "name": "Plaza A",
+   "road": "E-470",
+   "plaza_type": "mainline",
+   "published_as": "Mainline Toll Plaza A",
+   "expresstoll": {
+    "2_axle": 2.6
+   },
+   "license_plate_toll": {
+    "2_axle": 4.2
+   }
+  },
+  {
+   "name": "Plaza C",
+   "road": "E-470",
+   "plaza_type": "mainline",
+   "published_as": "Mainline Toll Plaza C",
+   "expresstoll": {
+    "2_axle": 2.65
+   },
+   "license_plate_toll": {
+    "2_axle": 4.25
+   }
+  },
+  {
+   "name": "Plaza B",
+   "road": "E-470",
+   "plaza_type": "mainline",
+   "published_as": "Mainline Toll Plazas B, D and E",
+   "expresstoll": {
+    "2_axle": 2.9
+   },
+   "license_plate_toll": {
+    "2_axle": 4.6
+   }
+  },
+  {
+   "name": "Plaza D",
+   "road": "E-470",
+   "plaza_type": "mainline",
+   "published_as": "Mainline Toll Plazas B, D and E",
+   "expresstoll": {
+    "2_axle": 2.9
+   },
+   "license_plate_toll": {
+    "2_axle": 4.6
+   }
+  },
+  {
+   "name": "Plaza E",
+   "road": "E-470",
+   "plaza_type": "mainline",
+   "published_as": "Mainline Toll Plazas B, D and E",
+   "expresstoll": {
+    "2_axle": 2.9
+   },
+   "license_plate_toll": {
+    "2_axle": 4.6
+   }
+  },
+  {
+   "name": "Toll Ramps",
+   "road": "E-470",
+   "plaza_type": "ramp",
+   "published_as": "Toll Ramps",
+   "expresstoll": {
+    "2_axle": 1.25
+   },
+   "license_plate_toll": {
+    "2_axle": 2.05
+   }
+  }
+ ]
+}

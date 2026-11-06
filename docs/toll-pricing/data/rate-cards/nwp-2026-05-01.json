@@ -1,0 +1,84 @@
+{
+ "facility": "Northwest Parkway",
+ "operator": "Northwest Parkway LLC (VINCI Highways)",
+ "country": "US",
+ "region": "CO",
+ "currency": "USD",
+ "rate_model_type": "flat",
+ "rate_model_note": "Flat amount per plaza by local time of day (America/Denver): each band runs from 'from' until the next band starts. The same on every day of the week.",
+ "valid_from": "2026-05-01",
+ "valid_to": null,
+ "reprices_on": "as announced on the page ('Pending Toll Rates')",
+ "source_url": "https://nwpky.com/driver-information/",
+ "source_type": "published",
+ "source_note": "'Current Toll Rates. Effective May 1, 2026'. non_expresstoll is DERIVED: the base charge plus the $1.35 processing fee the fee schedule charges per transaction on every trip without an ExpressToll transponder (effective 2026-02-02). The $0.90 mailing fee is per bill and not estimated.",
+ "payment_premium_note": "The page publishes one base charge; vehicles without ExpressToll add the processing fee per transaction.",
+ "plazas": [
+  {
+   "name": "Mainline",
+   "road": "Northwest Parkway",
+   "plaza_type": "mainline",
+   "base": {
+    "2_axle": [
+     {
+      "from": "06:00",
+      "until": "21:00",
+      "amount": 7.5
+     },
+     {
+      "from": "21:00",
+      "until": "06:00",
+      "amount": 3.5
+     }
+    ]
+   },
+   "non_expresstoll": {
+    "2_axle": [
+     {
+      "from": "06:00",
+      "until": "21:00",
+      "amount": 8.85
+     },
+     {
+      "from": "21:00",
+      "until": "06:00",
+      "amount": 4.85
+     }
+    ]
+   }
+  },
+  {
+   "name": "Ramps (US 287 and Sheridan)",
+   "road": "Northwest Parkway",
+   "plaza_type": "ramp",
+   "base": {
+    "2_axle": [
+     {
+      "from": "06:00",
+      "until": "21:00",
+      "amount": 3.0
+     },
+     {
+      "from": "21:00",
+      "until": "06:00",
+      "amount": 1.5
+     }
+    ]
+   },
+   "non_expresstoll": {
+    "2_axle": [
+     {
+      "from": "06:00",
+      "until": "21:00",
+      "amount": 4.35
+     },
+     {
+      "from": "21:00",
+      "until": "06:00",
+      "amount": 2.85
+     }
+    ]
+   }
+  }
+ ]
+}

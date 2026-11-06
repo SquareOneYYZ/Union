@@ -22,8 +22,8 @@ public class TraversalBuilderTest {
             11, 43.526442, -79.735966, Date.from(java.time.Instant.parse("2026-03-17T12:12:00Z")));
     private static final TraversalBuilder.Edge AT_400 = new TraversalBuilder.Edge(
             12, 43.783547, -79.535593, Date.from(java.time.Instant.parse("2026-03-17T12:40:00Z")));
-    private static final TraversalBuilder.Edge DENVER = new TraversalBuilder.Edge(
-            13, 39.75, -104.75, Date.from(java.time.Instant.parse("2026-03-17T12:40:00Z")));
+    private static final TraversalBuilder.Edge ATLANTA = new TraversalBuilder.Edge(   // Georgia express lanes: not priced yet
+            13, 33.85, -84.25, Date.from(java.time.Instant.parse("2026-03-17T12:40:00Z")));
     private static final TraversalBuilder.Edge SR408_WEST = new TraversalBuilder.Edge(
             21, 28.5482, -81.505, Date.from(java.time.Instant.parse("2026-09-17T12:00:00Z")));
     private static final TraversalBuilder.Edge SR408_EAST = new TraversalBuilder.Edge(
@@ -33,7 +33,7 @@ public class TraversalBuilderTest {
     public static void load() throws Exception {
         FacilityRegistry registry = FacilityRegistry.loadResource();
         assertEquals(1, registry.getFacilities().size());
-        assertEquals(2, registry.getGantrySets().size());
+        assertEquals(4, registry.getGantrySets().size());
         builder = new TraversalBuilder(registry);
     }
 
@@ -88,7 +88,7 @@ public class TraversalBuilderTest {
 
     @Test
     public void unregisteredFacilityIsRecordedUnpriced() {
-        TollTraversal row = builder.build(7, 105, 101, DENVER, DENVER, 5000, NOW);
+        TollTraversal row = builder.build(7, 105, 101, ATLANTA, ATLANTA, 5000, NOW);
         assertNull(row.getAmount());
         assertNull(row.getFacilityId());
         assertEquals(TraversalBuilder.REASON_NO_FACILITY, row.getReason());

@@ -10,15 +10,18 @@ Sources are operator publications, fetched live:
            CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf   (PDF, needs PyMuPDF)
   ISTHA    https://agency.illinoistollway.com/toll-rates  (2026 and 2027 plaza tables, embedded
            JSON), 2027 cross-checked against the board-approved PDF (needs PyMuPDF)
+  E-470    https://www.e-470.com/toll-rates/  (HTML: ExpressToll and License Plate Toll tables)
+  NWP      https://nwpky.com/driver-information/  (HTML: time-banded rates and the fee schedule)
 
 Output: docs/toll-pricing/data/rate-cards/*.json
 
 THESE ARE TRANSCRIPTIONS, NOT VALIDATED RATE CARDS. Nothing here has been checked
 against a real invoice. Treat as a sourced draft for Phase 2, not a billing input.
 
-Usage:  python scripts/toll_research/build_rate_cards.py [--etr] [--cfx] [--istha]
+Usage:  python scripts/toll_research/build_rate_cards.py [--etr] [--cfx] [--istha] [--e470] [--nwp]
 """
 import argparse
+import html
 import json
 import os
 import re
@@ -364,13 +367,152 @@ def build_istha():
     return cards
 
 
+E470_URL = "https://www.e-470.com/toll-rates/"
+E470_VALID_FROM = "2025-01-01"
+E470_ARCHIVE_NOTE = ("The page states no effective date. The 2-axle rates are identical in every archived copy "
+                     "checked (web.archive.org 2025-01-22, 2025-06-24, 2025-11-17, 2026-01-13) and on the live "
+                     "page 2026-11-06; E-470 changes rates on 1 January, so the card is dated 2025-01-01 - "
+                     "the earliest date the archive proves, not a published one.")
+E470_COLUMNS = ["Mainline Toll Plaza A", "Mainline Toll Plaza C", "Mainline Toll Plazas B, D and E", "Toll Ramps"]
+
+NWP_URL = "https://nwpky.com/driver-information/"
+NWP_PROCESSING_FEE = 1.35   # per transaction, every non-ExpressToll trip (effective 2026-02-02)
+
+
+def page_text(page):
+    """Visible text of an HTML page, one '|' per element boundary."""
+    page = re.sub(r"<script.*?</script>|<style.*?</style>", "", page, flags=re.S | re.I)
+    return html.unescape(re.sub(r"\s*\n\s*", "|", re.sub(r"<[^>]+>", "\n", page)))
+
+
+def money(cell):
+    m = re.fullmatch(r"\$(\d+\.\d\d)", cell)
+    if not m:
+        sys.exit(f"not a dollar amount: {cell!r} - page layout changed")
+    return float(m.group(1))
+
+
+def e470_table(text, heading):
+    """{column: 2-axle rate} from one of the page's 2-axle tables."""
+    i = text.find(heading)
+    if i < 0:
+        sys.exit(f"E-470: table {heading!r} not found - page layout changed")
+    cells = text[i:].split("|")
+    header = cells[2:6]
+    if cells[1] != "Vehicle class" or header != E470_COLUMNS or cells[6] != "2 Axles":
+        sys.exit(f"E-470: table {heading!r} has columns {cells[1:7]} - page layout changed")
+    return dict(zip(header, (money(c) for c in cells[7:11])))
+
+
+def build_e470():
+    """E-470: flat per plaza; four published columns, one rate at all hours for 2 axles."""
+    text = page_text(fetch(E470_URL))
+    expresstoll = e470_table(text, "ExpressToll 2-Axle Rates – All Hours")
+    plate = e470_table(text, "License Plate Toll Rates – All Hours")
+    plazas = []
+    for column in E470_COLUMNS:
+        if column == "Toll Ramps":
+            names, plaza_type = ["Toll Ramps"], "ramp"
+        else:
+            letters = re.findall(r"\b([A-E])\b", column.replace("Mainline Toll Plaza", ""))
+            names, plaza_type = [f"Plaza {x}" for x in letters], "mainline"
+        for name in names:
+            plazas.append({"name": name, "road": "E-470", "plaza_type": plaza_type, "published_as": column,
+                           "expresstoll": {"2_axle": expresstoll[column]},
+                           "license_plate_toll": {"2_axle": plate[column]}})
+    if [p["name"] for p in plazas] != ["Plaza A", "Plaza C", "Plaza B", "Plaza D", "Plaza E", "Toll Ramps"]:
+        sys.exit(f"E-470: unexpected plazas {[p['name'] for p in plazas]}")
+    return {
+        "facility": "E-470",
+        "operator": "E-470 Public Highway Authority",
+        "country": "US", "region": "CO", "currency": "USD",
+        "rate_model_type": "flat",
+        "rate_model_note": "Flat amount per mainline plaza (A-E) and one amount for every toll ramp. "
+                           "2-axle rates are the same at all hours; 3+ axle ExpressToll rates vary by hour "
+                           "and are not captured.",
+        "valid_from": E470_VALID_FROM,
+        "valid_to": None,
+        "reprices_on": "1 January (when the board changes rates)",
+        "source_url": E470_URL,
+        "source_type": "published",
+        "source_note": E470_ARCHIVE_NOTE,
+        "payment_premium_note": "License Plate Toll is what a vehicle without an ExpressToll account pays. "
+                                "A statement not paid by its due date adds a one-time $5 late fee (not estimated).",
+        "plazas": plazas,
+    }
+
+
+NWP_BAND = re.compile(r"\|(Mainline|Ramps\|US287 & Sheridan)\|(\d+) (am|pm) – (\d+) (am|pm)\|"
+                      r"(\$\d+\.\d\d)\|(\$\d+\.\d\d)")
+
+
+def hhmm(hour, half):
+    h = int(hour) % 12 + (12 if half == "pm" else 0)
+    return f"{h:02d}:00"
+
+
+def build_nwp():
+    """Northwest Parkway: flat per plaza, two time bands; non-ExpressToll trips add a processing fee."""
+    import datetime
+    text = page_text(fetch(NWP_URL))
+    m = re.search(r"Current Toll Rates\.\|Effective (\w+) (\d+)(?:st|nd|rd|th)?, (\d{4})", text)
+    if not m:
+        sys.exit("NWP: 'Current Toll Rates. Effective ...' not found - page layout changed")
+    published = f"{m.group(1)} {m.group(2)}, {m.group(3)}"
+    valid_from = datetime.datetime.strptime(published, "%B %d, %Y").date().isoformat()
+    if "No Pending Toll Rate Changes" not in text:
+        sys.exit("NWP: the page lists pending toll rates - build a second card for them")
+    fee = re.search(r"Processing Fee\|N/A\|\$(\d+\.\d\d)/ transaction", text)
+    if not fee or float(fee.group(1)) != NWP_PROCESSING_FEE:
+        sys.exit(f"NWP: processing fee changed or moved: {fee and fee.group(1)}")
+    bands = {}
+    for row in NWP_BAND.finditer(text):
+        place, start, end = row.group(1), hhmm(row.group(2), row.group(3)), hhmm(row.group(4), row.group(5))
+        bands.setdefault(place, []).append((start, end, money(row.group(6))))
+    if set(bands) != {"Mainline", "Ramps|US287 & Sheridan"}:
+        sys.exit(f"NWP: rate rows {sorted(bands)} - page layout changed")
+    plazas = []
+    for place, rows in bands.items():
+        rows.sort()
+        if sorted(r[1] for r in rows) != [r[0] for r in rows]:
+            sys.exit(f"NWP: {place} bands {rows} do not cover the day")
+        base = [{"from": a, "until": b, "amount": x} for a, b, x in rows]
+        plate = [{"from": a, "until": b, "amount": round(x + NWP_PROCESSING_FEE, 2)} for a, b, x in rows]
+        ramp = place != "Mainline"
+        plazas.append({"name": "Ramps (US 287 and Sheridan)" if ramp else "Mainline",
+                       "road": "Northwest Parkway", "plaza_type": "ramp" if ramp else "mainline",
+                       "base": {"2_axle": base}, "non_expresstoll": {"2_axle": plate}})
+    return {
+        "facility": "Northwest Parkway",
+        "operator": "Northwest Parkway LLC (VINCI Highways)",
+        "country": "US", "region": "CO", "currency": "USD",
+        "rate_model_type": "flat",
+        "rate_model_note": "Flat amount per plaza by local time of day (America/Denver): each band runs from "
+                           "'from' until the next band starts. The same on every day of the week.",
+        "valid_from": valid_from,
+        "valid_to": None,
+        "reprices_on": "as announced on the page ('Pending Toll Rates')",
+        "source_url": NWP_URL,
+        "source_type": "published",
+        "source_note": (f"'Current Toll Rates. Effective {published}'. non_expresstoll is DERIVED: the base "
+                        "charge plus the $1.35 processing fee the fee schedule charges per transaction on every "
+                        "trip without an ExpressToll transponder (effective 2026-02-02). The $0.90 mailing fee "
+                        "is per bill and not estimated."),
+        "payment_premium_note": "The page publishes one base charge; vehicles without ExpressToll add the "
+                                "processing fee per transaction.",
+        "plazas": plazas,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--etr", action="store_true")
     ap.add_argument("--cfx", action="store_true")
     ap.add_argument("--istha", action="store_true")
+    ap.add_argument("--e470", action="store_true")
+    ap.add_argument("--nwp", action="store_true")
     args = ap.parse_args()
-    do_all = not (args.etr or args.cfx or args.istha)
+    do_all = not (args.etr or args.cfx or args.istha or args.e470 or args.nwp)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     if args.etr or do_all:
@@ -388,6 +530,14 @@ def main():
     if args.istha or do_all:
         for year, card in build_istha().items():
             path = os.path.join(OUT_DIR, f"istha-{year}-01-01.json")
+            with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                json.dump(card, fh, indent=1, ensure_ascii=False)
+                fh.write("\n")
+            print(f"wrote {path}: {len(card['plazas'])} plazas")
+    for flag, build, prefix in ((args.e470, build_e470, "e470"), (args.nwp, build_nwp, "nwp")):
+        if flag or do_all:
+            card = build()
+            path = os.path.join(OUT_DIR, f"{prefix}-{card['valid_from']}.json")
             with open(path, "w", encoding="utf-8", newline="\n") as fh:
                 json.dump(card, fh, indent=1, ensure_ascii=False)
                 fh.write("\n")

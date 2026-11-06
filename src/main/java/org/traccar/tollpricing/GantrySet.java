@@ -9,7 +9,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -32,6 +35,11 @@ import java.util.TreeSet;
  * is charged from the card in effect on the passage's local date in the facility's timezone. Every
  * card must list exactly the gantry file's plazas, so a reprice that adds or drops a plaza fails the
  * load instead of pricing silently from a stale map.
+ *
+ * <p>A card's rate is a number (all hours), or a list of local-time bands (the Northwest Parkway:
+ * {@code [{"from": "06:00", "amount": 8.85}, {"from": "21:00", "amount": 4.85}]}): each band runs from
+ * its {@code from} until the next band's, and the last wraps past midnight to the first. A band's
+ * optional {@code until} must name the next band's {@code from}, so a misread table fails the load.
  */
 public final class GantrySet {
 
@@ -40,7 +48,7 @@ public final class GantrySet {
      * nearby mainline's, as [lat, lon] lines; a mainline point carries neither.
      */
     public record Point(String facilityId, String plaza, double lat, double lon,
-                        NavigableMap<LocalDate, BigDecimal> rates,
+                        NavigableMap<LocalDate, NavigableMap<LocalTime, BigDecimal>> rates,
                         List<double[][]> rampLines, List<double[][]> mainlineLines) {
         public boolean isRamp() {
             return rampLines != null;
@@ -97,7 +105,7 @@ public final class GantrySet {
             gantryKeys.add(p.path("road").asText() + "|" + p.path("name").asText());
         }
         String currency = null;
-        Map<String, TreeMap<LocalDate, BigDecimal>> rates = new HashMap<>();
+        Map<String, TreeMap<LocalDate, NavigableMap<LocalTime, BigDecimal>>> rates = new HashMap<>();
         NavigableMap<LocalDate, String> validFrom = new TreeMap<>();
         for (InputStream stream : cardStreams) {
             JsonNode c = mapper.readTree(stream);
@@ -116,15 +124,13 @@ public final class GantrySet {
             Set<String> cardKeys = new TreeSet<>();
             for (JsonNode p : c.path("plazas")) {
                 String key = p.path("road").asText() + "|" + p.path("name").asText();
-                JsonNode rate = p.path(paymentColumn).path(vehicleColumn);
-                if (!rate.isNumber()) {
-                    throw new IOException(facilityId + ": card " + from + " has no " + paymentColumn + "/"
-                            + vehicleColumn + " rate for " + key);
-                }
+                String where = facilityId + ": card " + from + " " + paymentColumn + "/" + vehicleColumn
+                        + " for " + key;
+                NavigableMap<LocalTime, BigDecimal> bands = bands(p.path(paymentColumn).path(vehicleColumn), where);
                 if (!cardKeys.add(key)) {
                     throw new IOException(facilityId + ": card " + from + " lists " + key + " twice");
                 }
-                rates.computeIfAbsent(key, k -> new TreeMap<>()).put(date, rate.decimalValue());
+                rates.computeIfAbsent(key, k -> new TreeMap<>()).put(date, bands);
             }
             if (!cardKeys.equals(gantryKeys)) {
                 Set<String> diff = new TreeSet<>(cardKeys);
@@ -145,7 +151,8 @@ public final class GantrySet {
         set.cards.putAll(validFrom);
         for (JsonNode p : g.path("plazas")) {
             String key = p.path("road").asText() + "|" + p.path("name").asText();
-            NavigableMap<LocalDate, BigDecimal> rate = Collections.unmodifiableNavigableMap(rates.get(key));
+            NavigableMap<LocalDate, NavigableMap<LocalTime, BigDecimal>> rate =
+                    Collections.unmodifiableNavigableMap(rates.get(key));
             if (p.path("clusters").isEmpty()) {
                 set.unlocated.add(key);
             }
@@ -187,6 +194,52 @@ public final class GantrySet {
         set.index.build();
         set.rampIndex.build();
         return set;
+    }
+
+    private static final Set<String> BAND_FIELDS = Set.of("from", "until", "amount");
+
+    /** A card rate cell as local start time to amount: a number is one band from midnight. */
+    static NavigableMap<LocalTime, BigDecimal> bands(JsonNode cell, String where) throws IOException {
+        TreeMap<LocalTime, BigDecimal> bands = new TreeMap<>();
+        if (cell.isNumber()) {
+            bands.put(LocalTime.MIDNIGHT, cell.decimalValue());
+            return Collections.unmodifiableNavigableMap(bands);
+        }
+        if (!cell.isArray() || cell.isEmpty()) {
+            throw new IOException(where + ": no rate");
+        }
+        Map<LocalTime, LocalTime> until = new HashMap<>();
+        for (JsonNode band : cell) {
+            for (var it = band.fieldNames(); it.hasNext();) {
+                String field = it.next();
+                if (!BAND_FIELDS.contains(field)) {
+                    // e.g. a future "days": priced as every day if ignored, so refuse it.
+                    throw new IOException(where + ": unsupported band field '" + field + "'");
+                }
+            }
+            if (!band.path("amount").isNumber()) {
+                throw new IOException(where + ": band without an amount: " + band);
+            }
+            try {
+                LocalTime start = LocalTime.parse(band.path("from").asText());
+                if (bands.put(start, band.path("amount").decimalValue()) != null) {
+                    throw new IOException(where + ": two bands from " + start);
+                }
+                if (band.has("until")) {
+                    until.put(start, LocalTime.parse(band.path("until").asText()));
+                }
+            } catch (DateTimeParseException e) {
+                throw new IOException(where + ": bad band time in " + band, e);
+            }
+        }
+        for (Map.Entry<LocalTime, LocalTime> e : until.entrySet()) {
+            LocalTime next = bands.higherKey(e.getKey());
+            if (!e.getValue().equals(next != null ? next : bands.firstKey())) {
+                throw new IOException(where + ": band from " + e.getKey() + " says until " + e.getValue()
+                        + " but the next band starts at " + (next != null ? next : bands.firstKey()));
+            }
+        }
+        return Collections.unmodifiableNavigableMap(bands);
     }
 
     private static List<double[][]> lines(JsonNode node) {
@@ -241,10 +294,21 @@ public final class GantrySet {
         return List.copyOf(cards.values());
     }
 
-    /** What a passage at {@code time} is charged at the point; null when no card covers that date. */
+    /**
+     * What a passage at {@code time} is charged at the point: the card in effect on its local date,
+     * the band in effect at its local time. Null when no card covers that date.
+     */
     public Rate rateAt(Point point, Date time) {
-        Map.Entry<LocalDate, BigDecimal> e = point.rates().floorEntry(localDate(time));
-        return e != null ? new Rate(e.getValue(), cards.get(e.getKey())) : null;
+        ZonedDateTime local = time.toInstant().atZone(zone);
+        Map.Entry<LocalDate, NavigableMap<LocalTime, BigDecimal>> e = point.rates().floorEntry(local.toLocalDate());
+        if (e == null) {
+            return null;
+        }
+        Map.Entry<LocalTime, BigDecimal> band = e.getValue().floorEntry(local.toLocalTime());
+        if (band == null) {
+            band = e.getValue().lastEntry();   // before the first band: the last one wraps past midnight
+        }
+        return new Rate(band.getValue(), cards.get(e.getKey()));
     }
 
     private LocalDate localDate(Date time) {

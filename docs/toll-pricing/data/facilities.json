@@ -59,6 +59,44 @@
    "ramp_rule_note": "As CFX: a ramp plaza is charged only when a fix lies within 20 m of the ramp's OSM shape and at least 30 m from the mainline. Eola Road (60) and Ogden Avenue (81) are mainline on the card but every gantry sits on a ramp, so they take the ramp rule. Where one plaza number is priced per movement (Genoa Road, Illinois 47, Barrington Road, Roselle Road) the ramp's geometry picks the movement; see gantries/istha.json.",
    "rate_schedule": "passenger rates have a single rate, all days and times; only truck rates vary (daytime/overnight)",
    "rate_schedule_source_url": "https://agency.illinoistollway.com/toll-rates"
+  },
+  {
+   "id": "e470",
+   "display_name": "E-470",
+   "operator": "E-470 Public Highway Authority",
+   "country": "US",
+   "currency": "USD",
+   "timezone": "America/Denver",
+   "rate_model": "flat",
+   "cards": ["e470-2025-01-01.json"],
+   "cards_note": "The rates page states no effective date; the card is dated from the earliest archived copy that shows these rates (see the card's source_note). E-470 reprices on 1 January when its board changes rates.",
+   "gantries": "e470.json",
+   "payment_column": "license_plate_toll",
+   "payment_column_note": "Fleet decision 2026-11-06: no ExpressToll or other transponder, plates not registered, so every toll is a License Plate Toll. A statement paid late adds a one-time $5 fee (not estimated).",
+   "vehicle_column": "2_axle",
+   "ramp_rule": "track",
+   "ramp_rule_note": "As CFX: a toll ramp is charged only when a fix lies within 20 m of the ramp's OSM shape and at least 30 m from the mainline. Every toll ramp has one rate, so the interchange is only noted (gantries/e470.json); the debounce is per plaza, so leaving and re-entering through toll ramps within 120 s is charged once.",
+   "rate_schedule": "2-axle rates are a single rate, all days and times",
+   "rate_schedule_source_url": "https://www.e-470.com/toll-rates/"
+  },
+  {
+   "id": "nwp",
+   "display_name": "Northwest Parkway",
+   "operator": "Northwest Parkway LLC",
+   "country": "US",
+   "currency": "USD",
+   "timezone": "America/Denver",
+   "rate_model": "flat",
+   "cards": ["nwp-2026-05-01.json"],
+   "cards_note": "Rates effective 2026-05-01; the page announces changes under 'Pending Toll Rates' (none on 2026-11-06).",
+   "gantries": "nwp.json",
+   "payment_column": "non_expresstoll",
+   "payment_column_note": "Fleet decision 2026-11-06: no ExpressToll transponder, so each toll adds the $1.35 per-transaction processing fee (derived in the card). The $0.90 mailing fee per bill and late fees are not estimated.",
+   "vehicle_column": "2_axle",
+   "ramp_rule": "track",
+   "ramp_rule_note": "As CFX: a ramp (US 287/Dillon Road, Sheridan Boulevard) is charged only when a fix lies within 20 m of the ramp's OSM shape and at least 30 m from the mainline.",
+   "rate_schedule": "two bands by local time, every day: 06:00-21:00 and 21:00-06:00; the band at the moment of each passage applies",
+   "rate_schedule_source_url": "https://nwpky.com/driver-information/"
   }
  ]
 }

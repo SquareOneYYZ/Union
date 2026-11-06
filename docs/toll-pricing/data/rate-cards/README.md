@@ -12,6 +12,8 @@ from the operators live, so re-running is also how you detect a reprice.
 | `cfx-2026-07-01.json` | CFX (Central Florida) | `flat` | 58 plazas × 4 axle × 2 payment | 2026-07-01 | **1 July** (fiscal year) |
 | `istha-2026-01-01.json` | Illinois Tollway | `flat` | 96 plazas × passenger + 3 truck tiers × day/night × 2 payment | 2026-01-01 (passenger since 2012) | until 2026-12-31 |
 | `istha-2027-01-01.json` | Illinois Tollway | `flat` | 96 plazas × same × 3 payment | **2027-01-01** (approved 2026-08-19) | every 2 years from 2029 (CPI-U, max 8 %) |
+| `e470-2025-01-01.json` | E-470 (Denver) | `flat` | 6 plazas (A-E + toll ramps) x 2-axle x 2 payment | not published; unchanged in archive since 2025-01-22 | **1 January** |
+| `nwp-2026-05-01.json` | Northwest Parkway (Denver) | `flat` | 2 plazas x 2 time bands x 2 payment | 2026-05-01 | as announced ("Pending Toll Rates") |
 
 Every row carries a `source_url`, a `source_type` and a `valid_from`, per the project's
 non-negotiable constraint: never invent a rate, never store one without provenance.
@@ -28,6 +30,8 @@ Both are **operator-published material, free to fetch, no licence purchased**:
   Invoice rate equals, by plaza number, the board-approved PDF
   `https://agency.illinoistollway.com/documents/d/guest/2026-06_proposedrates-1` (still titled
   "Proposed", linked from the page as "2027 Toll Rates"). Checked 2026-11-06: 96 of 96 equal.
+- **E-470** — the ExpressToll and License Plate Toll tables at <https://www.e-470.com/toll-rates/>.
+- **Northwest Parkway** — the rate and fee-schedule tables at <https://nwpky.com/driver-information/>.
 - **CFX** — the PDF at
   `https://www.cfxway.com/wp-content/uploads/2026/07/CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf`,
   parsed with PyMuPDF. Per-gantry rates by axle count and payment method.
@@ -76,7 +80,7 @@ MTO-operated 407 East Extension, a different operator on the same route number.
 - **407 ETR**: only the **light** class of five. Medium, heavy single unit and heavy multiple
   unit are published at `/en/rate-chart-medium`, `/rate-chart-heavy`, `/rate-chart-multi`.
 - **Operators not yet captured**: Florida's Turnpike Enterprise,
-  E-470 / Northwest Parkway, Quebec A-30, the MTO 407 East Extension, Georgia SRTA, and
+  Quebec A-30, the MTO 407 East Extension, Georgia SRTA, and
   Miami-Dade Expressway Authority — the last of which appears in no design document but owns
   42 of the priced gantries the facility matrix credits to Florida's Turnpike.
 - **Dynamically-priced facilities** (Colorado HPTE, Florida FDOT express lanes, Georgia SRTA)
@@ -103,3 +107,20 @@ MTO-operated 407 East Extension, a different operator on the same route number.
   are ramps on the card but gantries on the I-80 carriageways (proven against the other carriageway).
 - **Not on the map** (never charged, estimate low): Illinois 23 (7A), Roselle Road EB Exit/WB
   Entrance (12), Meacham Road (12A), and I-490's Acorn Lane (303) and Franklin Avenue (304).
+
+## E-470 and Northwest Parkway notes (2026-11-06)
+
+- **Plaza classes, not interchanges.** E-470 publishes Plazas A-E and one rate for every toll ramp;
+  the Northwest Parkway one mainline rate and one for its US 287 and Sheridan ramps. The OSM gantries
+  are named ("Plaza B NB", "Gartrell Road Offramp EB"); Plaza C's pair is named only "Aurora" and is
+  pinned in `build_e470_plazas.py`. 23 E-470 and 4 NWP ramp clusters, all provable from the track.
+  A ramp fix must be 30 m clear of the mainline AND of the road the ramp meets (trunk to tertiary):
+  the US 85 gantries stand at the far end of their ramps, so a US 85 driver must never prove one.
+- **E-470's effective date is not published.** The page gives none; every archived copy from
+  2025-01-22 to 2026-01-13 shows the same rates, so the card is dated 2025-01-01.
+- **Time of day (NWP).** 06:00-21:00 and 21:00-06:00 Denver time, every day. The card stores bands
+  (`[{"from", "until", "amount"}]`); `GantrySet.bands` checks they meet and `rateAt` picks the band at
+  each passage's local time.
+- **Fees we derive.** NWP charges vehicles without ExpressToll a $1.35 processing fee per transaction;
+  `non_expresstoll` = base + 1.35. E-470's License Plate Toll rate already includes its premium.
+  Per-bill (NWP $0.90 mailing) and late fees are not estimated.
