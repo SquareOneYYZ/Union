@@ -18,6 +18,7 @@ Usage:
 """
 import argparse
 import datetime as dt
+from decimal import Decimal, ROUND_HALF_UP
 import json
 import os
 import sys
@@ -58,19 +59,23 @@ def price(card, entry_local, direction, zone_km, is_holiday=False):
     lookup = {(r["zone_code"], r["direction"], r["day_type"], r["band_start_local"]):
               r["rate_cents_per_km"] for r in card["rates"]}
 
-    lines, distance_total = [], 0.0
+    # Exact decimal, rounded half-up once on the distance component and once on the total -
+    # the same arithmetic as DistanceZonedEstimator. Binary floats put exact half-cent ties
+    # (3.0 km x 66.5 c = $1.995) on either side of the tie at random.
+    cent = Decimal("0.01")
+    lines, distance_total = [], Decimal(0)
     for zone, km in zone_km.items():
         key = (zone, direction, day_type, band)
         if key not in lookup:
             sys.exit(f"no rate for {key} - rate card does not cover this combination")
         rate = lookup[key]
-        amount = km * rate / 100.0
+        amount = Decimal(repr(km)) * Decimal(repr(rate)) / 100
         distance_total += amount
         lines.append({"zone": zone, "km": km, "rate_cents_per_km": rate,
-                      "amount": round(amount, 2)})
+                      "amount": float(amount.quantize(cent, ROUND_HALF_UP))})
 
-    trip_charge = 1.00                              # applies to ALL customers, per entry
-    camera_charge = 5.30                            # plate-billed only - our fleet
+    trip_charge = Decimal("1.00")                   # applies to ALL customers, per entry
+    camera_charge = Decimal("5.30")                 # plate-billed only - our fleet
     total = distance_total + trip_charge + camera_charge
 
     return {
@@ -82,10 +87,10 @@ def price(card, entry_local, direction, zone_km, is_holiday=False):
         "vehicle_class": "light",
         "payment_method": "license_plate",
         "zone_lines": lines,
-        "distance_component": round(distance_total, 2),
-        "trip_toll_charge": trip_charge,
-        "camera_charge": camera_charge,
-        "total_cad": round(total, 2),
+        "distance_component": float(distance_total.quantize(cent, ROUND_HALF_UP)),
+        "trip_toll_charge": float(trip_charge),
+        "camera_charge": float(camera_charge),
+        "total_cad": float(total.quantize(cent, ROUND_HALF_UP)),
         "rate_card": {"valid_from": card["valid_from"], "source_url": card["source_url"]},
     }
 

@@ -128,6 +128,14 @@ test {
     useJUnitPlatform()
 }
 
+// Toll rate cards ship inside the jar, from their single sourced copy (docs/toll-pricing/23, Gap 10).
+processResources {
+    from('docs/toll-pricing/data/rate-cards') {
+        include '*.json'
+        into 'toll-pricing/cards'
+    }
+}
+
 tasks.register('copyDependencies', Copy) {
     into "$projectDir/target/lib"
     from configurations.runtimeClasspath
