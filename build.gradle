@@ -135,6 +135,10 @@ processResources {
         include '*.json'
         into 'toll-pricing/cards'
     }
+    from('docs/toll-pricing/data') {
+        include 'facilities.json'
+        into 'toll-pricing'
+    }
     from('docs/toll-pricing/data/corridors') {
         include '*.json'
         into 'toll-pricing/corridors'

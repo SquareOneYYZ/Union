@@ -72,6 +72,10 @@ public final class DistanceZonedPricer {
         return new Result(estimate, inputs);
     }
 
+    public String getCardValidFrom() {
+        return card.getValidFrom();
+    }
+
     private static double round3(double v) {
         return Math.round(v * 1000) / 1000.0;
     }

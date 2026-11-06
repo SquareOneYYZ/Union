@@ -2214,6 +2214,23 @@ public static final ConfigKey<Integer> EVENT_TOLL_ROUTE_MINIMAL_DURATION = new I
         "event.tollRoute.minimalDuration",
         List.of(KeyType.CONFIG));
 
+    /**
+     * Price toll traversals in the background (TaskTollPricing). Off by default: pricing reads
+     * detection's events and writes only tc_toll_traversal.
+     */
+    public static final ConfigKey<Boolean> TOLL_PRICING_ENABLE = new BooleanConfigKey(
+            "toll.pricing.enable",
+            List.of(KeyType.CONFIG),
+            false);
+
+    /**
+     * Seconds between toll pricing runs.
+     */
+    public static final ConfigKey<Integer> TOLL_PRICING_PERIOD = new IntegerConfigKey(
+            "toll.pricing.period",
+            List.of(KeyType.CONFIG),
+            300);
+
 
     public static final ConfigKey<String> REDIS_HOST = new StringConfigKey(
             "redis.host", List.of(KeyType.CONFIG));
