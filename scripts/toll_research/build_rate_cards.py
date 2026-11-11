@@ -13,13 +13,15 @@ Sources are operator publications, fetched live:
   E-470    https://www.e-470.com/toll-rates/  (HTML: ExpressToll and License Plate Toll tables)
   NWP      https://nwpky.com/driver-information/  (HTML: time-banded rates and the fee schedule)
   FTE      https://floridasturnpike.com/tolls/toll-rates/  (six regional PDFs, needs PyMuPDF)
+  A-30     https://a30express.com/assets/documents/Grille-tarifaire-2026.pdf  (Gazette grid, needs PyMuPDF),
+           cross-checked against https://a30express.com/en/fees-categories/toll-fees-payment
 
 Output: docs/toll-pricing/data/rate-cards/*.json
 
 THESE ARE TRANSCRIPTIONS, NOT VALIDATED RATE CARDS. Nothing here has been checked
 against a real invoice. Treat as a sourced draft for Phase 2, not a billing input.
 
-Usage:  python scripts/toll_research/build_rate_cards.py [--etr] [--cfx] [--istha] [--e470] [--nwp] [--fte]
+Usage:  python scripts/toll_research/build_rate_cards.py [--etr] [--cfx] [--istha] [--e470] [--nwp] [--fte] [--a30]
 """
 import argparse
 import html
@@ -652,6 +654,101 @@ def build_fte():
     }
 
 
+A30_PDF_URL = "https://a30express.com/assets/documents/Grille-tarifaire-2026.pdf"
+A30_PAGE_URL = "https://a30express.com/en/fees-categories/toll-fees-payment"
+A30_AXLES = 2   # fleet constant: light 2-axle vehicles under 230 cm (D2)
+FRENCH_MONTHS = {"janvier": 1, "février": 2, "mars": 3, "avril": 4, "mai": 5, "juin": 6, "juillet": 7,
+                 "août": 8, "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12}
+ENGLISH_MONTHS = {m: i for i, m in enumerate(["January", "February", "March", "April", "May", "June", "July",
+                                              "August", "September", "October", "November", "December"], 1)}
+
+
+def a30_axle_rates(lines, label):
+    """Every per-axle amount printed in the row that starts with `label` (one per time period)."""
+    try:
+        i = next(n for n, line in enumerate(lines) if line.startswith(label))
+    except StopIteration:
+        sys.exit(f"A-30: row {label!r} not found - grid layout changed")
+    amounts = []
+    for line in lines[i + 1:]:
+        if line.startswith("Catégorie") or line.startswith("PPAM"):
+            break
+        m = re.fullmatch(r"(\d+),(\d\d)\$", line)
+        if m:
+            amounts.append(float(f"{m.group(1)}.{m.group(2)}"))
+        elif line:
+            sys.exit(f"A-30: unexpected cell {line!r} in row {label!r} - grid layout changed")
+    return amounts
+
+
+def build_a30():
+    """Quebec A-30 (pont P-10942): one toll station, a per-axle rate by vehicle height category."""
+    import datetime
+    import fitz
+    pdf = fitz.open(stream=fetch(A30_PDF_URL, binary=True), filetype="pdf")
+    page1 = pdf[0].get_text()
+    flat = re.sub(r"\s+", " ", page1)
+    m = re.search(r"en vigueur à compter du (\d+)(?:er)? (\w+) (\d{4}) sur le pont P-10942", flat)
+    if not m or m.group(2) not in FRENCH_MONTHS:
+        sys.exit("A-30: effective date sentence not found - grid layout changed")
+    valid_from = datetime.date(int(m.group(3)), FRENCH_MONTHS[m.group(2)], int(m.group(1))).isoformat()
+    lines = [line.strip() for line in page1.splitlines()]
+    cat_b = a30_axle_rates(lines, "Catégorie B, tarif par essieu")
+    # Eight periods (weekday PPAM/HPJ/PPPM/HPS, weekend 0h-12h/12h-24h by direction); the grid prints
+    # 6 cells for Category B in 2026. Every printed cell must be the same amount, or a time-banded
+    # card is needed and this builder must not flatten it.
+    if len(cat_b) < 6 or len(set(cat_b)) != 1:
+        sys.exit(f"A-30: Category B per-axle cells {cat_b} - not one rate for every period")
+    per_axle = cat_b[0]
+    recovery = re.search(r"Délai supplémentaire de 7 jours calendaires (\d+),(\d\d)\$",
+                         re.sub(r"\s+", " ", pdf[1].get_text()))
+    if not recovery:
+        sys.exit("A-30: recovery fee row not found - grid layout changed")
+
+    # Cross-check against the operator's English fee page: same date, same Category 1 per-axle rate.
+    text = page_text(fetch(A30_PAGE_URL))
+    en = re.search(r"in effect from (\w+) (\d+), (\d{4}) to (\w+) (\d+), (\d{4}) inclusively", text)
+    if not en:
+        sys.exit("A-30: English fee page date sentence not found - page layout changed")
+    en_from = datetime.date(int(en.group(3)), ENGLISH_MONTHS[en.group(1)], int(en.group(2))).isoformat()
+    en_to = datetime.date(int(en.group(6)), ENGLISH_MONTHS[en.group(4)], int(en.group(5))).isoformat()
+    en_rate = re.search(r"\$(\d+\.\d\d)/axle", text)
+    if en_from != valid_from or not en_rate or float(en_rate.group(1)) != per_axle:
+        sys.exit(f"A-30: fee page ({en_from}, {en_rate and en_rate.group(1)}/axle) disagrees with the "
+                 f"grid ({valid_from}, {per_axle}/axle)")
+    return {
+        "facility": "Autoroute 30 (pont P-10942)",
+        "operator": "Nouvelle Autoroute 30, s.e.n.c. (A30 Express)",
+        "country": "CA", "region": "QC", "currency": "CAD",
+        "rate_model_type": "flat",
+        "rate_model_note": "One toll station on the Saint Lawrence crossing, charged in both directions; a "
+                           "per-axle rate by vehicle category. The grid prints the same amount for every "
+                           "period (weekday peaks, weekends, holidays), so one rate at all hours.",
+        "valid_from": valid_from,
+        "valid_to": en_to,
+        "valid_to_note": "The operator's fee page says the grid applies through this date; the Gazette "
+                         "grid itself says it stands until a new one is published. Passages after it are "
+                         "still priced from this card until a newer one is added - check for the new grid.",
+        "reprices_on": "annually, about 1 February (Gazette officielle du Québec)",
+        "source_url": A30_PDF_URL,
+        "source_type": "published",
+        "source_note": (f"'GRILLE TARIFAIRE ... en vigueur à compter du {m.group(1)} {m.group(2)} {m.group(3)}'. "
+                        f"Catégorie B (under 230 cm, not oversize) = {per_axle:.2f} $ per axle in every period; "
+                        f"2_axle is DERIVED as {A30_AXLES} x {per_axle:.2f}. Cross-checked against {A30_PAGE_URL} "
+                        "('$2.20/axle', 'a regular passenger vehicle will pay $4.40 per crossing')."),
+        "payment_premium_note": ("No plate premium: the booth takes credit and debit cards (not cash) at the "
+                                 "same rate as the transponder. A vehicle that passes without paying owes "
+                                 f"{recovery.group(1)}.{recovery.group(2)} $ recovery fee per passage on top "
+                                 "(37.00 $ after a further 7 days) - not estimated."),
+        "plazas": [{
+            "name": "Pont P-10942",
+            "road": "A-30",
+            "plaza_type": "mainline",
+            "category_b": {"per_axle": per_axle, "2_axle": round(per_axle * A30_AXLES, 2)},
+        }],
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--etr", action="store_true")
@@ -660,8 +757,9 @@ def main():
     ap.add_argument("--e470", action="store_true")
     ap.add_argument("--nwp", action="store_true")
     ap.add_argument("--fte", action="store_true")
+    ap.add_argument("--a30", action="store_true")
     args = ap.parse_args()
-    do_all = not (args.etr or args.cfx or args.istha or args.e470 or args.nwp or args.fte)
+    do_all = not (args.etr or args.cfx or args.istha or args.e470 or args.nwp or args.fte or args.a30)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     if args.etr or do_all:
@@ -684,7 +782,7 @@ def main():
                 fh.write("\n")
             print(f"wrote {path}: {len(card['plazas'])} plazas")
     for flag, build, prefix in ((args.e470, build_e470, "e470"), (args.nwp, build_nwp, "nwp"),
-                                 (args.fte, build_fte, "fte")):
+                                 (args.fte, build_fte, "fte"), (args.a30, build_a30, "a30")):
         if flag or do_all:
             card = build()
             path = os.path.join(OUT_DIR, f"{prefix}-{card['valid_from']}.json")

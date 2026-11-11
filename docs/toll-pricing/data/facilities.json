@@ -124,6 +124,28 @@
    "ramp_rule_note": "As CFX: an interchange is charged only when a fix lies within 20 m of a ramp's OSM shape and at least 30 m from the mainline and from the road the ramp meets. The Beachline West and Dallas plazas are shared with CFX (each charges a portion at the same gantry) and are charged once per facility. Alligator Alley and the Sunshine Skyway charge one direction at each end (charged_bearing in gantries/fte.json, from the FDOT schedule maps). See gantries/fte.json for rows not on the map and for toll points deliberately never charged.",
    "rate_schedule": "single rate, all days and times",
    "rate_schedule_source_url": "https://floridasturnpike.com/tolls/toll-rates/"
+  },
+  {
+   "id": "a30",
+   "display_name": "Autoroute 30 (A30 Express bridge)",
+   "operator": "Nouvelle Autoroute 30, s.e.n.c. (A30 Express)",
+   "country": "CA",
+   "currency": "CAD",
+   "timezone": "America/Toronto",
+   "timezone_note": "Quebec observes Eastern time; America/Toronto is the IANA zone (America/Montreal is a deprecated link to it).",
+   "rate_model": "flat",
+   "cards": [
+    "a30-2026-02-28.json"
+   ],
+   "cards_note": "The grid in force from 2026-02-28; the operator's fee page says it runs to 2027-01-31, and the next grid is published in the Gazette officielle du Quebec. A passage before 2026-02-28 is NO_RATE.",
+   "gantries": "a30.json",
+   "payment_column": "category_b",
+   "payment_column_note": "The A-30 has no plate or transponder premium: the booth charges the same toll by credit or debit card (cash not accepted) as by transponder. Fleet vehicles (light, under 230 cm, 2 axles) are Categorie B. A vehicle that passes without paying owes an 8.00 $ recovery fee per passage on top (37.00 $ after a further 7 days); not estimated.",
+   "vehicle_column": "2_axle",
+   "ramp_rule": "track",
+   "ramp_rule_note": "No ramp tolls: the only toll is the station on the Saint Lawrence crossing (pont P-10942), charged in both directions.",
+   "rate_schedule": "single rate, all days and times: the grid prints the same amount for every period",
+   "rate_schedule_source_url": "https://a30express.com/assets/documents/Grille-tarifaire-2026.pdf"
   }
  ]
 }

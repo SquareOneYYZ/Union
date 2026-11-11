@@ -15,6 +15,7 @@ from the operators live, so re-running is also how you detect a reprice.
 | `e470-2025-01-01.json` | E-470 (Denver) | `flat` | 6 plazas (A-E + toll ramps) x 2-axle x 2 payment | not published; unchanged in archive since 2025-01-22 | **1 January** |
 | `nwp-2026-05-01.json` | Northwest Parkway (Denver) | `flat` | 2 plazas x 2 time bands x 2 payment | 2026-05-01 | as announced ("Pending Toll Rates") |
 | `fte-2026-08-14.json` | Florida's Turnpike + FDOT toll facilities | `flat` | 144 rows (plazas + tolled interchanges) x 5 axle x 2 payment | newest table 2026-08-14; each row keeps its own | per regional schedule |
+| `a30-2026-02-28.json` | A-30 (A30 Express bridge, Quebec) | `flat` | 1 toll station x Categorie B per axle | 2026-02-28 (fee page: to 2027-01-31) | **about 1 February** (Gazette officielle) |
 
 Every row carries a `source_url`, a `source_type` and a `valid_from`, per the project's
 non-negotiable constraint: never invent a rate, never store one without provenance.
@@ -82,7 +83,7 @@ MTO-operated 407 East Extension, a different operator on the same route number.
 
 - **407 ETR**: only the **light** class of five. Medium, heavy single unit and heavy multiple
   unit are published at `/en/rate-chart-medium`, `/rate-chart-heavy`, `/rate-chart-multi`.
-- **Operators not yet captured**: Quebec A-30, Georgia SRTA, and
+- **Operators not yet captured**: Georgia SRTA, and
   Miami-Dade Expressway Authority — the last of which appears in no design document but owns
   42 of the priced gantries the facility matrix credits to Florida's Turnpike.
 - **MTO 407 East needs no card**: toll-free since 2025-06-01 (Brock Road to Highway 35/115). The
@@ -171,3 +172,19 @@ MTO-operated 407 East Extension, a different operator on the same route number.
   untagged gantries on the Beachline West at milepost 1.5 match no published row and are never charged. The I-4 Connector's single gantry prices three movements; the cheapest
   (Z-Move) is charged.
 - **TOLL-BY-PLATE** adds a $2.50 administrative fee per 30-day invoice; not estimated.
+
+## A-30 notes (2026-11-10)
+
+- **Source.** The Gazette grid `Grille-tarifaire-2026.pdf` ("en vigueur a compter du 28 fevrier 2026 sur le
+  pont P-10942"), parsed with PyMuPDF; the builder refuses to write unless every Categorie B period cell is the
+  same amount and the operator's English fee page agrees on the date and the per-axle rate ("$2.20/axle",
+  "a regular passenger vehicle will pay $4.40 per crossing").
+- **Categorie B** is any non-oversize vehicle under 230 cm: the fleet's light 2-axle vehicles, 2 x 2.20 = 4.40 $.
+  `2_axle` is derived; `per_axle` is kept beside it.
+- **No plate premium.** The booths take credit and debit cards (not cash) at the transponder rate. A vehicle that
+  passes without paying owes 8.00 $ per passage on top (37.00 $ after a further 7 days) - not estimated.
+- **One toll station, both directions.** `build_a30_plazas.py` takes the barrier=toll_booth nodes on the tolled
+  A-30 ways and refuses anything but one cluster (45.31773 N, -74.022887); every carriageway through the plaza
+  passes 18-41 m from it. OSM's `price=2.50` on the booths is stale and unused.
+- **Reprice.** The fee page dates this grid to 2027-01-31; the next one must be added as a new card. Until then
+  passages after 2027-01-31 are still priced from this card.

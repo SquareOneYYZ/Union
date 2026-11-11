@@ -1,0 +1,42 @@
+{
+ "facility": "Autoroute 30 (pont P-10942)",
+ "card_valid_from": "2026-02-28",
+ "osm_base": "2026-09-14T20:21:51Z",
+ "generator": "scripts/toll_research/build_a30_plazas.py",
+ "cluster_m": 150,
+ "plazas": [
+  {
+   "name": "Pont P-10942",
+   "road": "A-30",
+   "plaza_type": "mainline",
+   "clusters": [
+    {
+     "lat": 45.31773,
+     "lon": -74.022887,
+     "osm_nodes": [
+      3040255649,
+      3040255650
+     ],
+     "match": "toll booths on the tolled A-30 ways (the only toll station)"
+    }
+   ]
+  }
+ ],
+ "review": {
+  "plazas_without_location": [],
+  "booth_tags": {
+   "3040255649": {
+    "barrier": "toll_booth",
+    "payment:credit_cards": "yes",
+    "payment:debit_cards": "yes",
+    "price": "2.50",
+    "website": "https://a30express.com/"
+   },
+   "3040255650": {
+    "barrier": "toll_booth",
+    "price": "2.50",
+    "website": "https://a30express.com/"
+   }
+  }
+ }
+}

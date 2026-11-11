@@ -1,0 +1,28 @@
+{
+ "facility": "Autoroute 30 (pont P-10942)",
+ "operator": "Nouvelle Autoroute 30, s.e.n.c. (A30 Express)",
+ "country": "CA",
+ "region": "QC",
+ "currency": "CAD",
+ "rate_model_type": "flat",
+ "rate_model_note": "One toll station on the Saint Lawrence crossing, charged in both directions; a per-axle rate by vehicle category. The grid prints the same amount for every period (weekday peaks, weekends, holidays), so one rate at all hours.",
+ "valid_from": "2026-02-28",
+ "valid_to": "2027-01-31",
+ "valid_to_note": "The operator's fee page says the grid applies through this date; the Gazette grid itself says it stands until a new one is published. Passages after it are still priced from this card until a newer one is added - check for the new grid.",
+ "reprices_on": "annually, about 1 February (Gazette officielle du Québec)",
+ "source_url": "https://a30express.com/assets/documents/Grille-tarifaire-2026.pdf",
+ "source_type": "published",
+ "source_note": "'GRILLE TARIFAIRE ... en vigueur à compter du 28 février 2026'. Catégorie B (under 230 cm, not oversize) = 2.20 $ per axle in every period; 2_axle is DERIVED as 2 x 2.20. Cross-checked against https://a30express.com/en/fees-categories/toll-fees-payment ('$2.20/axle', 'a regular passenger vehicle will pay $4.40 per crossing').",
+ "payment_premium_note": "No plate premium: the booth takes credit and debit cards (not cash) at the same rate as the transponder. A vehicle that passes without paying owes 8.00 $ recovery fee per passage on top (37.00 $ after a further 7 days) - not estimated.",
+ "plazas": [
+  {
+   "name": "Pont P-10942",
+   "road": "A-30",
+   "plaza_type": "mainline",
+   "category_b": {
+    "per_axle": 2.2,
+    "2_axle": 4.4
+   }
+  }
+ ]
+}
