@@ -1,6 +1,8 @@
 package org.traccar.schedule;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.SecurityContext;
 import liquibase.Contexts;
 import liquibase.Liquibase;
 import liquibase.database.Database;
@@ -10,6 +12,10 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.traccar.api.BaseResource;
+import org.traccar.api.resource.TollTraversalResource;
+import org.traccar.api.security.PermissionsService;
+import org.traccar.api.security.UserPrincipal;
 import org.traccar.config.Config;
 import org.traccar.config.Keys;
 import org.traccar.model.Device;
@@ -25,18 +31,23 @@ import org.traccar.storage.query.Request;
 
 import javax.sql.DataSource;
 import java.io.File;
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -202,5 +213,73 @@ public class TaskTollPricingDatabaseTest {
         } finally {
             deviceId = saved;
         }
+    }
+
+    private static long traversal(long device, long exitEventId, String exitTime, BigDecimal amount, String reason)
+            throws Exception {
+        TollTraversal row = new TollTraversal();
+        row.setDeviceId(device);
+        row.setExitEventId(exitEventId);
+        row.setExitTime(Date.from(Instant.parse(exitTime)));
+        row.setAmount(amount);
+        row.setCurrency(amount != null ? "USD" : null);
+        row.setReason(reason);
+        row.setCalcVersion(1);
+        row.setPricedAt(new Date());
+        return storage.addObject(row, new Request(amount == null
+                ? new Columns.Exclude("id", "amount") : new Columns.Exclude("id")));
+    }
+
+    private static TollTraversalResource resource(PermissionsService permissions) throws Exception {
+        TollTraversalResource resource = new TollTraversalResource() {
+            {
+                storage = TaskTollPricingDatabaseTest.storage;
+                permissionsService = permissions;
+            }
+        };
+        SecurityContext context = mock(SecurityContext.class);
+        when(context.getUserPrincipal()).thenReturn(new UserPrincipal(42, null));
+        Field field = BaseResource.class.getDeclaredField("securityContext");
+        field.setAccessible(true);
+        field.set(resource, context);
+        return resource;
+    }
+
+    @Test
+    public void resourceListsByExitTimeForPermittedDevicesOnly() throws Exception {
+        Device a = new Device();
+        a.setName("toll-api-a");
+        a.setUniqueId("toll-api-a");
+        long deviceA = storage.addObject(a, new Request(new Columns.Exclude("id")));
+        Device b = new Device();
+        b.setName("toll-api-b");
+        b.setUniqueId("toll-api-b");
+        long deviceB = storage.addObject(b, new Request(new Columns.Exclude("id")));
+        traversal(deviceA, 900_001, "2026-10-01T10:00:00Z", new BigDecimal("4.80"), null);
+        traversal(deviceA, 900_002, "2026-10-01T12:00:00Z", null, "NO_ENTER_EVENT");   // no enterTime
+        traversal(deviceA, 900_003, "2026-10-05T12:00:00Z", new BigDecimal("1.00"), null); // outside range
+        traversal(deviceB, 900_004, "2026-10-01T11:00:00Z", new BigDecimal("2.00"), null);
+        Date from = Date.from(Instant.parse("2026-10-01T00:00:00Z"));
+        Date to = Date.from(Instant.parse("2026-10-02T00:00:00Z"));
+
+        PermissionsService permissions = mock(PermissionsService.class);
+        List<TollTraversal> rows = new ArrayList<>(resource(permissions).get(List.of(deviceA), from, to));
+        assertEquals(List.of(900_001L, 900_002L), rows.stream().map(TollTraversal::getExitEventId).toList());
+        assertNull(rows.get(1).getAmount());
+        verify(permissions).checkPermission(Device.class, 42, deviceA);
+
+        rows = new ArrayList<>(resource(permissions).get(List.of(deviceA, deviceB, deviceA), from, to));
+        assertEquals(3, rows.size());
+
+        // One device the user cannot see fails the whole request, before anything is read.
+        PermissionsService denying = mock(PermissionsService.class);
+        doThrow(new SecurityException("Device access denied"))
+                .when(denying).checkPermission(Device.class, 42, deviceB);
+        assertThrows(SecurityException.class, () -> resource(denying).get(List.of(deviceA, deviceB), from, to));
+
+        // Unbounded requests are refused.
+        assertThrows(WebApplicationException.class, () -> resource(permissions).get(List.of(deviceA), null, to));
+        assertThrows(WebApplicationException.class, () -> resource(permissions).get(List.of(), from, to));
+        assertThrows(WebApplicationException.class, () -> resource(permissions).get(List.of(deviceA), to, from));
     }
 }
