@@ -97,6 +97,25 @@
    "ramp_rule_note": "As CFX: a ramp (US 287/Dillon Road, Sheridan Boulevard) is charged only when a fix lies within 20 m of the ramp's OSM shape and at least 30 m from the mainline.",
    "rate_schedule": "two bands by local time, every day: 06:00-21:00 and 21:00-06:00; the band at the moment of each passage applies",
    "rate_schedule_source_url": "https://nwpky.com/driver-information/"
+  },
+  {
+   "id": "fte",
+   "display_name": "Florida's Turnpike and FDOT toll facilities",
+   "operator": "Florida's Turnpike Enterprise (FDOT)",
+   "country": "US",
+   "currency": "USD",
+   "timezone": "America/New_York",
+   "rate_model": "flat",
+   "cards": ["fte-2026-08-14.json"],
+   "cards_note": "One card for the six regional schedules, dated from the newest table (Central Florida, 2026-08-14); each row is priced from its own table's effective date (GantrySet.rowStart: Beachline West and Dallas from 2026-07-01, Gateway from 2024-05-03, Leesburg from 2026-08-14), and a passage before its row's date is NO_RATE. The Garcon Point Bridge is on Central time; its only effect is at a rate's start midnight.",
+   "gantries": "fte.json",
+   "payment_column": "toll_by_plate",
+   "payment_column_note": "Fleet decision 2026-11-06: no SunPass or interoperable transponder, so every toll is TOLL-BY-PLATE. FTE adds a $2.50 administrative fee per 30-day invoice (not estimated, it is per bill).",
+   "vehicle_column": "2_axle",
+   "ramp_rule": "track",
+   "ramp_rule_note": "As CFX: an interchange is charged only when a fix lies within 20 m of a ramp's OSM shape and at least 30 m from the mainline and from the road the ramp meets. The Beachline West and Dallas plazas are shared with CFX (each charges a portion at the same gantry) and are charged once per facility. Alligator Alley and the Sunshine Skyway charge one direction at each end (charged_bearing in gantries/fte.json, from the FDOT schedule maps). See gantries/fte.json for rows not on the map and for toll points deliberately never charged.",
+   "rate_schedule": "single rate, all days and times",
+   "rate_schedule_source_url": "https://floridasturnpike.com/tolls/toll-rates/"
   }
  ]
 }

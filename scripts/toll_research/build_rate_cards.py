@@ -12,13 +12,14 @@ Sources are operator publications, fetched live:
            JSON), 2027 cross-checked against the board-approved PDF (needs PyMuPDF)
   E-470    https://www.e-470.com/toll-rates/  (HTML: ExpressToll and License Plate Toll tables)
   NWP      https://nwpky.com/driver-information/  (HTML: time-banded rates and the fee schedule)
+  FTE      https://floridasturnpike.com/tolls/toll-rates/  (six regional PDFs, needs PyMuPDF)
 
 Output: docs/toll-pricing/data/rate-cards/*.json
 
 THESE ARE TRANSCRIPTIONS, NOT VALIDATED RATE CARDS. Nothing here has been checked
 against a real invoice. Treat as a sourced draft for Phase 2, not a billing input.
 
-Usage:  python scripts/toll_research/build_rate_cards.py [--etr] [--cfx] [--istha] [--e470] [--nwp]
+Usage:  python scripts/toll_research/build_rate_cards.py [--etr] [--cfx] [--istha] [--e470] [--nwp] [--fte]
 """
 import argparse
 import html
@@ -504,6 +505,153 @@ def build_nwp():
     }
 
 
+FTE_RATES_PAGE = "https://floridasturnpike.com/tolls/toll-rates/"
+FTE_UPLOADS = "https://floridasturnpike.com/wp-content/uploads/"
+# The regional schedules the rates page linked on 2026-11-06. A different set means FTE published a
+# new schedule: refuse to build until it is reviewed and listed here.
+FTE_PDFS = [
+    "2026/08/Central-Florida-08-14-2026.pdf",
+    "2023/06/South-Central-Florida.pdf",
+    "2026/07/South-Florida-8-3-2026.pdf",
+    "2026/04/West-Central-Florida-4-2026.pdf",
+    "2026/06/North_East_Florida-6-2026.pdf",
+    "2025/09/Panhandle-9-2025.pdf",
+]
+FTE_NOT_SCHEDULES = ("AET-Night-Of-Flyer", "Phishing", "Construction", "CONSTRUCTION")
+FTE_VALUE = re.compile(r"^(\$\d+\.\d\d|-|--|- -)$")
+FTE_COLUMNS = ["2_axle", "3_axle", "4_axle", "5_axle", "additional_axle"]
+
+
+def fte_road(title):
+    """'TURNPIKE MAINLINE - SR 91 (MP 236 - MP 309)' -> 'Turnpike Mainline (SR 91)'."""
+    if title.startswith("TURNPIKE MAINLINE - SR 91"):
+        return "Turnpike Mainline (SR 91)"
+    if title.startswith("TURNPIKE MAINLINE (SR 821)"):
+        return "Homestead Extension (SR 821)"
+    if title.startswith("TURNPIKE MAINLINE: BEACHLINE WEST"):
+        return "Beachline West Expressway (SR 528)"
+    if title.startswith("BEACHLINE EAST"):
+        return "Beachline East Expressway (SR 528)"
+    return re.sub(r"\s+", " ", title.title().replace("Sr ", "SR ").replace("I - 275", "I-275")
+                  .replace("Ii", "II").replace("Iv", "IV").replace("And", "and").replace("Part C", "Part C"))
+
+
+def fte_tables(lines):
+    """[(title, [(label, [10 cells])])] from one page's text lines."""
+    out = []
+    for i, line in enumerate(lines):
+        if line != "Mile Post - Description":
+            continue
+        title = lines[i - 1]
+        j, seen_axles = i + 1, 0
+        while j < len(lines) and seen_axles < 2:
+            seen_axles += lines[j].startswith("Axles")
+            j += 1
+        rows = []
+        while j < len(lines):
+            label = []
+            while j < len(lines) and not FTE_VALUE.match(lines[j]) and len(label) < 3:
+                label.append(lines[j])
+                j += 1
+            cells = []
+            while j < len(lines) and FTE_VALUE.match(lines[j]):
+                cells.append(lines[j])
+                j += 1
+            if not cells:
+                break
+            if len(cells) != 10:
+                sys.exit(f"FTE: {title} row {label} has {len(cells)} cells, not 10 - layout changed")
+            rows.append((" ".join(label), cells))
+        if not rows:
+            sys.exit(f"FTE: table {title} has no rows - layout changed")
+        out.append((title, rows))
+    return out
+
+
+def fte_amount(cell):
+    return float(cell[1:]) if cell.startswith("$") else None
+
+
+def build_fte():
+    """Florida's Turnpike system and FDOT toll facilities: flat per plaza / interchange."""
+    import datetime
+    import fitz
+    page = fetch(FTE_RATES_PAGE)
+    linked = sorted({m for m in re.findall(r"wp-content/uploads/(\d{4}/\d\d/[^\"']+?\.pdf)", page)
+                     if not any(x in m for x in FTE_NOT_SCHEDULES)})
+    if linked != sorted(FTE_PDFS):
+        sys.exit(f"FTE: the rates page links {linked}, not the reviewed schedules {sorted(FTE_PDFS)}")
+    plazas, sources, effective_dates = {}, [], set()
+    for pdf in FTE_PDFS:
+        doc = fitz.open(stream=fetch(FTE_UPLOADS + pdf, binary=True), filetype="pdf")
+        found = 0
+        for page_no, pg in enumerate(doc):
+            lines = [l.strip() for l in pg.get_text().split("\n") if l.strip()]
+            dates = {datetime.datetime.strptime(m, "%B %d, %Y").date().isoformat()
+                     for m in re.findall(r"FDOT Toll Rates - (?:Effective )?(\w+ \d+, \d{4})", " ".join(lines))}
+            # The Gateway Expressway page prints "FDOT Toll Rates - May 3, 2024", without "Effective".
+            tables = fte_tables(lines)
+            if tables and len(dates) > 1:
+                sys.exit(f"FTE: {pdf} page {page_no + 1} has effective dates {dates}")
+            for title, rows in tables:
+                found += 1
+                effective = next(iter(dates)) if dates else None
+                if effective:
+                    effective_dates.add(effective)
+                road = fte_road(title)
+                for label, cells in rows:
+                    if label.startswith(("Central Florida Expressway portion", "6 - MAINLINE PLAZA TOTAL")):
+                        continue   # CFX's share is on the CFX card; the total is the two summed
+                    name = label
+                    if label == "Turnpike portion":
+                        name = "6 - BEACHLINE WEST PLAZA (Turnpike portion)"
+                    name = re.sub(r"\s*–\s*", " - ", name)
+                    m = re.match(r"([\d.]+[A-Z]?(?:\s*-\s*A/B)?)\s*-\s*(.+)", name)
+                    if not m:
+                        sys.exit(f"FTE: row label without a milepost: {label!r}")
+                    number, desc = m.group(1).replace(" ", ""), m.group(2)
+                    plaza_type = "mainline" if re.search(r"\bPLAZA\b", desc) else "ramp"
+                    row = {"name": f"{number} - {desc}", "number": number, "road": road, "plaza_type": plaza_type,
+                           "effective": effective, "source": FTE_UPLOADS + pdf,
+                           "sunpass": dict(zip(FTE_COLUMNS, map(fte_amount, cells[:5]))),
+                           "toll_by_plate": dict(zip(FTE_COLUMNS, map(fte_amount, cells[5:])))}
+                    key = (road, row["name"])
+                    if key in plazas:
+                        a, b = plazas[key], row
+                        if (a["sunpass"], a["toll_by_plate"]) != (b["sunpass"], b["toll_by_plate"]):
+                            sys.exit(f"FTE: {key} listed twice with different rates")
+                        continue   # a border plaza both regional schedules print (Three Lakes, Lantana)
+                    plazas[key] = row
+        if not found:
+            sys.exit(f"FTE: {pdf} has no rate tables - layout changed")
+        sources.append(FTE_UPLOADS + pdf)
+    valid_from = max(effective_dates)
+    return {
+        "facility": "Florida's Turnpike System and FDOT toll facilities",
+        "operator": "Florida's Turnpike Enterprise (FDOT)",
+        "country": "US", "region": "FL", "currency": "USD",
+        "rate_model_type": "flat",
+        "rate_model_note": "Flat amount per mainline plaza and per tolled interchange (ramp gantries), by axle "
+                           "count. All-electronic; no time-of-day pricing. Each row keeps its table's own "
+                           "effective date.",
+        "valid_from": valid_from,
+        "valid_from_note": "The newest table's effective date. A row with an older 'effective' date is priced "
+                           "from that date (GantrySet.rowStart); a row without one only from this date.",
+        "valid_to": None,
+        "reprices_on": "per regional schedule; FTE indexes rates to CPI (typically 1 July)",
+        "source_url": FTE_RATES_PAGE,
+        "source_pdfs": sources,
+        "source_type": "published",
+        "source_note": "The six regional 'Toll Rates for Florida's Turnpike System and FDOT Toll Facilities' "
+                       "PDFs linked from the rates page. Where a plaza is shared with CFX (Beachline West, "
+                       "Dallas) only the Turnpike/FDOT portion is listed; CFX's portion is on the CFX card.",
+        "payment_premium_note": "TOLL-BY-PLATE is what a vehicle without SunPass (or an interoperable "
+                                "transponder) pays; FTE also adds a $2.50 administrative charge per monthly "
+                                "invoice (not estimated).",
+        "plazas": list(plazas.values()),
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--etr", action="store_true")
@@ -511,8 +659,9 @@ def main():
     ap.add_argument("--istha", action="store_true")
     ap.add_argument("--e470", action="store_true")
     ap.add_argument("--nwp", action="store_true")
+    ap.add_argument("--fte", action="store_true")
     args = ap.parse_args()
-    do_all = not (args.etr or args.cfx or args.istha or args.e470 or args.nwp)
+    do_all = not (args.etr or args.cfx or args.istha or args.e470 or args.nwp or args.fte)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     if args.etr or do_all:
@@ -534,7 +683,8 @@ def main():
                 json.dump(card, fh, indent=1, ensure_ascii=False)
                 fh.write("\n")
             print(f"wrote {path}: {len(card['plazas'])} plazas")
-    for flag, build, prefix in ((args.e470, build_e470, "e470"), (args.nwp, build_nwp, "nwp")):
+    for flag, build, prefix in ((args.e470, build_e470, "e470"), (args.nwp, build_nwp, "nwp"),
+                                 (args.fte, build_fte, "fte")):
         if flag or do_all:
             card = build()
             path = os.path.join(OUT_DIR, f"{prefix}-{card['valid_from']}.json")

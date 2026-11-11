@@ -14,6 +14,7 @@ from the operators live, so re-running is also how you detect a reprice.
 | `istha-2027-01-01.json` | Illinois Tollway | `flat` | 96 plazas × same × 3 payment | **2027-01-01** (approved 2026-08-19) | every 2 years from 2029 (CPI-U, max 8 %) |
 | `e470-2025-01-01.json` | E-470 (Denver) | `flat` | 6 plazas (A-E + toll ramps) x 2-axle x 2 payment | not published; unchanged in archive since 2025-01-22 | **1 January** |
 | `nwp-2026-05-01.json` | Northwest Parkway (Denver) | `flat` | 2 plazas x 2 time bands x 2 payment | 2026-05-01 | as announced ("Pending Toll Rates") |
+| `fte-2026-08-14.json` | Florida's Turnpike + FDOT toll facilities | `flat` | 144 rows (plazas + tolled interchanges) x 5 axle x 2 payment | newest table 2026-08-14; each row keeps its own | per regional schedule |
 
 Every row carries a `source_url`, a `source_type` and a `valid_from`, per the project's
 non-negotiable constraint: never invent a rate, never store one without provenance.
@@ -32,6 +33,8 @@ Both are **operator-published material, free to fetch, no licence purchased**:
   "Proposed", linked from the page as "2027 Toll Rates"). Checked 2026-11-06: 96 of 96 equal.
 - **E-470** — the ExpressToll and License Plate Toll tables at <https://www.e-470.com/toll-rates/>.
 - **Northwest Parkway** — the rate and fee-schedule tables at <https://nwpky.com/driver-information/>.
+- **Florida's Turnpike / FDOT** — the six regional PDFs linked from <https://floridasturnpike.com/tolls/toll-rates/> (Central, South Central, South, West Central, Northeast,
+  Panhandle). The builder refuses to run if the page links a different set.
 - **CFX** — the PDF at
   `https://www.cfxway.com/wp-content/uploads/2026/07/CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf`,
   parsed with PyMuPDF. Per-gantry rates by axle count and payment method.
@@ -79,8 +82,7 @@ MTO-operated 407 East Extension, a different operator on the same route number.
 
 - **407 ETR**: only the **light** class of five. Medium, heavy single unit and heavy multiple
   unit are published at `/en/rate-chart-medium`, `/rate-chart-heavy`, `/rate-chart-multi`.
-- **Operators not yet captured**: Florida's Turnpike Enterprise,
-  Quebec A-30, the MTO 407 East Extension, Georgia SRTA, and
+- **Operators not yet captured**: Quebec A-30, the MTO 407 East Extension, Georgia SRTA, and
   Miami-Dade Expressway Authority — the last of which appears in no design document but owns
   42 of the priced gantries the facility matrix credits to Florida's Turnpike.
 - **Dynamically-priced facilities** (Colorado HPTE, Florida FDOT express lanes, Georgia SRTA)
@@ -124,3 +126,44 @@ MTO-operated 407 East Extension, a different operator on the same route number.
 - **Fees we derive.** NWP charges vehicles without ExpressToll a $1.35 processing fee per transaction;
   `non_expresstoll` = base + 1.35. E-470's License Plate Toll rate already includes its premium.
   Per-bill (NWP $0.90 mailing) and late fees are not estimated.
+
+## Florida's Turnpike notes (2026-11-06)
+
+- **One card, six schedules.** Every table carries its own effective date (2023-07-01 to
+  2026-08-14). The card is dated from the newest, but each row is priced from its own table's date
+  (`GantrySet.rowStart`), so Beachline West's Turnpike portion prices from 2026-07-01 like CFX's.
+  A passage before its row's date is `NO_RATE`. The Gateway Expressway page prints its date without
+  "Effective" ("FDOT Toll Rates - May 3, 2024"); the builder reads both forms.
+- **One-direction plazas.** The schedule maps print "Eastbound Tolls" beside Alligator Alley's West
+  Plaza and "Westbound Tolls" beside its East Plaza; the Skyway's South Plaza takes northbound tolls
+  and its North Plaza southbound. Each such cluster carries a `charged_bearing` (from the OSM
+  carriageway its gantries stand on) and `PassageDetector` ignores it for a trail heading the other way;
+  otherwise a crossing would pay both ends (the opposite carriageway passes 22-58 m away).
+- **Second review (2026-11-10).** Bird Road's southern "cluster" was the Kendall Drive thru-lane gantries
+  (OSM price 0.54 / 0.80) and Eastern Plaza's northern one the "20 Braddock Rd" pair: both are now
+  excluded (`EXCLUDED` in the builder, never charged), and the POW-MIA gantry is POW-MIA Parkway Plaza,
+  not Normandy. Lecanto and Spring Hill are each mapped at two sites 2-3 km apart that the map cannot
+  tell apart; `PassageDetector.SAME_DIRECTION_S` charges a plaza once per direction of travel. The
+  builder now fails on any other plaza spread over 1 km, and lists every OSM price tag that disagrees with
+  its row by over 30 % (`review.osm_price_disagrees_with_row`; most are stale, e.g. Leesburg's pre-2026
+  2.94).
+- **Dallas total checked.** The FDOT Beachline East map prints Dallas Main Plaza at $1.84 TOLL-BY-PLATE
+  for 2 axles = CFX 1.28 + FDOT 0.56, so charging both cards there is right. (CFX's own PDF marks
+  Dallas with footnote C but prints no footnote text.)
+- **Shared gantries.** Beachline West Plaza and Dallas Plaza are one gantry where CFX and the
+  Turnpike/FDOT each charge a portion (Beachline West TOLL-BY-PLATE: CFX 1.38 + Turnpike 1.16 = 2.54).
+  The FTE card lists only its portion; the gantry file points those rows at CFX's cluster
+  (`shared_with`), `GantrySet.linkShared` checks the partner exists, and a passage charges both.
+- **Matching by milepost.** Florida numbers exits by milepost, which is how the schedules name rows:
+  ramp gantries take their nearest numbered exit, mainline plazas the milepost from the gantry's name
+  or projected between exits, unless `OVERRIDES` / `EXCLUDED` in the builder say otherwise (each with
+  its reason). 119 of 144 rows located (2026-11-10); 114 ramp clusters, each with its ramp and
+  mainline shapes.
+- **Not on the map** (never charged, estimate low), from `gantries/fte.json` review: Minneola Plaza
+  (opened 2026), Wekiva Orange Plaza, the Beachline East SR 520 ramps, the Golden Glades/Miramar
+  interchange rows, most of the First Coast Expressway and Pinellas Bayway, Sugarmill Plaza (a
+  Suncoast mainline site at milepost ~53.8 is priced like a plaza in OSM but lies 3.2 mi from
+  Sugarmill's 57, beyond the 2.5 mi match), and a few Suncoast, Polk and Veterans rows. Two new
+  untagged gantries on the Beachline West at milepost 1.5 match no published row and are never charged. The I-4 Connector's single gantry prices three movements; the cheapest
+  (Z-Move) is charged.
+- **TOLL-BY-PLATE** adds a $2.50 administrative fee per 30-day invoice; not estimated.

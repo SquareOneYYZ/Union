@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -45,14 +46,35 @@ public final class GantrySet {
 
     /**
      * One clustered map location of a plaza. A ramp point also carries its ramp's shape and the
-     * nearby mainline's, as [lat, lon] lines; a mainline point carries neither.
+     * nearby mainline's, as [lat, lon] lines; a mainline point carries neither. {@code chargedBearing}
+     * is the compass direction of travel a one-direction plaza charges (Alligator Alley, the Sunshine
+     * Skyway: each end charges one way), NaN for a plaza that charges both.
      */
     public record Point(String facilityId, String plaza, double lat, double lon,
-                        NavigableMap<LocalDate, NavigableMap<LocalTime, BigDecimal>> rates,
-                        List<double[][]> rampLines, List<double[][]> mainlineLines) {
+                        NavigableMap<LocalDate, Cell> rates,
+                        List<double[][]> rampLines, List<double[][]> mainlineLines, String sharedWith,
+                        double chargedBearing) {
         public boolean isRamp() {
             return rampLines != null;
         }
+
+        /**
+         * Whether a vehicle heading {@code bearing} pays here. A one-direction plaza needs a known heading: a
+         * zero-length segment (a stopped vehicle) never proves the direction, and the moving segments do.
+         */
+        public boolean charges(double bearing) {
+            if (Double.isNaN(chargedBearing)) {
+                return true;
+            }
+            if (Double.isNaN(bearing)) {
+                return false;
+            }
+            return Math.abs(((bearing - chargedBearing) % 360 + 540) % 360 - 180) <= 90;
+        }
+    }
+
+    /** One plaza's rate from one card: the card it came from and its local-time bands. */
+    public record Cell(String cardValidFrom, NavigableMap<LocalTime, BigDecimal> bands) {
     }
 
     /** A plaza's charge on a given day and the card it came from. */
@@ -74,6 +96,7 @@ public final class GantrySet {
     private final List<String> unlocated = new ArrayList<>();
     private final List<String> excludedRamps = new ArrayList<>();
     private final List<String> rampsWithoutGeometry = new ArrayList<>();
+    private final Map<Point, List<Point>> partners = new IdentityHashMap<>();
     private final STRtree index = new STRtree();
     private final STRtree rampIndex = new STRtree();
     private final Envelope extent = new Envelope();
@@ -105,10 +128,18 @@ public final class GantrySet {
             gantryKeys.add(p.path("road").asText() + "|" + p.path("name").asText());
         }
         String currency = null;
-        Map<String, TreeMap<LocalDate, NavigableMap<LocalTime, BigDecimal>>> rates = new HashMap<>();
+        Map<String, TreeMap<LocalDate, Cell>> rates = new HashMap<>();
         NavigableMap<LocalDate, String> validFrom = new TreeMap<>();
+        List<JsonNode> cardsRead = new ArrayList<>();
         for (InputStream stream : cardStreams) {
-            JsonNode c = mapper.readTree(stream);
+            cardsRead.add(mapper.readTree(stream));
+        }
+        for (JsonNode c : cardsRead) {
+            if (validFrom.put(LocalDate.parse(c.path("valid_from").asText()), c.path("valid_from").asText()) != null) {
+                throw new IOException(facilityId + ": two cards valid from " + c.path("valid_from").asText());
+            }
+        }
+        for (JsonNode c : cardsRead) {
             String from = c.path("valid_from").asText();
             if (!"flat".equals(c.path("rate_model_type").asText())) {
                 throw new IOException(facilityId + ": card " + from + " is not a flat card");
@@ -118,9 +149,6 @@ public final class GantrySet {
             }
             currency = c.path("currency").asText();
             LocalDate date = LocalDate.parse(from);
-            if (validFrom.put(date, from) != null) {
-                throw new IOException(facilityId + ": two cards valid from " + from);
-            }
             Set<String> cardKeys = new TreeSet<>();
             for (JsonNode p : c.path("plazas")) {
                 String key = p.path("road").asText() + "|" + p.path("name").asText();
@@ -130,7 +158,8 @@ public final class GantrySet {
                 if (!cardKeys.add(key)) {
                     throw new IOException(facilityId + ": card " + from + " lists " + key + " twice");
                 }
-                rates.computeIfAbsent(key, k -> new TreeMap<>()).put(date, bands);
+                rates.computeIfAbsent(key, k -> new TreeMap<>()).put(
+                        rowStart(p, date, validFrom, where), new Cell(from, bands));
             }
             if (!cardKeys.equals(gantryKeys)) {
                 Set<String> diff = new TreeSet<>(cardKeys);
@@ -151,8 +180,7 @@ public final class GantrySet {
         set.cards.putAll(validFrom);
         for (JsonNode p : g.path("plazas")) {
             String key = p.path("road").asText() + "|" + p.path("name").asText();
-            NavigableMap<LocalDate, NavigableMap<LocalTime, BigDecimal>> rate =
-                    Collections.unmodifiableNavigableMap(rates.get(key));
+            NavigableMap<LocalDate, Cell> rate = Collections.unmodifiableNavigableMap(rates.get(key));
             if (p.path("clusters").isEmpty()) {
                 set.unlocated.add(key);
             }
@@ -166,8 +194,21 @@ public final class GantrySet {
                 double lon = cl.path("lon").asDouble();
                 Envelope e = new Envelope(lon, lon, lat, lat);
                 set.extent.expandToInclude(e);
+                JsonNode shared = cl.path("shared_with");
+                String sharedWith = shared.isMissingNode() ? null
+                        : shared.path("facility").asText() + ":" + shared.path("plaza").asText();
+                if (sharedWith != null && ramp) {
+                    throw new IOException(facilityId + ": " + key + " is a ramp; only mainline plazas can be shared");
+                }
+                JsonNode bearing = cl.path("charged_bearing");
+                if (!bearing.isMissingNode() && (ramp || !bearing.isNumber()
+                        || bearing.asDouble() < 0 || bearing.asDouble() >= 360)) {
+                    throw new IOException(facilityId + ": " + key + " has a bad charged_bearing " + bearing
+                            + " (mainline plazas only, 0-359)");
+                }
                 if (!ramp) {
-                    Point point = new Point(facilityId, key, lat, lon, rate, null, null);
+                    Point point = new Point(facilityId, key, lat, lon, rate, null, null, sharedWith,
+                            bearing.isMissingNode() ? Double.NaN : bearing.asDouble());
                     set.points.add(point);
                     set.index.insert(e, point);
                     continue;
@@ -178,7 +219,7 @@ public final class GantrySet {
                     set.rampsWithoutGeometry.add(key + " @" + lat + "," + lon);
                     continue;
                 }
-                Point point = new Point(facilityId, key, lat, lon, rate, rampLines, mainlineLines);
+                Point point = new Point(facilityId, key, lat, lon, rate, rampLines, mainlineLines, null, Double.NaN);
                 set.points.add(point);
                 Envelope reach = new Envelope(e);
                 for (double[][] line : rampLines) {
@@ -194,6 +235,98 @@ public final class GantrySet {
         set.index.build();
         set.rampIndex.build();
         return set;
+    }
+
+    /** How far apart two facilities' clusters of one shared gantry may be. */
+    static final double SHARED_MAX_M = 100;
+
+    /**
+     * Links shared plazas across facilities (the Beachline West and Dallas plazas, where CFX and the
+     * Turnpike each charge a portion at the same gantry): every point that names a partner must find
+     * that facility's mainline plaza within {@link #SHARED_MAX_M}, or the load fails. A passage at
+     * either point then charges both ({@link PassageDetector}).
+     */
+    static void linkShared(List<GantrySet> sets) throws IOException {
+        Map<String, GantrySet> byId = new HashMap<>();
+        for (GantrySet s : sets) {
+            byId.put(s.facilityId, s);
+        }
+        for (GantrySet s : sets) {
+            for (Point p : s.points) {
+                if (p.sharedWith() == null) {
+                    continue;
+                }
+                int colon = p.sharedWith().indexOf(':');
+                GantrySet other = colon > 0 ? byId.get(p.sharedWith().substring(0, colon)) : null;
+                String plaza = colon > 0 ? p.sharedWith().substring(colon + 1) : null;
+                Point partner = null;
+                double partnerM = Double.MAX_VALUE;
+                if (other != null) {
+                    for (Point q : other.points) {
+                        double m = PassageDetector.metres(p.lat(), p.lon(), q.lat(), q.lon());
+                        if (q.plaza().equals(plaza) && !q.isRamp() && m <= SHARED_MAX_M && m < partnerM) {
+                            partner = q;
+                            partnerM = m;
+                        }
+                    }
+                }
+                if (partner == null) {
+                    throw new IOException(s.facilityId + ": " + p.plaza() + " is shared with " + p.sharedWith()
+                            + ", which is not a loaded mainline plaza within " + SHARED_MAX_M + " m");
+                }
+                link(s, p, partner);
+                link(other, partner, p);
+            }
+        }
+    }
+
+    /** Records a partner once, so linking the same sets again changes nothing. */
+    private static void link(GantrySet set, Point point, Point partner) {
+        List<Point> list = set.partners.computeIfAbsent(point, k -> new ArrayList<>());
+        if (list.stream().noneMatch(q -> q == partner)) {
+            list.add(partner);
+        }
+    }
+
+    /** The other facilities' points at the same shared gantry; empty for almost every point. */
+    List<Point> partnersOf(Point point) {
+        return partners.getOrDefault(point, List.of());
+    }
+
+    /** Facilities that share a gantry with this one; their sets must be tested with it. */
+    public Set<String> partnerFacilities() {
+        Set<String> ids = new TreeSet<>();
+        partners.values().forEach(list -> list.forEach(q -> ids.add(q.facilityId())));
+        return ids;
+    }
+
+    /**
+     * When a card row's rate starts. A card is dated from its newest table, but a row may carry its own
+     * older {@code effective} date (Florida's Turnpike: six regional schedules, each with its own date),
+     * and its rate is in force from that date. A row may not reach back to or past an earlier loaded card
+     * of the same facility, which would then price that plaza from two cards for the same days.
+     */
+    static LocalDate rowStart(JsonNode row, LocalDate cardDate, NavigableMap<LocalDate, String> cards, String where)
+            throws IOException {
+        JsonNode effective = row.path("effective");
+        if (effective.isMissingNode() || effective.isNull()) {
+            return cardDate;
+        }
+        LocalDate start;
+        try {
+            start = LocalDate.parse(effective.asText());
+        } catch (DateTimeParseException e) {
+            throw new IOException(where + ": bad effective date " + effective, e);
+        }
+        if (start.isAfter(cardDate)) {
+            throw new IOException(where + ": effective " + start + " is after the card's valid_from " + cardDate);
+        }
+        LocalDate earlier = cards.lowerKey(cardDate);
+        if (earlier != null && !start.isAfter(earlier)) {
+            throw new IOException(where + ": effective " + start + " reaches back over the card valid from "
+                    + earlier);
+        }
+        return start;
     }
 
     private static final Set<String> BAND_FIELDS = Set.of("from", "until", "amount");
@@ -296,19 +429,21 @@ public final class GantrySet {
 
     /**
      * What a passage at {@code time} is charged at the point: the card in effect on its local date,
-     * the band in effect at its local time. Null when no card covers that date.
+     * the band in effect at its local time. Null when no card covers that date - for a row with its own
+     * {@code effective} date, the row's rate starts then ({@link #rowStart}).
      */
     public Rate rateAt(Point point, Date time) {
         ZonedDateTime local = time.toInstant().atZone(zone);
-        Map.Entry<LocalDate, NavigableMap<LocalTime, BigDecimal>> e = point.rates().floorEntry(local.toLocalDate());
+        Map.Entry<LocalDate, Cell> e = point.rates().floorEntry(local.toLocalDate());
         if (e == null) {
             return null;
         }
-        Map.Entry<LocalTime, BigDecimal> band = e.getValue().floorEntry(local.toLocalTime());
+        NavigableMap<LocalTime, BigDecimal> bands = e.getValue().bands();
+        Map.Entry<LocalTime, BigDecimal> band = bands.floorEntry(local.toLocalTime());
         if (band == null) {
-            band = e.getValue().lastEntry();   // before the first band: the last one wraps past midnight
+            band = bands.lastEntry();   // before the first band: the last one wraps past midnight
         }
-        return new Rate(band.getValue(), cards.get(e.getKey()));
+        return new Rate(band.getValue(), e.getValue().cardValidFrom());
     }
 
     private LocalDate localDate(Date time) {

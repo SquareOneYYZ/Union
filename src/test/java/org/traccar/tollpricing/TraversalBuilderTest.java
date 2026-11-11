@@ -33,7 +33,7 @@ public class TraversalBuilderTest {
     public static void load() throws Exception {
         FacilityRegistry registry = FacilityRegistry.loadResource();
         assertEquals(1, registry.getFacilities().size());
-        assertEquals(4, registry.getGantrySets().size());
+        assertEquals(5, registry.getGantrySets().size());
         builder = new TraversalBuilder(registry);
     }
 

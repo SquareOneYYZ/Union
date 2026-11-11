@@ -97,6 +97,7 @@ public final class FacilityRegistry {
                     card, corridor, ZoneId.of(f.path("timezone").asText()), holidays);
             facilities.add(new Facility(id, card.getCurrency(), pricer, corridor));
         }
+        GantrySet.linkShared(gantrySets);
         return new FacilityRegistry(facilities, gantrySets, skipped);
     }
 
@@ -108,11 +109,23 @@ public final class FacilityRegistry {
         return in;
     }
 
-    /** Flat facilities whose toll points lie near both edges; their gantries are tested against the trail. */
+    /**
+     * Flat facilities whose toll points lie near either edge, plus every facility sharing a gantry with
+     * one of them; their toll points are tested against the trail. Either edge, not both: a trip that
+     * enters Florida's Turnpike at Leesburg and leaves on CFX's SR 528 must test CFX's gantries too, or its
+     * CFX portion is silently dropped. Testing an extra facility only finds passages the trail made.
+     */
     public List<GantrySet> flatNear(double entryLat, double entryLon, double exitLat, double exitLon) {
+        Set<String> wanted = new HashSet<>();
+        for (GantrySet s : gantrySets) {
+            if (s.near(entryLat, entryLon, FLAT_MARGIN_DEG) || s.near(exitLat, exitLon, FLAT_MARGIN_DEG)) {
+                wanted.add(s.getFacilityId());
+                wanted.addAll(s.partnerFacilities());
+            }
+        }
         List<GantrySet> near = new ArrayList<>();
         for (GantrySet s : gantrySets) {
-            if (s.near(entryLat, entryLon, FLAT_MARGIN_DEG) && s.near(exitLat, exitLon, FLAT_MARGIN_DEG)) {
+            if (wanted.contains(s.getFacilityId())) {
                 near.add(s);
             }
         }
