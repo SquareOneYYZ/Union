@@ -105,6 +105,9 @@ public final class TraversalBuilder {
                     enter.latitude(), enter.longitude(), enter.fixTime().toInstant(),
                     exit.latitude(), exit.longitude());
             TollEstimate e = result.estimate();
+            if (result.facilityId() != null) {
+                row.setFacilityId(result.facilityId());   // wholly on the toll-free continuation (407 East)
+            }
             row.setAmount(e.getAmount());
             row.setReason(e.getReason());
             row.setDayType(e.getDayType());

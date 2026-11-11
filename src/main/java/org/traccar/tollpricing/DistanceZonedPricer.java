@@ -2,6 +2,7 @@ package org.traccar.tollpricing;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
@@ -19,19 +20,42 @@ public final class DistanceZonedPricer {
 
     public static final String REASON_OFF_CORRIDOR = "OFF_CORRIDOR";
 
-    public record Result(TollEstimate estimate, Map<String, Object> inputs) {
+    /**
+     * @param facilityId the facility the row is charged to when it is not this pricer's own (a trip
+     *                   wholly on the continuation); null means this pricer's facility
+     */
+    public record Result(TollEstimate estimate, Map<String, Object> inputs, String facilityId) {
+        public Result(TollEstimate estimate, Map<String, Object> inputs) {
+            this(estimate, inputs, null);
+        }
+    }
+
+    /**
+     * The road past the corridor's far end, under another operator, toll-free from {@code tollFreeSince}
+     * (the MTO's Highway 407 East beyond Brock Road, free from 2025-06-01). Its positions project onto
+     * the corridor's extended last segment (under 1 km off it as far as Highway 35/115), so a trip there
+     * would otherwise be read as a zero-km ETR trip.
+     */
+    public record Continuation(String facilityId, LocalDate tollFreeSince) {
     }
 
     private final DistanceZonedCard card;
     private final ZonedCorridor corridor;
     private final ZoneId zone;
     private final OperatorHolidays holidays;
+    private final Continuation continuation;
 
     public DistanceZonedPricer(DistanceZonedCard card, ZonedCorridor corridor, ZoneId zone, OperatorHolidays holidays) {
+        this(card, corridor, zone, holidays, null);
+    }
+
+    public DistanceZonedPricer(DistanceZonedCard card, ZonedCorridor corridor, ZoneId zone, OperatorHolidays holidays,
+                               Continuation continuation) {
         this.card = card;
         this.corridor = corridor;
         this.zone = zone;
         this.holidays = holidays;
+        this.continuation = continuation;
     }
 
     public Result price(double entryLat, double entryLon, Instant entryTime,
@@ -55,6 +79,27 @@ public final class DistanceZonedPricer {
         inputs.put("exitKm", round3(out.km()));
         inputs.put("entryOffsetM", Math.round(in.offsetMeters()));
         inputs.put("exitOffsetM", Math.round(out.offsetMeters()));
+
+        double end = corridor.getEndKm() + ZonedCorridor.SNAP_TOLERANCE_KM;
+        boolean entryBeyond = in.km() > end;
+        boolean exitBeyond = out.km() > end;
+        if (continuation != null && (entryBeyond || exitBeyond)) {
+            inputs.put("continuation", continuation.facilityId());
+            inputs.put("continuationTollFreeSince", continuation.tollFreeSince().toString());
+            boolean free = !entryLocal.toLocalDate().isBefore(continuation.tollFreeSince());
+            if (entryBeyond && exitBeyond) {
+                // Wholly on the continuation: nothing to charge once it is free; no card for it before.
+                return new Result(TollEstimate.unknown(free ? TollEstimate.REASON_NOT_BILLABLE
+                        : TollEstimate.REASON_NO_RATE, card.getCurrency(), null, null, null),
+                        inputs, continuation.facilityId());
+            }
+            if (!free) {
+                // Partly on the continuation while it was still tolled: its portion has no card.
+                inputs.put("mixedOperators", true);
+                return new Result(TollEstimate.unknown(TollEstimate.REASON_NO_RATE, card.getCurrency(), null, null,
+                        card.getValidFrom()), inputs);
+            }
+        }
 
         ZonedCorridor.SnappedTrip trip = corridor.snap(in.km(), out.km());
         inputs.put("snapToleranceKm", ZonedCorridor.SNAP_TOLERANCE_KM);

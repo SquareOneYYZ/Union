@@ -82,9 +82,13 @@ MTO-operated 407 East Extension, a different operator on the same route number.
 
 - **407 ETR**: only the **light** class of five. Medium, heavy single unit and heavy multiple
   unit are published at `/en/rate-chart-medium`, `/rate-chart-heavy`, `/rate-chart-multi`.
-- **Operators not yet captured**: Quebec A-30, the MTO 407 East Extension, Georgia SRTA, and
+- **Operators not yet captured**: Quebec A-30, Georgia SRTA, and
   Miami-Dade Expressway Authority — the last of which appears in no design document but owns
   42 of the priced gantries the facility matrix credits to Florida's Turnpike.
+- **MTO 407 East needs no card**: toll-free since 2025-06-01 (Brock Road to Highway 35/115). The
+  registry's `continuation` on the 407 ETR entry makes a traversal wholly east of Brock Road
+  `NOT_BILLABLE` under facility `407-east`, and one that continues past Brock is priced by the ETR to
+  Brock Road. Before 2025-06-01 such trips are `NO_RATE` (the MTO's old rates are not loaded).
 - **Dynamically-priced facilities** (Colorado HPTE, Florida FDOT express lanes, Georgia SRTA)
   cannot have a static card at all.
 - **Validation.** No card here has been reconciled against an invoice. Until one is, the

@@ -17,6 +17,8 @@ public final class TollEstimate {
     public static final String REASON_NO_RATE = "NO_RATE";
     public static final String REASON_UNKNOWN_DIRECTION = "UNKNOWN_DIRECTION";
     public static final String REASON_NO_ZONES = "NO_ZONES";
+    /** The traversal is on a road that charges nothing (e.g. Highway 407 East since 2025-06-01). */
+    public static final String REASON_NOT_BILLABLE = "NOT_BILLABLE";
 
     public record Line(String item, BigDecimal quantity, BigDecimal unitPrice, BigDecimal amount) {
     }

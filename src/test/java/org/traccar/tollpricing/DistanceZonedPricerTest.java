@@ -89,6 +89,56 @@ public class DistanceZonedPricerTest {
         assertEquals("105", r.inputs().get("exitExit"));
     }
 
+    // Highway 407 East junctions (OSM relation 6328033, motorway_junction refs 112, 127, 145).
+    private static final double[] EAST_112 = {43.94931, -79.02184};
+    private static final double[] EAST_127 = {43.98021, -78.87715};
+    private static final double[] EAST_145 = {44.00385, -78.65991};
+
+    private static DistanceZonedPricer registryPricer() throws Exception {
+        return FacilityRegistry.loadResource().getFacilities().stream()
+                .filter(f -> f.id().equals("407-etr")).findFirst().orElseThrow().pricer();
+    }
+
+    @Test
+    public void wholly407EastIsNotBillableFromJune2025() throws Exception {
+        DistanceZonedPricer p = registryPricer();
+        DistanceZonedPricer.Result r = p.price(EAST_112[0], EAST_112[1],
+                Instant.parse("2026-09-21T12:00:00Z"), EAST_145[0], EAST_145[1]);
+        assertNull(r.estimate().getAmount());
+        assertEquals(TollEstimate.REASON_NOT_BILLABLE, r.estimate().getReason());
+        assertEquals("407-east", r.facilityId());
+        assertTrue((Double) r.inputs().get("entryKm") > corridor.getEndKm(), r.inputs().toString());
+        // Westbound too.
+        r = p.price(EAST_127[0], EAST_127[1], Instant.parse("2026-09-21T12:00:00Z"), EAST_112[0], EAST_112[1]);
+        assertEquals(TollEstimate.REASON_NOT_BILLABLE, r.estimate().getReason());
+    }
+
+    @Test
+    public void wholly407EastBeforeTheTollsCameOffIsUnknown() throws Exception {
+        DistanceZonedPricer.Result r = registryPricer().price(EAST_112[0], EAST_112[1],
+                Instant.parse("2025-05-31T12:00:00Z"), EAST_145[0], EAST_145[1]);
+        assertNull(r.estimate().getAmount());
+        assertEquals(TollEstimate.REASON_NO_RATE, r.estimate().getReason());
+        assertEquals("407-east", r.facilityId());
+    }
+
+    @Test
+    public void etrOnto407EastIsPricedToBrock() throws Exception {
+        DistanceZonedPricer p = registryPricer();
+        DistanceZonedPricer.Result onto = p.price(EXIT_66[0], EXIT_66[1],
+                Instant.parse("2026-03-17T16:00:00Z"), EAST_145[0], EAST_145[1]);
+        DistanceZonedPricer.Result toBrock = p.price(EXIT_66[0], EXIT_66[1],
+                Instant.parse("2026-03-17T16:00:00Z"), EXIT_105[0], EXIT_105[1]);
+        assertEquals("105", onto.inputs().get("exitExit"));
+        assertEquals(true, onto.inputs().get("mixedOperators"));
+        assertNull(onto.facilityId());
+        assertEquals(0, toBrock.estimate().getAmount().compareTo(onto.estimate().getAmount()), onto.inputs().toString());
+        // Before 2025-06-01 the MTO portion was tolled and has no card: unknown, not the ETR part alone.
+        DistanceZonedPricer.Result before = p.price(EXIT_66[0], EXIT_66[1],
+                Instant.parse("2025-05-20T16:00:00Z"), EAST_145[0], EAST_145[1]);
+        assertEquals(TollEstimate.REASON_NO_RATE, before.estimate().getReason());
+    }
+
     @Test
     public void offCorridorIsUnknownNotZero() throws Exception {
         DistanceZonedPricer.Result r = pricer.price(43.6532, -79.3832,  // downtown Toronto

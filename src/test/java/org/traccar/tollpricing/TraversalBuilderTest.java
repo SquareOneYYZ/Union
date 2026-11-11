@@ -52,6 +52,20 @@ public class TraversalBuilderTest {
     }
 
     @Test
+    public void a407EastTraversalIsRecordedNotBillableUnderItsOwnFacility() {
+        // Junctions 112 and 145 of the MTO's Highway 407 East (OSM relation 6328033), toll-free since 2025-06-01.
+        TraversalBuilder.Edge enter = new TraversalBuilder.Edge(
+                31, 43.94931, -79.02184, Date.from(java.time.Instant.parse("2026-09-21T12:00:00Z")));
+        TraversalBuilder.Edge exit = new TraversalBuilder.Edge(
+                32, 44.00385, -78.65991, Date.from(java.time.Instant.parse("2026-09-21T12:20:00Z")));
+        TollTraversal row = builder.build(7, 105, 101, enter, exit, 30000, NOW);
+        assertEquals("407-east", row.getFacilityId());
+        assertNull(row.getAmount());
+        assertEquals(TollEstimate.REASON_NOT_BILLABLE, row.getReason());
+        assertTrue(row.getInputs().contains("\"continuationTollFreeSince\":\"2025-06-01\""), row.getInputs());
+    }
+
+    @Test
     public void exitWithoutEnterIsRecordedUnpriced() {
         TollTraversal row = builder.build(7, 105, 0, null, AT_400, 0, NOW);
         assertNull(row.getAmount());

@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -93,8 +95,21 @@ public final class FacilityRegistry {
             }
             DistanceZonedCard card = DistanceZonedCard.loadResource(f.path("card").asText());
             ZonedCorridor corridor = ZonedCorridor.loadResource(f.path("corridor").asText());
+            DistanceZonedPricer.Continuation continuation = null;
+            JsonNode c = f.path("continuation");
+            if (!c.isMissingNode()) {
+                try {
+                    continuation = new DistanceZonedPricer.Continuation(
+                            c.path("facility").asText(), LocalDate.parse(c.path("toll_free_since").asText()));
+                } catch (DateTimeParseException e) {
+                    throw new IOException("facility " + id + ": bad continuation.toll_free_since", e);
+                }
+                if (continuation.facilityId().isEmpty()) {
+                    throw new IOException("facility " + id + ": continuation without a facility id");
+                }
+            }
             DistanceZonedPricer pricer = new DistanceZonedPricer(
-                    card, corridor, ZoneId.of(f.path("timezone").asText()), holidays);
+                    card, corridor, ZoneId.of(f.path("timezone").asText()), holidays, continuation);
             facilities.add(new Facility(id, card.getCurrency(), pricer, corridor));
         }
         GantrySet.linkShared(gantrySets);

@@ -204,6 +204,11 @@ public final class ZonedCorridor {
         return facility;
     }
 
+    /** Km of the last interchange: the corridor's far (east) end. */
+    public double getEndKm() {
+        return interchanges.get(interchanges.size() - 1).km;
+    }
+
     public String getOsmBase() {
         return osmBase;
     }
