@@ -6,7 +6,8 @@ import liquibase.Liquibase;
 import liquibase.database.Database;
 import liquibase.database.DatabaseFactory;
 import liquibase.resource.DirectoryResourceAccessor;
-import org.h2.jdbcx.JdbcDataSource;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.traccar.config.Config;
@@ -22,6 +23,7 @@ import org.traccar.storage.query.Condition;
 import org.traccar.storage.query.Order;
 import org.traccar.storage.query.Request;
 
+import javax.sql.DataSource;
 import java.io.File;
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -41,26 +43,36 @@ import static org.mockito.Mockito.when;
  * The job against real tables: the project's full Liquibase changelog applied to an in-memory H2,
  * and the production {@link DatabaseStorage}. Proves the migration, the query shapes, the decimal
  * write, and that an unknown amount is stored as SQL NULL.
+ *
+ * <p>{@code TOLL_DB_URL} / {@code TOLL_DB_USER} / {@code TOLL_DB_PASSWORD} run the same test against
+ * another database instead - an EMPTY scratch MySQL schema, never a real one: the changelog is applied
+ * from scratch and the test writes rows. Verified on MySQL 8.0.40 on 2026-11-10.
  */
 public class TaskTollPricingDatabaseTest {
 
-    private static final String URL = "jdbc:h2:mem:tollpricing;DB_CLOSE_DELAY=-1";
+    private static final String URL = System.getenv().getOrDefault(
+            "TOLL_DB_URL", "jdbc:h2:mem:tollpricing;DB_CLOSE_DELAY=-1");
+    private static final String USER = System.getenv().getOrDefault("TOLL_DB_USER", "sa");
+    private static final String PASSWORD = System.getenv().getOrDefault("TOLL_DB_PASSWORD", "");
 
-    private static JdbcDataSource dataSource;
+    private static DataSource dataSource;
     private static Storage storage;
     private static long deviceId;
 
     @BeforeAll
     public static void migrate() throws Exception {
         Database database = DatabaseFactory.getInstance().openDatabase(
-                URL, "sa", "", "org.h2.Driver", null, null, null, new DirectoryResourceAccessor(new File(".")));
+                URL, USER, PASSWORD, null, null, null, null, new DirectoryResourceAccessor(new File(".")));
         try (Liquibase liquibase = new Liquibase("schema/changelog-master.xml",
                 new DirectoryResourceAccessor(new File(".")), database)) {
             liquibase.update(new Contexts());
         }
-        dataSource = new JdbcDataSource();
-        dataSource.setURL(URL);
-        dataSource.setUser("sa");
+        HikariConfig hikari = new HikariConfig();
+        hikari.setJdbcUrl(URL);
+        hikari.setUsername(USER);
+        hikari.setPassword(PASSWORD);
+        hikari.setMaximumPoolSize(2);
+        dataSource = new HikariDataSource(hikari);
         storage = new DatabaseStorage(mock(Config.class), dataSource, new ObjectMapper());
 
         Device device = new Device();
