@@ -601,6 +601,23 @@ def build_fte():
                 if effective:
                     effective_dates.add(effective)
                 road = fte_road(title)
+                labels = {label: cells for label, cells in rows}
+                cfx_rows = [c for lbl, c in labels.items() if lbl.startswith("Central Florida Expressway portion")]
+                total_rows = [c for lbl, c in labels.items() if lbl.startswith("6 - MAINLINE PLAZA TOTAL")]
+                if cfx_rows or total_rows:
+                    # Beachline West: the schedule prints CFX's portion and the total beside the Turnpike's.
+                    # The card keeps only the Turnpike portion (CFX's is on the CFX card), so prove the three
+                    # add up here and keep the two published figures on the row for the cross-check test.
+                    turnpike = labels.get("Turnpike portion")
+                    if not (turnpike and len(cfx_rows) == 1 and len(total_rows) == 1):
+                        sys.exit(f"FTE: {title} split-plaza table lacks a Turnpike, CFX or TOTAL row")
+                    for i in range(10):
+                        a, b, t = (fte_amount(r[i]) for r in (turnpike, cfx_rows[0], total_rows[0]))
+                        if None not in (a, b, t) and round(a + b, 2) != t:
+                            sys.exit(f"FTE: {title} column {i}: Turnpike {a} + CFX {b} != printed total {t}")
+                    split = {"cfx_portion": cfx_rows[0], "published_total": total_rows[0]}
+                else:
+                    split = None
                 for label, cells in rows:
                     if label.startswith(("Central Florida Expressway portion", "6 - MAINLINE PLAZA TOTAL")):
                         continue   # CFX's share is on the CFX card; the total is the two summed
@@ -617,6 +634,11 @@ def build_fte():
                            "effective": effective, "source": FTE_UPLOADS + pdf,
                            "sunpass": dict(zip(FTE_COLUMNS, map(fte_amount, cells[:5]))),
                            "toll_by_plate": dict(zip(FTE_COLUMNS, map(fte_amount, cells[5:])))}
+                    if split and label == "Turnpike portion":
+                        row["shared_plaza_check"] = {
+                            col: {"sunpass": dict(zip(FTE_COLUMNS, map(fte_amount, cells[:5]))),
+                                  "toll_by_plate": dict(zip(FTE_COLUMNS, map(fte_amount, cells[5:])))}
+                            for col, cells in split.items()}
                     key = (road, row["name"])
                     if key in plazas:
                         a, b = plazas[key], row

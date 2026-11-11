@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,14 +31,39 @@ public final class DistanceZonedPricer {
         }
     }
 
+    /** An edge this close to the continuation's own shape is on it (GPS error and carriageway spread). */
+    static final double ON_CONTINUATION_M = 300;
+
     /**
      * The road past the corridor's far end, under another operator, toll-free from {@code tollFreeSince}
-     * (the MTO's Highway 407 East beyond Brock Road, free from 2025-06-01). Its positions project onto
-     * the corridor's extended last segment (under 1 km off it as far as Highway 35/115), so a trip there
-     * would otherwise be read as a zero-km ETR trip.
+     * (the MTO's Highway 407 East beyond Brock Road, free from 2025-06-01), with its own shape as [lat, lon]
+     * lines (corridors/407-east.json). The corridor's extended last segment is no stand-in for it: 407 East
+     * drifts up to 2.6 km off that line, past the corridor's 2 km projection limit.
      */
-    public record Continuation(String facilityId, LocalDate tollFreeSince) {
+    public record Continuation(String facilityId, LocalDate tollFreeSince, List<double[][]> lines) {
+
+        /** Metres from a position to the continuation's shape (local equirectangular). */
+        double distanceM(double lat, double lon) {
+            double best = Double.MAX_VALUE;
+            double k = Math.cos(Math.toRadians(lat)) * METRES_PER_DEG;
+            for (double[][] line : lines) {
+                for (int i = 1; i < line.length; i++) {
+                    double ax = (line[i - 1][1] - lon) * k;
+                    double ay = (line[i - 1][0] - lat) * METRES_PER_DEG;
+                    double bx = (line[i][1] - lon) * k;
+                    double by = (line[i][0] - lat) * METRES_PER_DEG;
+                    double dx = bx - ax;
+                    double dy = by - ay;
+                    double len = dx * dx + dy * dy;
+                    double t = len == 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len));
+                    best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+                }
+            }
+            return best;
+        }
     }
+
+    private static final double METRES_PER_DEG = 111195;
 
     private final DistanceZonedCard card;
     private final ZonedCorridor corridor;
@@ -70,24 +96,14 @@ public final class DistanceZonedPricer {
 
         ZonedCorridor.Projection in = corridor.project(entryLat, entryLon);
         ZonedCorridor.Projection out = corridor.project(exitLat, exitLon);
-        if (in == null || out == null) {
-            inputs.put("offCorridor", in == null ? "entry" : "exit");
-            return new Result(TollEstimate.unknown(REASON_OFF_CORRIDOR, card.getCurrency(), null, null,
-                    card.getValidFrom()), inputs);
-        }
-        inputs.put("entryKm", round3(in.km()));
-        inputs.put("exitKm", round3(out.km()));
-        inputs.put("entryOffsetM", Math.round(in.offsetMeters()));
-        inputs.put("exitOffsetM", Math.round(out.offsetMeters()));
-
         double end = corridor.getEndKm() + ZonedCorridor.SNAP_TOLERANCE_KM;
-        boolean entryBeyond = in.km() > end;
-        boolean exitBeyond = out.km() > end;
-        if (continuation != null && (entryBeyond || exitBeyond)) {
+        boolean entryOnContinuation = onContinuation(in, entryLat, entryLon, end);
+        boolean exitOnContinuation = onContinuation(out, exitLat, exitLon, end);
+        if (entryOnContinuation || exitOnContinuation) {
             inputs.put("continuation", continuation.facilityId());
             inputs.put("continuationTollFreeSince", continuation.tollFreeSince().toString());
             boolean free = !entryLocal.toLocalDate().isBefore(continuation.tollFreeSince());
-            if (entryBeyond && exitBeyond) {
+            if (entryOnContinuation && exitOnContinuation) {
                 // Wholly on the continuation: nothing to charge once it is free; no card for it before.
                 return new Result(TollEstimate.unknown(free ? TollEstimate.REASON_NOT_BILLABLE
                         : TollEstimate.REASON_NO_RATE, card.getCurrency(), null, null, null),
@@ -99,7 +115,31 @@ public final class DistanceZonedPricer {
                 return new Result(TollEstimate.unknown(TollEstimate.REASON_NO_RATE, card.getCurrency(), null, null,
                         card.getValidFrom()), inputs);
             }
+            // The edge on the continuation joins the corridor at its far end (Brock Road): price to there.
+            ZonedCorridor.Projection farEnd = new ZonedCorridor.Projection(end + 1, 0);
+            if (entryOnContinuation) {
+                in = farEnd;
+                inputs.put("entryOnContinuation", true);
+            } else {
+                out = farEnd;
+                inputs.put("exitOnContinuation", true);
+            }
         }
+        if (entryLocal.toLocalDate().isBefore(LocalDate.parse(card.getValidFrom()))) {
+            // Before the loaded card: unknown, never a later card's price (as the flat facilities).
+            return new Result(TollEstimate.unknown(TollEstimate.REASON_NO_RATE, card.getCurrency(), null, null,
+                    card.getValidFrom()), inputs);
+        }
+
+        if (in == null || out == null) {
+            inputs.put("offCorridor", in == null ? "entry" : "exit");
+            return new Result(TollEstimate.unknown(REASON_OFF_CORRIDOR, card.getCurrency(), null, null,
+                    card.getValidFrom()), inputs);
+        }
+        inputs.put("entryKm", round3(in.km()));
+        inputs.put("exitKm", round3(out.km()));
+        inputs.put("entryOffsetM", Math.round(in.offsetMeters()));
+        inputs.put("exitOffsetM", Math.round(out.offsetMeters()));
 
         ZonedCorridor.SnappedTrip trip = corridor.snap(in.km(), out.km());
         inputs.put("snapToleranceKm", ZonedCorridor.SNAP_TOLERANCE_KM);
@@ -115,6 +155,12 @@ public final class DistanceZonedPricer {
         TollEstimate estimate = DistanceZonedEstimator.price(
                 card, entryLocal, trip.direction(), trip.zoneKm(), holiday);
         return new Result(estimate, inputs);
+    }
+
+    /** An edge past the corridor's end, or off it, that lies on the continuation's own shape. */
+    private boolean onContinuation(ZonedCorridor.Projection p, double lat, double lon, double end) {
+        return continuation != null && (p == null || p.km() > end)
+                && continuation.distanceM(lat, lon) <= ON_CONTINUATION_M;
     }
 
     public String getCardValidFrom() {

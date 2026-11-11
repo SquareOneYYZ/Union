@@ -351,6 +351,40 @@
     "4_axle": 3.48,
     "5_axle": 4.64,
     "additional_axle": 1.16
+   },
+   "shared_plaza_check": {
+    "cfx_portion": {
+     "sunpass": {
+      "2_axle": 1.38,
+      "3_axle": 2.08,
+      "4_axle": 2.4,
+      "5_axle": 3.11,
+      "additional_axle": 0.0
+     },
+     "toll_by_plate": {
+      "2_axle": 1.38,
+      "3_axle": 2.08,
+      "4_axle": 2.4,
+      "5_axle": 3.11,
+      "additional_axle": 0.0
+     }
+    },
+    "published_total": {
+     "sunpass": {
+      "2_axle": 2.24,
+      "3_axle": 3.8,
+      "4_axle": 4.98,
+      "5_axle": 6.55,
+      "additional_axle": 0.86
+     },
+     "toll_by_plate": {
+      "2_axle": 2.54,
+      "3_axle": 4.4,
+      "4_axle": 5.88,
+      "5_axle": 7.75,
+      "additional_axle": 1.16
+     }
+    }
    }
   },
   {

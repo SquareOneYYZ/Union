@@ -64,6 +64,13 @@
             <column name="entertime" />
         </createIndex>
 
+        <!-- GET /api/tolltraversals and the IoT API select and order a device's rows by exit time
+             (an exit without an enter has no entertime). -->
+        <createIndex tableName="tc_toll_traversal" indexName="idx_toll_traversal_device_exittime">
+            <column name="deviceid" />
+            <column name="exittime" />
+        </createIndex>
+
         <createIndex tableName="tc_toll_traversal" indexName="idx_toll_traversal_facility_entertime">
             <column name="facilityid" />
             <column name="entertime" />

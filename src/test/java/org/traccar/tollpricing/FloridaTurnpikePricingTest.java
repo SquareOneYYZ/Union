@@ -59,6 +59,35 @@ public class FloridaTurnpikePricingTest {
     }
 
     @Test
+    public void beachlineWestMatchesTheSchedulesPrintedSplitAndTotal() throws IOException {
+        // The FTE schedule prints the CFX portion and the plaza total beside the Turnpike's portion; the builder
+        // keeps them on the row. CFX's own card must charge exactly the printed CFX portion, and the priced
+        // passage must equal the printed total.
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.JsonNode fte = mapper.readTree(
+                FloridaTurnpikePricingTest.class.getResourceAsStream("/toll-pricing/cards/fte-2026-08-14.json"));
+        com.fasterxml.jackson.databind.JsonNode cfx = mapper.readTree(
+                FloridaTurnpikePricingTest.class.getResourceAsStream("/toll-pricing/cards/cfx-2026-07-01.json"));
+        com.fasterxml.jackson.databind.JsonNode check = null;
+        for (com.fasterxml.jackson.databind.JsonNode p : fte.path("plazas")) {
+            if (p.has("shared_plaza_check")) {
+                check = p.path("shared_plaza_check");
+            }
+        }
+        BigDecimal cfxCard = null;
+        for (com.fasterxml.jackson.databind.JsonNode p : cfx.path("plazas")) {
+            if (p.path("name").asText().equals("Beachline West Main Plaza (TPK)")) {
+                cfxCard = p.path("pay_by_plate").path("2_axle").decimalValue();
+            }
+        }
+        assertEquals(0, check.path("cfx_portion").path("toll_by_plate").path("2_axle").decimalValue()
+                .compareTo(cfxCard));
+        FlatPricer.Result r = through(28.44402, -81.384804, "2026-09-21T15:00:00Z", "2026-09-21T15:00:20Z");
+        assertEquals(0, check.path("published_total").path("toll_by_plate").path("2_axle").decimalValue()
+                .compareTo(r.estimate().getAmount()), r.inputs().toString());
+    }
+
+    @Test
     public void aSharedPlazaIsChargedOncePerFacilityAcrossSegments() {
         List<PassageDetector.TrailPoint> trail = List.of(
                 new PassageDetector.TrailPoint(28.4430, -81.3858, Date.from(Instant.parse("2026-09-21T15:00:00Z"))),
@@ -101,6 +130,24 @@ public class FloridaTurnpikePricingTest {
     }
 
     @Test
+    public void jitterWhileStoppedBesideAOneDirectionPlazaProvesNoDirection() {
+        // Westbound, stopped in traffic 30 m from the West Plaza (eastbound tolls); the fixes wander 4-8 m
+        // east, which as headings would read eastbound.
+        double[][] westbound = {{26.1462, -80.4620}, {26.1462, -80.4710}, {26.1555, -81.6650},
+                {26.15528, -81.66870}, {26.15528, -81.66866}, {26.15529, -81.66860}, {26.15528, -81.66852},
+                {26.1555, -81.6720}};
+        assertAmount("3.51", drive("2026-09-21T15:00:00Z", 30, westbound));
+    }
+
+    @Test
+    public void anOrdinaryPlazaPassedTwiceTheSameWayIsChargedTwice() {
+        // Leesburg northbound, off the Turnpike and round on local roads, Leesburg northbound again 10 min later.
+        double[][] loop = {{28.6670, -81.8432}, {28.6716, -81.8395}, {28.6900, -81.8300}, {28.6900, -81.8600},
+                {28.6670, -81.8432}, {28.6716, -81.8395}};
+        assertAmount("4.00", drive("2026-09-21T15:00:00Z", 120, loop));
+    }
+
+    @Test
     public void dallasPlazaTotalsTheFdotMapsPlateRate() {
         // FDOT Beachline East map (08/2026): Dallas Main Plaza, 2 axles, TOLL-BY-PLATE $1.84 = CFX 1.28 + FDOT 0.56.
         FlatPricer.Result r = through(28.45206, -81.057923, "2026-09-21T15:00:00Z", "2026-09-21T15:00:20Z");
@@ -138,15 +185,22 @@ public class FloridaTurnpikePricingTest {
     }
 
     @Test
-    public void aRowCannotReachBackOverAnEarlierCard() {
+    public void aRowReachingBackOverAnEarlierCardStartsTheDayAfterIt() throws IOException {
+        // A reprice republishes unchanged tables with their old dates: the earlier card keeps its days.
         String older = "{\"rate_model_type\":\"flat\",\"currency\":\"USD\",\"valid_from\":\"2026-01-01\",\"plazas\":["
                 + "{\"road\":\"R\",\"name\":\"A\",\"toll_by_plate\":{\"2_axle\":1.00}}]}";
         String newer = "{\"rate_model_type\":\"flat\",\"currency\":\"USD\",\"valid_from\":\"2026-07-01\",\"plazas\":["
                 + "{\"road\":\"R\",\"name\":\"A\",\"effective\":\"2025-12-01\",\"toll_by_plate\":{\"2_axle\":2.00}}]}";
         String gantries = "{\"card_valid_from\":\"2026-07-01\",\"plazas\":[{\"road\":\"R\",\"name\":\"A\","
                 + "\"plaza_type\":\"mainline\",\"clusters\":[{\"lat\":28,\"lon\":-81}]}]}";
-        assertThrows(IOException.class, () -> GantrySet.load("t", List.of(json(older), json(newer)), json(gantries),
-                "toll_by_plate", "2_axle", true, ZoneId.of("America/New_York")));
+        GantrySet set = GantrySet.load("t", List.of(json(older), json(newer)), json(gantries),
+                "toll_by_plate", "2_axle", true, ZoneId.of("America/New_York"));
+        GantrySet.Point p = set.getPoints().get(0);
+        assertNull(set.rateAt(p, Date.from(Instant.parse("2025-12-15T17:00:00Z"))));
+        assertEquals(0, new BigDecimal("1.00").compareTo(
+                set.rateAt(p, Date.from(Instant.parse("2026-01-01T17:00:00Z"))).amount()));
+        assertEquals(0, new BigDecimal("2.00").compareTo(
+                set.rateAt(p, Date.from(Instant.parse("2026-01-02T17:00:00Z"))).amount()));
     }
 
     @Test

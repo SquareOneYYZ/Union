@@ -48,12 +48,13 @@ public final class GantrySet {
      * One clustered map location of a plaza. A ramp point also carries its ramp's shape and the
      * nearby mainline's, as [lat, lon] lines; a mainline point carries neither. {@code chargedBearing}
      * is the compass direction of travel a one-direction plaza charges (Alligator Alley, the Sunshine
-     * Skyway: each end charges one way), NaN for a plaza that charges both.
+     * Skyway: each end charges one way), NaN for a plaza that charges both. {@code multiSite} marks a plaza
+     * mapped at two sites that a through vehicle passes both of.
      */
     public record Point(String facilityId, String plaza, double lat, double lon,
                         NavigableMap<LocalDate, Cell> rates,
                         List<double[][]> rampLines, List<double[][]> mainlineLines, String sharedWith,
-                        double chargedBearing) {
+                        double chargedBearing, boolean multiSite) {
         public boolean isRamp() {
             return rampLines != null;
         }
@@ -189,6 +190,8 @@ public final class GantrySet {
                 continue;
             }
             boolean ramp = "ramp".equals(p.path("plaza_type").asText());
+            // A plaza mapped at two sites a through vehicle passes both of (PassageDetector.SAME_DIRECTION_S).
+            boolean multiSite = p.has("multi_site");
             for (JsonNode cl : p.path("clusters")) {
                 double lat = cl.path("lat").asDouble();
                 double lon = cl.path("lon").asDouble();
@@ -208,7 +211,7 @@ public final class GantrySet {
                 }
                 if (!ramp) {
                     Point point = new Point(facilityId, key, lat, lon, rate, null, null, sharedWith,
-                            bearing.isMissingNode() ? Double.NaN : bearing.asDouble());
+                            bearing.isMissingNode() ? Double.NaN : bearing.asDouble(), multiSite);
                     set.points.add(point);
                     set.index.insert(e, point);
                     continue;
@@ -219,7 +222,8 @@ public final class GantrySet {
                     set.rampsWithoutGeometry.add(key + " @" + lat + "," + lon);
                     continue;
                 }
-                Point point = new Point(facilityId, key, lat, lon, rate, rampLines, mainlineLines, null, Double.NaN);
+                Point point = new Point(facilityId, key, lat, lon, rate, rampLines, mainlineLines, null, Double.NaN,
+                        false);
                 set.points.add(point);
                 Envelope reach = new Envelope(e);
                 for (double[][] line : rampLines) {
@@ -303,8 +307,10 @@ public final class GantrySet {
     /**
      * When a card row's rate starts. A card is dated from its newest table, but a row may carry its own
      * older {@code effective} date (Florida's Turnpike: six regional schedules, each with its own date),
-     * and its rate is in force from that date. A row may not reach back to or past an earlier loaded card
-     * of the same facility, which would then price that plaza from two cards for the same days.
+     * and its rate is in force from that date. A row that reaches back to or past an earlier loaded card
+     * of the same facility starts the day after it instead: the earlier card prices those days. (A
+     * reprice republishes unchanged tables with their old dates, so this is the normal case for a second
+     * Florida card, not an error.)
      */
     static LocalDate rowStart(JsonNode row, LocalDate cardDate, NavigableMap<LocalDate, String> cards, String where)
             throws IOException {
@@ -323,8 +329,7 @@ public final class GantrySet {
         }
         LocalDate earlier = cards.lowerKey(cardDate);
         if (earlier != null && !start.isAfter(earlier)) {
-            throw new IOException(where + ": effective " + start + " reaches back over the card valid from "
-                    + earlier);
+            return earlier.plusDays(1);
         }
         return start;
     }

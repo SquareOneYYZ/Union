@@ -19,9 +19,9 @@ import java.util.Map;
  *       on-toll readings out of order on the wire;</li>
  *   <li>each segment between consecutive fixes is tested against the clustered toll points within
  *       {@link #THRESHOLD_M}; only the nearest counts (per-direction pairs are already one cluster);</li>
- *   <li>the same plaza is counted once within {@link #DEBOUNCE_S}, so a cluster straddling two
- *       segments is not charged twice, and once per direction of travel within
- *       {@link #SAME_DIRECTION_S}, so a plaza mapped at two sites is not charged at both.</li>
+ *   <li>the same plaza is counted once within {@link #DEBOUNCE_S}, and not again until the trail has
+ *       been {@link #REARM_M} away from it (a car waiting at a booth is one passage); a plaza mapped at
+ *       two sites is counted once per direction of travel within {@link #SAME_DIRECTION_S}.</li>
  *   <li>a plaza that charges one direction only (Alligator Alley, the Sunshine Skyway) is ignored by a
  *       segment heading the other way ({@link GantrySet.Point#charges}).</li>
  *   <li>a gantry shared by two operators (Beachline West, Dallas: CFX and the Turnpike each charge
@@ -41,28 +41,44 @@ public final class PassageDetector {
     public static final long DEBOUNCE_S = 120;
 
     /**
-     * A mainline plaza charged once is not charged again in the same direction of travel within this
-     * long. Several plazas are mapped at two sites 0.5-3 km apart (Lecanto and Spring Hill on the
-     * Suncoast, Lake Jesup, CFX's Conway), each site with a gantry on both carriageways; a through
-     * vehicle passes both and pays once. Passing the same plaza again the same way needs a loop, which
-     * takes longer than this; coming back the other way is a new toll and is charged.
+     * A plaza charged once is charged again only after the trail has been farther than this from it:
+     * a vehicle waiting at a booth (the A-30) or crawling past a gantry for minutes is one passage, however
+     * long it dwells.
+     */
+    public static final double REARM_M = 250;
+
+    /**
+     * A plaza mapped at two sites ({@code multi_site} in the gantry file: Lecanto and Spring Hill on the
+     * Suncoast, 2-3 km apart, each with a gantry on both carriageways) is not charged again in the same
+     * direction of travel within this long: a through vehicle passes both sites and pays once. Coming
+     * back the other way is a new toll and is charged.
      */
     public static final long SAME_DIRECTION_S = 900;
 
     /** Travel directions closer than this are the same direction. */
     static final double SAME_DIRECTION_DEG = 90;
 
+    /**
+     * A segment shorter than this proves no heading: a stopped device's fixes wander several metres in
+     * random directions. NaN never satisfies a one-direction plaza ({@link GantrySet.Point#charges}) and
+     * counts as the same direction for a multi-site plaza.
+     */
+    static final double MIN_HEADING_M = 20;
+
     private record Charged(Date time, double bearing) {
     }
 
     /** Whether a passage at {@code time}, heading {@code bearing}, repeats the plaza's last charge. */
-    static boolean repeats(Charged last, Date time, double bearing) {
+    static boolean repeats(Charged last, Date time, double bearing, boolean multiSite) {
         long elapsed = time.getTime() - last.time().getTime();
         if (elapsed < DEBOUNCE_S * 1000) {
             return true;
         }
+        if (!multiSite) {
+            return false;
+        }
         double turn = Math.abs(((bearing - last.bearing()) % 360 + 540) % 360 - 180);
-        // NaN (a zero-length segment) compares false, so an unknown heading counts as the same direction.
+        // NaN compares false, so an unknown heading counts as the same direction.
         return elapsed < SAME_DIRECTION_S * 1000 && !(turn > SAME_DIRECTION_DEG);
     }
 
@@ -95,6 +111,7 @@ public final class PassageDetector {
 
         List<Passage> passages = new ArrayList<>();
         Map<String, Charged> lastByPlaza = new HashMap<>();
+        Map<String, GantrySet.Point> disarmed = new HashMap<>();
         Map<String, GantrySet> setOf = new HashMap<>();
         for (GantrySet set : sets) {
             setOf.put(set.getFacilityId(), set);
@@ -106,12 +123,14 @@ public final class PassageDetector {
             if (!b.fixTime().after(a.fixTime())) {
                 continue;
             }
+            // A plaza is re-armed once the trail has been more than REARM_M from the point it was charged at.
+            disarmed.values().removeIf(p -> metres(a.lat(), a.lon(), p.lat(), p.lon()) > REARM_M);
             Envelope env = new Envelope(a.lon(), b.lon(), a.lat(), b.lat());
             env.expandBy(pad);
             double refLat = (a.lat() + b.lat()) / 2;
             LineSegment segment = new LineSegment(
                     toMeters(a.lat(), a.lon(), refLat), toMeters(b.lat(), b.lon(), refLat));
-            double bearing = segment.getLength() < 1 ? Double.NaN
+            double bearing = segment.getLength() < MIN_HEADING_M ? Double.NaN
                     : Math.toDegrees(Math.atan2(segment.p1.x - segment.p0.x, segment.p1.y - segment.p0.y));
             GantrySet.Point best = null;
             double bestDist = THRESHOLD_M;
@@ -149,10 +168,11 @@ public final class PassageDetector {
             for (GantrySet.Point point : charged) {
                 String key = point.facilityId() + "|" + point.plaza();
                 Charged last = lastByPlaza.get(key);
-                if (last != null && repeats(last, time, bearing)) {
+                if (disarmed.containsKey(key) || last != null && repeats(last, time, bearing, point.multiSite())) {
                     continue;
                 }
                 lastByPlaza.put(key, new Charged(time, bearing));
+                disarmed.put(key, point);
                 passages.add(new Passage(point, time, bestDist));
             }
         }

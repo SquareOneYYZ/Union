@@ -15,7 +15,8 @@
     "facility": "407-east",
     "operator": "Ontario Ministry of Transportation",
     "toll_free_since": "2025-06-01",
-    "note": "Highway 407 East, Brock Road (Pickering) to Highway 35/115 (Clarington): the MTO's section, toll-free since 2025-06-01. A traversal with both edges past the corridor's end (Brock Road, km 108 + 0.3) is NOT_BILLABLE under facility 407-east; one that continues past Brock Road is priced by the ETR up to Brock Road (mixedOperators). Before 2025-06-01 the MTO tolled it and no card is loaded, so such trips are NO_RATE. Hwy 412 and 418 have been toll-free since 2022 and are not on the corridor.",
+    "geometry": "407-east.json",
+    "note": "Highway 407 East, Brock Road (Pickering) to Highway 35/115 (Clarington): the MTO's section, toll-free since 2025-06-01. Its own shape (corridors/407-east.json, OSM relation 6328033, build_407_east.py) recognises it: the ETR corridor's extended last segment drifts up to 2.6 km away. A traversal with both edges on it (past Brock Road, within 300 m of the shape) is NOT_BILLABLE under facility 407-east; one that continues past Brock Road is priced by the ETR up to Brock Road (mixedOperators). Before 2025-06-01 the MTO tolled it and no card is loaded, so such trips are NO_RATE. Hwy 412 and 418 have been toll-free since 2022 and are not on the corridor.",
     "sources": ["https://www.whitby.ca/news/posts/town-of-whitby-welcomes-removal-of-407-east-tolls/", "https://www.cp24.com/news/2025/06/01/ford-government-officially-lifts-tolls-on-stretch-of-hwy-407-east-saving-drivers-7200-a-year/", "https://www.openstreetmap.org/relation/6328033 (note: Hwy 407 is entirely toll-free as of June 1, 2025)"],
     "retrieved": "2026-11-10"
    },

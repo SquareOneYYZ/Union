@@ -17,8 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * The A-30 over the packaged card: one toll station on the Saint Lawrence crossing (pont P-10942),
  * Categorie B 2.20 $ per axle = 4.40 $ for a 2-axle car, both directions, from 2026-02-28.
  *
- * <p>The trail is a real southbound crossing (device 1675, 2026-09-03 01:24-01:32 UTC, from the
- * production export {@code data prod/export_sep3.tsv}); detection marked 01:27:02-01:30:23 as tolled.
+ * <p>The trail is the shape of a real southbound crossing at a real fix cadence (30-60 s, slowing at the
+ * booth), moved to another day and detached from its device; detection marked the 7th to 13th fixes as
+ * tolled.
  */
 public class A30PricingTest {
 
@@ -55,13 +56,29 @@ public class A30PricingTest {
     @Test
     public void aCrossingIsOneTollEitherWay() {
         for (boolean reversed : new boolean[] {false, true}) {
-            List<PassageDetector.TrailPoint> trail = crossing("2026-09-03", reversed);
+            List<PassageDetector.TrailPoint> trail = crossing("2026-09-20", reversed);
             FlatPricer.Result r = FlatPricer.price(trail, a30(), trail.get(0).fixTime());
             assertEquals("a30", r.facilityId());
             assertEquals("CAD", r.estimate().getCurrency());
             assertEquals(0, new BigDecimal("4.40").compareTo(r.estimate().getAmount()), r.inputs().toString());
             assertEquals("2026-02-28", r.estimate().getCardValidFrom());
         }
+    }
+
+    @Test
+    public void waitingAtTheBoothIsOnePassage() {
+        // Queues at the booth for 6 minutes, fixes wandering a few metres, then drives on.
+        double[][] points = {{45.3260, -74.0290}, {45.3200, -74.0247}, {45.31780, -74.02290}, {45.31784, -74.02286},
+                {45.31779, -74.02292}, {45.31786, -74.02281}, {45.31777, -74.02295}, {45.31782, -74.02288},
+                {45.3140, -74.0200}, {45.3080, -74.0160}};
+        List<PassageDetector.TrailPoint> trail = new ArrayList<>();
+        Instant t = Instant.parse("2026-09-20T01:20:00Z");
+        for (double[] p : points) {
+            trail.add(new PassageDetector.TrailPoint(p[0], p[1], Date.from(t)));
+            t = t.plusSeconds(60);
+        }
+        FlatPricer.Result r = FlatPricer.price(trail, a30(), trail.get(0).fixTime());
+        assertEquals(0, new BigDecimal("4.40").compareTo(r.estimate().getAmount()), r.inputs().toString());
     }
 
     @Test
@@ -75,12 +92,12 @@ public class A30PricingTest {
     @Test
     public void theDetectedTraversalIsPricedEndToEnd() {
         // The enter and exit events' positions: the first and last fixes detection marked tolled.
-        List<PassageDetector.TrailPoint> trail = crossing("2026-09-03", false);
+        List<PassageDetector.TrailPoint> trail = crossing("2026-09-20", false);
         TraversalBuilder.Edge enter = new TraversalBuilder.Edge(1, 45.325, -74.028386,
-                Date.from(Instant.parse("2026-09-03T01:27:02Z")));
+                Date.from(Instant.parse("2026-09-20T01:27:02Z")));
         TraversalBuilder.Edge exit = new TraversalBuilder.Edge(2, 45.294393, -74.001121,
-                Date.from(Instant.parse("2026-09-03T01:30:23Z")));
-        TollTraversal row = new TraversalBuilder(registry).build(1675, 20, 10, enter, exit, 3900, new Date(),
+                Date.from(Instant.parse("2026-09-20T01:30:23Z")));
+        TollTraversal row = new TraversalBuilder(registry).build(1, 20, 10, enter, exit, 3900, new Date(),
                 () -> trail.subList(6, 13), null);
         assertEquals("a30", row.getFacilityId());
         assertEquals(0, new BigDecimal("4.40").compareTo(row.getAmount()), row.getInputs());

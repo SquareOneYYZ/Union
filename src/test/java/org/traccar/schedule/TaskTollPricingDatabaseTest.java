@@ -10,6 +10,7 @@ import liquibase.database.DatabaseFactory;
 import liquibase.resource.DirectoryResourceAccessor;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.traccar.api.BaseResource;
@@ -70,8 +71,34 @@ public class TaskTollPricingDatabaseTest {
     private static Storage storage;
     private static long deviceId;
 
+    /**
+     * Enforces "an EMPTY scratch schema only" for TOLL_DB_URL: the test migrates and writes rows, so it
+     * refuses a database that already has any table.
+     */
+    private static void requireEmptyScratchSchema() throws Exception {
+        if (System.getenv("TOLL_DB_URL") == null) {
+            return;   // the default in-memory H2 is always new
+        }
+        try (Connection c = java.sql.DriverManager.getConnection(URL, USER, PASSWORD);
+             ResultSet tables = c.getMetaData().getTables(c.getCatalog(), c.getSchema(), "%",
+                     new String[] {"TABLE"})) {
+            if (tables.next()) {
+                throw new IllegalStateException("TOLL_DB_URL must name an empty scratch schema; it has table "
+                        + tables.getString("TABLE_NAME"));
+            }
+        }
+    }
+
+    @AfterAll
+    public static void close() {
+        if (dataSource instanceof HikariDataSource hikari) {
+            hikari.close();
+        }
+    }
+
     @BeforeAll
     public static void migrate() throws Exception {
+        requireEmptyScratchSchema();
         Database database = DatabaseFactory.getInstance().openDatabase(
                 URL, USER, PASSWORD, null, null, null, null, new DirectoryResourceAccessor(new File(".")));
         try (Liquibase liquibase = new Liquibase("schema/changelog-master.xml",

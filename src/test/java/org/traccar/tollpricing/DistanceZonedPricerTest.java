@@ -93,6 +93,7 @@ public class DistanceZonedPricerTest {
     private static final double[] EAST_112 = {43.94931, -79.02184};
     private static final double[] EAST_127 = {43.98021, -78.87715};
     private static final double[] EAST_145 = {44.00385, -78.65991};
+    private static final double[] EAST_FAR = {43.9667748, -78.7800324};
 
     private static DistanceZonedPricer registryPricer() throws Exception {
         return FacilityRegistry.loadResource().getFacilities().stream()
@@ -107,7 +108,11 @@ public class DistanceZonedPricerTest {
         assertNull(r.estimate().getAmount());
         assertEquals(TollEstimate.REASON_NOT_BILLABLE, r.estimate().getReason());
         assertEquals("407-east", r.facilityId());
-        assertTrue((Double) r.inputs().get("entryKm") > corridor.getEndKm(), r.inputs().toString());
+        assertEquals("407-east", r.inputs().get("continuation"));
+        // The farthest 407 East node from the ETR's extended last segment (2.6 km off, past the corridor's
+        // 2 km projection limit) is still recognised by the continuation's own shape.
+        r = p.price(EAST_FAR[0], EAST_FAR[1], Instant.parse("2026-09-21T12:00:00Z"), EAST_145[0], EAST_145[1]);
+        assertEquals(TollEstimate.REASON_NOT_BILLABLE, r.estimate().getReason(), r.inputs().toString());
         // Westbound too.
         r = p.price(EAST_127[0], EAST_127[1], Instant.parse("2026-09-21T12:00:00Z"), EAST_112[0], EAST_112[1]);
         assertEquals(TollEstimate.REASON_NOT_BILLABLE, r.estimate().getReason());
@@ -133,10 +138,22 @@ public class DistanceZonedPricerTest {
         assertEquals(true, onto.inputs().get("mixedOperators"));
         assertNull(onto.facilityId());
         assertEquals(0, toBrock.estimate().getAmount().compareTo(onto.estimate().getAmount()), onto.inputs().toString());
+        // Leaving 407 East at its far, off-line stretch prices the ETR part the same.
+        DistanceZonedPricer.Result far = p.price(EXIT_66[0], EXIT_66[1],
+                Instant.parse("2026-03-17T16:00:00Z"), EAST_FAR[0], EAST_FAR[1]);
+        assertEquals(0, toBrock.estimate().getAmount().compareTo(far.estimate().getAmount()), far.inputs().toString());
         // Before 2025-06-01 the MTO portion was tolled and has no card: unknown, not the ETR part alone.
         DistanceZonedPricer.Result before = p.price(EXIT_66[0], EXIT_66[1],
                 Instant.parse("2025-05-20T16:00:00Z"), EAST_145[0], EAST_145[1]);
         assertEquals(TollEstimate.REASON_NO_RATE, before.estimate().getReason());
+    }
+
+    @Test
+    public void beforeTheCardIsUnknownNotALaterCardsPrice() throws Exception {
+        DistanceZonedPricer.Result r = pricer.price(EXIT_66[0], EXIT_66[1],
+                Instant.parse("2025-12-31T16:00:00Z"), EXIT_24[0], EXIT_24[1]);
+        assertNull(r.estimate().getAmount());
+        assertEquals(TollEstimate.REASON_NO_RATE, r.estimate().getReason());
     }
 
     @Test

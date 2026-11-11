@@ -98,9 +98,22 @@ public final class FacilityRegistry {
             DistanceZonedPricer.Continuation continuation = null;
             JsonNode c = f.path("continuation");
             if (!c.isMissingNode()) {
+                List<double[][]> lines = new ArrayList<>();
+                try (InputStream geometry = resource("corridors/" + c.path("geometry").asText())) {
+                    for (JsonNode line : new ObjectMapper().readTree(geometry).path("lines")) {
+                        double[][] points = new double[line.size()][];
+                        for (int i = 0; i < line.size(); i++) {
+                            points[i] = new double[] {line.get(i).get(0).asDouble(), line.get(i).get(1).asDouble()};
+                        }
+                        lines.add(points);
+                    }
+                }
+                if (lines.isEmpty()) {
+                    throw new IOException("facility " + id + ": continuation geometry has no lines");
+                }
                 try {
-                    continuation = new DistanceZonedPricer.Continuation(
-                            c.path("facility").asText(), LocalDate.parse(c.path("toll_free_since").asText()));
+                    continuation = new DistanceZonedPricer.Continuation(c.path("facility").asText(),
+                            LocalDate.parse(c.path("toll_free_since").asText()), List.copyOf(lines));
                 } catch (DateTimeParseException e) {
                     throw new IOException("facility " + id + ": bad continuation.toll_free_since", e);
                 }
