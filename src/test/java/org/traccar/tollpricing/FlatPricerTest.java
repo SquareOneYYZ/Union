@@ -91,6 +91,9 @@ public class FlatPricerTest {
         FlatPricer.Result r = FlatPricer.price(drive(28.60, -81.505, -81.430, 30), sets, new Date(T0));
         assertNull(r.estimate().getAmount());
         assertEquals(FlatPricer.REASON_NO_PASSAGES, r.estimate().getReason());
+        // No facility charged anything, so none is named (not the first one tested).
+        assertNull(r.facilityId());
+        assertEquals(sets.size(), ((List<?>) r.inputs().get("testedFacilities")).size());
     }
 
     @Test

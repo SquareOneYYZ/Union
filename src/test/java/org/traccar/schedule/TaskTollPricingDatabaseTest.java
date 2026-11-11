@@ -181,6 +181,8 @@ public class TaskTollPricingDatabaseTest {
             assertEquals(exit1, rows.get(0).getExitEventId());
             assertEquals("NO_PASSAGES", rows.get(0).getReason());
             assertNull(rows.get(0).getAmount());
+            assertNull(rows.get(0).getFacilityId());   // SQL NULL, not the text 'null'
+            assertNull(rows.get(0).getCurrency());
             assertEquals(exit2, rows.get(1).getExitEventId());
             assertEquals("cfx", rows.get(1).getFacilityId());
             assertEquals(0, new BigDecimal("4.80").compareTo(rows.get(1).getAmount()));

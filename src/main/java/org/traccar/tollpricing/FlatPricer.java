@@ -55,20 +55,20 @@ public final class FlatPricer {
                 inputs.put("rampsNotPriced", true);
             }
         }
+        // Until a passage names one, no facility is charged: an unpriced row names none and lists those
+        // tested. (Naming the first one tested put Chicago Skyway / Indiana Toll Road trips under the
+        // Illinois Tollway and Colorado express-lane trips under E-470 in the 2026-11-10 dry-run.)
+        inputs.put("testedFacilities", new ArrayList<>(byFacility.keySet()));
         String fallbackFacility = sets.get(0).getFacilityId();
-        String fallbackCurrency = sets.get(0).getCurrency();
-        String fallbackCard = cards.get(fallbackFacility);
         if (trail == null || trail.size() < 2) {
             inputs.put("trailPoints", trail == null ? 0 : trail.size());
-            return new Result(TollEstimate.unknown(REASON_NO_TRAIL, fallbackCurrency, DAY_TYPE_ALL, null,
-                    fallbackCard), fallbackFacility, inputs);
+            return new Result(TollEstimate.unknown(REASON_NO_TRAIL, null, DAY_TYPE_ALL, null, null), null, inputs);
         }
         inputs.put("trailPoints", trail.size());
 
         List<PassageDetector.Passage> passages = PassageDetector.detect(trail, sets);
         if (passages.isEmpty()) {
-            return new Result(TollEstimate.unknown(REASON_NO_PASSAGES, fallbackCurrency, DAY_TYPE_ALL, null,
-                    fallbackCard), fallbackFacility, inputs);
+            return new Result(TollEstimate.unknown(REASON_NO_PASSAGES, null, DAY_TYPE_ALL, null, null), null, inputs);
         }
 
         Map<String, BigDecimal> subtotal = new LinkedHashMap<>();
@@ -85,8 +85,9 @@ public final class FlatPricer {
             if (rate == null) {
                 inputs.put("passages", compact);
                 inputs.put("noRateFor", label);
-                return new Result(TollEstimate.unknown(REASON_NO_RATE, fallbackCurrency, DAY_TYPE_ALL, null,
-                        fallbackCard), point.facilityId(), inputs);
+                GantrySet owner = byFacility.get(point.facilityId());
+                return new Result(TollEstimate.unknown(REASON_NO_RATE, owner.getCurrency(), DAY_TYPE_ALL, null,
+                        cards.get(point.facilityId())), point.facilityId(), inputs);
             }
             subtotal.merge(point.facilityId(), rate.amount(), BigDecimal::add);
             firstCard.putIfAbsent(point.facilityId(), rate.cardValidFrom());
