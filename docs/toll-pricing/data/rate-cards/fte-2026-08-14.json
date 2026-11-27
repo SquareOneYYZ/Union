@@ -1,0 +1,3229 @@
+{
+ "facility": "Florida's Turnpike System and FDOT toll facilities",
+ "operator": "Florida's Turnpike Enterprise (FDOT)",
+ "country": "US",
+ "region": "FL",
+ "currency": "USD",
+ "rate_model_type": "flat",
+ "rate_model_note": "Flat amount per mainline plaza and per tolled interchange (ramp gantries), by axle count. All-electronic; no time-of-day pricing. Each row keeps its table's own effective date.",
+ "valid_from": "2026-08-14",
+ "valid_from_note": "The newest table's effective date. A row with an older 'effective' date is priced from that date (GantrySet.rowStart); a row without one only from this date.",
+ "valid_to": null,
+ "reprices_on": "per regional schedule; FTE indexes rates to CPI (typically 1 July)",
+ "source_url": "https://floridasturnpike.com/tolls/toll-rates/",
+ "source_pdfs": [
+  "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+  "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+  "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+  "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+  "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+  "https://floridasturnpike.com/wp-content/uploads/2025/09/Panhandle-9-2025.pdf"
+ ],
+ "source_type": "published",
+ "source_note": "The six regional 'Toll Rates for Florida's Turnpike System and FDOT Toll Facilities' PDFs linked from the rates page. Where a plaza is shared with CFX (Beachline West, Dallas) only the Turnpike/FDOT portion is listed; CFX's portion is on the CFX card.",
+ "payment_premium_note": "TOLL-BY-PLATE is what a vehicle without SunPass (or an interoperable transponder) pays; FTE also adds a $2.50 administrative charge per monthly invoice (not estimated).",
+ "plazas": [
+  {
+   "name": "296 - CR 470",
+   "number": "296",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "289 - US 27 / Leesburg North",
+   "number": "289",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   },
+   "toll_by_plate": {
+    "2_axle": 1.72,
+    "3_axle": 3.44,
+    "4_axle": 5.16,
+    "5_axle": 6.88,
+    "additional_axle": 1.72
+   }
+  },
+  {
+   "name": "288 - LEESBURG PLAZA",
+   "number": "288",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.72,
+    "3_axle": 3.44,
+    "4_axle": 5.16,
+    "5_axle": 6.88,
+    "additional_axle": 1.72
+   },
+   "toll_by_plate": {
+    "2_axle": 2.0,
+    "3_axle": 4.0,
+    "4_axle": 6.0,
+    "5_axle": 8.0,
+    "additional_axle": 2.0
+   }
+  },
+  {
+   "name": "281 - MINNEOLA PLAZA",
+   "number": "281",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   },
+   "toll_by_plate": {
+    "2_axle": 1.72,
+    "3_axle": 3.44,
+    "4_axle": 5.16,
+    "5_axle": 6.88,
+    "additional_axle": 1.72
+   }
+  },
+  {
+   "name": "278 - Minneola (Hancock Rd.)",
+   "number": "278",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "272 - Winter Garden/Clermont (SR 50)",
+   "number": "272",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "259 - Orlando (I-4)",
+   "number": "259",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "255 - Consulate Drive",
+   "number": "255",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "254 - Orlando South (US 17/92/441)",
+   "number": "254",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "251 - SR 417",
+   "number": "251",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "249 - Osceola Parkway (Dart Blvd.)",
+   "number": "249",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "244 - Kissimmee-St. Cloud North",
+   "number": "244",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   },
+   "toll_by_plate": {
+    "2_axle": 1.72,
+    "3_axle": 3.44,
+    "4_axle": 5.16,
+    "5_axle": 6.88,
+    "additional_axle": 1.72
+   }
+  },
+  {
+   "name": "240 - Clay Whaley Road",
+   "number": "240",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   },
+   "toll_by_plate": {
+    "2_axle": 1.72,
+    "3_axle": 3.44,
+    "4_axle": 5.16,
+    "5_axle": 6.88,
+    "additional_axle": 1.72
+   }
+  },
+  {
+   "name": "236 - THREE LAKES PLAZA",
+   "number": "236",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2026-08-14",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 4.13,
+    "3_axle": 6.21,
+    "4_axle": 8.28,
+    "5_axle": 10.35,
+    "additional_axle": 2.07
+   },
+   "toll_by_plate": {
+    "2_axle": 5.18,
+    "3_axle": 7.77,
+    "4_axle": 10.36,
+    "5_axle": 12.95,
+    "additional_axle": 2.59
+   }
+  },
+  {
+   "name": "6 - BEACHLINE WEST PLAZA (Turnpike portion)",
+   "number": "6",
+   "road": "Beachline West Expressway (SR 528)",
+   "plaza_type": "mainline",
+   "effective": "2026-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "shared_plaza_check": {
+    "cfx_portion": {
+     "sunpass": {
+      "2_axle": 1.38,
+      "3_axle": 2.08,
+      "4_axle": 2.4,
+      "5_axle": 3.11,
+      "additional_axle": 0.0
+     },
+     "toll_by_plate": {
+      "2_axle": 1.38,
+      "3_axle": 2.08,
+      "4_axle": 2.4,
+      "5_axle": 3.11,
+      "additional_axle": 0.0
+     }
+    },
+    "published_total": {
+     "sunpass": {
+      "2_axle": 2.24,
+      "3_axle": 3.8,
+      "4_axle": 4.98,
+      "5_axle": 6.55,
+      "additional_axle": 0.86
+     },
+     "toll_by_plate": {
+      "2_axle": 2.54,
+      "3_axle": 4.4,
+      "4_axle": 5.88,
+      "5_axle": 7.75,
+      "additional_axle": 1.16
+     }
+    }
+   }
+  },
+  {
+   "name": "31 - SR 520",
+   "number": "31",
+   "road": "Beachline East Expressway (SR 528)",
+   "plaza_type": "ramp",
+   "effective": "2026-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.28,
+    "4_axle": 0.28,
+    "5_axle": 0.28,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 0.56,
+    "3_axle": 0.56,
+    "4_axle": 0.56,
+    "5_axle": 0.56,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "26 - DALLAS PLAZA (FDOT Portion)",
+   "number": "26",
+   "road": "Beachline East Expressway (SR 528)",
+   "plaza_type": "mainline",
+   "effective": "2026-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.28,
+    "4_axle": 0.28,
+    "5_axle": 0.28,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 0.56,
+    "3_axle": 0.56,
+    "4_axle": 0.56,
+    "5_axle": 0.56,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "52 - CR 46A / Sanford",
+   "number": "52",
+   "road": "Seminole Expressway (SR 417)",
+   "plaza_type": "ramp",
+   "effective": "2024-06-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "50 - US 17 / 92",
+   "number": "50",
+   "road": "Seminole Expressway (SR 417)",
+   "plaza_type": "ramp",
+   "effective": "2024-06-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "49 - CR 427 / Lake Mary Boulevard",
+   "number": "49",
+   "road": "Seminole Expressway (SR 417)",
+   "plaza_type": "ramp",
+   "effective": "2024-06-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "47 - LAKE JESUP PLAZA",
+   "number": "47",
+   "road": "Seminole Expressway (SR 417)",
+   "plaza_type": "mainline",
+   "effective": "2024-06-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 2.3,
+    "3_axle": 4.6,
+    "4_axle": 6.9,
+    "5_axle": 9.2,
+    "additional_axle": 2.3
+   },
+   "toll_by_plate": {
+    "2_axle": 2.59,
+    "3_axle": 5.18,
+    "4_axle": 7.77,
+    "5_axle": 10.36,
+    "additional_axle": 2.59
+   }
+  },
+  {
+   "name": "44 - SR 434",
+   "number": "44",
+   "road": "Seminole Expressway (SR 417)",
+   "plaza_type": "ramp",
+   "effective": "2024-06-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "41 - Red Bug Lake Road",
+   "number": "41",
+   "road": "Seminole Expressway (SR 417)",
+   "plaza_type": "ramp",
+   "effective": "2024-06-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "38 - SR 426 / Aloma Avenue",
+   "number": "38",
+   "road": "Seminole Expressway (SR 417)",
+   "plaza_type": "ramp",
+   "effective": "2024-06-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "3 - Osceola Parkway",
+   "number": "3",
+   "road": "Southern Connector (SR 417)",
+   "plaza_type": "ramp",
+   "effective": "2025-02-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "2 - Celebration Avenue / US 192",
+   "number": "2",
+   "road": "Southern Connector (SR 417)",
+   "plaza_type": "ramp",
+   "effective": "2025-02-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "1 - CELEBRATION PLAZA",
+   "number": "1",
+   "road": "Southern Connector (SR 417)",
+   "plaza_type": "mainline",
+   "effective": "2025-02-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "11 - Seidel Road",
+   "number": "11",
+   "road": "Daniel Webster Western Beltway, Part C (SR 429)",
+   "plaza_type": "ramp",
+   "effective": "2025-02-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "7 - WESTERN BELTWAY PLAZA",
+   "number": "7",
+   "road": "Daniel Webster Western Beltway, Part C (SR 429)",
+   "plaza_type": "mainline",
+   "effective": "2025-02-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "6 - US 192",
+   "number": "6",
+   "road": "Daniel Webster Western Beltway, Part C (SR 429)",
+   "plaza_type": "ramp",
+   "effective": "2025-02-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "1A - Sinclair Road",
+   "number": "1A",
+   "road": "Daniel Webster Western Beltway, Part C (SR 429)",
+   "plaza_type": "ramp",
+   "effective": "2025-02-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "43 - MOUNT PLYMOUTH PLAZA",
+   "number": "43",
+   "road": "Wekiva Parkway (SR 429)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.82,
+    "3_axle": 1.64,
+    "4_axle": 2.46,
+    "5_axle": 3.28,
+    "additional_axle": 0.82
+   },
+   "toll_by_plate": {
+    "2_axle": 1.09,
+    "3_axle": 2.18,
+    "4_axle": 3.27,
+    "5_axle": 4.36,
+    "additional_axle": 1.09
+   }
+  },
+  {
+   "name": "46 - WEKIVA RIVER PLAZA",
+   "number": "46",
+   "road": "Wekiva Parkway (SR 429)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.08,
+    "3_axle": 2.16,
+    "4_axle": 3.24,
+    "5_axle": 4.32,
+    "additional_axle": 1.08
+   },
+   "toll_by_plate": {
+    "2_axle": 1.35,
+    "3_axle": 2.7,
+    "4_axle": 4.05,
+    "5_axle": 5.4,
+    "additional_axle": 1.35
+   }
+  },
+  {
+   "name": "52 - SR 46",
+   "number": "52",
+   "road": "Wekiva Parkway (SR 429)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.27,
+    "3_axle": 0.54,
+    "4_axle": 0.81,
+    "5_axle": 1.08,
+    "additional_axle": 0.27
+   },
+   "toll_by_plate": {
+    "2_axle": 0.54,
+    "3_axle": 1.08,
+    "4_axle": 1.62,
+    "5_axle": 2.16,
+    "additional_axle": 0.54
+   }
+  },
+  {
+   "name": "53 - ORANGE PLAZA",
+   "number": "53",
+   "road": "Wekiva Parkway (SR 429)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/08/Central-Florida-08-14-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.54,
+    "3_axle": 1.08,
+    "4_axle": 1.62,
+    "5_axle": 2.16,
+    "additional_axle": 0.54
+   },
+   "toll_by_plate": {
+    "2_axle": 0.81,
+    "3_axle": 1.62,
+    "4_axle": 2.43,
+    "5_axle": 3.24,
+    "additional_axle": 0.81
+   }
+  },
+  {
+   "name": "154 - FORT PIERCE PLAZA",
+   "number": "154",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 3.53,
+    "3_axle": 5.31,
+    "4_axle": 7.08,
+    "5_axle": 8.85,
+    "additional_axle": 1.77
+   },
+   "toll_by_plate": {
+    "2_axle": 4.43,
+    "3_axle": 6.66,
+    "4_axle": 8.88,
+    "5_axle": 11.1,
+    "additional_axle": 2.22
+   }
+  },
+  {
+   "name": "150 - MIDWAY ROAD PLAZA",
+   "number": "150",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.29,
+    "4_axle": 1.72,
+    "5_axle": 2.15,
+    "additional_axle": 0.43
+   },
+   "toll_by_plate": {
+    "2_axle": 1.08,
+    "3_axle": 1.62,
+    "4_axle": 2.16,
+    "5_axle": 2.7,
+    "additional_axle": 0.54
+   }
+  },
+  {
+   "name": "141 - PORT ST. LUCIE PLAZA",
+   "number": "141",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 0.35,
+    "3_axle": 0.54,
+    "4_axle": 0.72,
+    "5_axle": 0.9,
+    "additional_axle": 0.18
+   },
+   "toll_by_plate": {
+    "2_axle": 0.54,
+    "3_axle": 0.81,
+    "4_axle": 1.08,
+    "5_axle": 1.35,
+    "additional_axle": 0.27
+   }
+  },
+  {
+   "name": "138 - BECKER ROAD PLAZA",
+   "number": "138",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 0.43,
+    "3_axle": 0.66,
+    "4_axle": 0.88,
+    "5_axle": 1.1,
+    "additional_axle": 0.22
+   },
+   "toll_by_plate": {
+    "2_axle": 0.54,
+    "3_axle": 0.81,
+    "4_axle": 1.08,
+    "5_axle": 1.35,
+    "additional_axle": 0.27
+   }
+  },
+  {
+   "name": "133 - STUART PLAZA",
+   "number": "133",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 1.47,
+    "3_axle": 2.22,
+    "4_axle": 2.96,
+    "5_axle": 3.7,
+    "additional_axle": 0.74
+   },
+   "toll_by_plate": {
+    "2_axle": 1.84,
+    "3_axle": 2.76,
+    "4_axle": 3.68,
+    "5_axle": 4.6,
+    "additional_axle": 0.92
+   }
+  },
+  {
+   "name": "113 - JUPITER PLAZA",
+   "number": "113",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 0.6,
+    "3_axle": 0.9,
+    "4_axle": 1.2,
+    "5_axle": 1.5,
+    "additional_axle": 0.3
+   },
+   "toll_by_plate": {
+    "2_axle": 0.76,
+    "3_axle": 1.14,
+    "4_axle": 1.52,
+    "5_axle": 1.9,
+    "additional_axle": 0.38
+   }
+  },
+  {
+   "name": "108 - PGA BLVD PLAZA",
+   "number": "108",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 0.27,
+    "3_axle": 0.42,
+    "4_axle": 0.56,
+    "5_axle": 0.7,
+    "additional_axle": 0.14
+   },
+   "toll_by_plate": {
+    "2_axle": 0.54,
+    "3_axle": 0.81,
+    "4_axle": 1.08,
+    "5_axle": 1.35,
+    "additional_axle": 0.27
+   }
+  },
+  {
+   "name": "104 - 45TH STREET PLAZA",
+   "number": "104",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 0.69,
+    "3_axle": 1.05,
+    "4_axle": 1.4,
+    "5_axle": 1.75,
+    "additional_axle": 0.35
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.29,
+    "4_axle": 1.72,
+    "5_axle": 2.15,
+    "additional_axle": 0.43
+   }
+  },
+  {
+   "name": "98 - BELVEDERE PLAZA",
+   "number": "98",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 0.27,
+    "3_axle": 0.42,
+    "4_axle": 0.56,
+    "5_axle": 0.7,
+    "additional_axle": 0.14
+   },
+   "toll_by_plate": {
+    "2_axle": 0.54,
+    "3_axle": 0.81,
+    "4_axle": 1.08,
+    "5_axle": 1.35,
+    "additional_axle": 0.27
+   }
+  },
+  {
+   "name": "96 - FOREST BLVD PLAZA",
+   "number": "96",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 0.35,
+    "3_axle": 0.54,
+    "4_axle": 0.72,
+    "5_axle": 0.9,
+    "additional_axle": 0.18
+   },
+   "toll_by_plate": {
+    "2_axle": 0.54,
+    "3_axle": 0.81,
+    "4_axle": 1.08,
+    "5_axle": 1.35,
+    "additional_axle": 0.27
+   }
+  },
+  {
+   "name": "88 - LANTANA PLAZA",
+   "number": "88",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2023/06/South-Central-Florida.pdf",
+   "sunpass": {
+    "2_axle": 0.6,
+    "3_axle": 0.9,
+    "4_axle": 1.2,
+    "5_axle": 1.5,
+    "additional_axle": 0.3
+   },
+   "toll_by_plate": {
+    "2_axle": 0.76,
+    "3_axle": 1.14,
+    "4_axle": 1.52,
+    "5_axle": 1.9,
+    "additional_axle": 0.38
+   }
+  },
+  {
+   "name": "47 - NW 27th Avenue",
+   "number": "47",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "43 - NW 57th Avenue",
+   "number": "43",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "37 - NW 170th Street",
+   "number": "37",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "35 - Okeechobee Road",
+   "number": "35",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "34 - NW 106th Street",
+   "number": "34",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "32 - OKEECHOBEE PLAZA",
+   "number": "32",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "mainline",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "31 - NW 74th Street",
+   "number": "31",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "29 - NW 41st Street",
+   "number": "29",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "27 - NW 12th St (Beacon Tradeport)",
+   "number": "27",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "25 - US 41 (SW 8th Street)",
+   "number": "25",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "23 - SW 40th Street (Bird Road)",
+   "number": "23",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "22 - BIRD ROAD PLAZA",
+   "number": "22",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "mainline",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "20 - Kendall Drive",
+   "number": "20",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "19 - SW 120th Street",
+   "number": "19",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "16 - Coral Reef Drive",
+   "number": "16",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "10 - HOMESTEAD PLAZA",
+   "number": "10",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "mainline",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "9 - Allapattah Road",
+   "number": "9",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "5 - Biscayne Drive (SW 288th St)",
+   "number": "5",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "2 - Campbell Drive (SW 312th St)",
+   "number": "2",
+   "road": "Homestead Extension (SR 821)",
+   "plaza_type": "ramp",
+   "effective": "2026-04-21",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "86 - Boynton Beach",
+   "number": "86",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "81 - Delray Beach",
+   "number": "81",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "75 - Boca Raton",
+   "number": "75",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "69 - Sample Road",
+   "number": "69",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "67 - Coconut Creek Pkwy.",
+   "number": "67",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "65 - POMPANO BEACH PLAZA",
+   "number": "65",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "62 - Commercial Boulevard",
+   "number": "62",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "58 - Sunrise Boulevard",
+   "number": "58",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "53 - Griffin Road",
+   "number": "53",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "49 - Hollywood Boulevard",
+   "number": "49",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "47 - County Line Road",
+   "number": "47",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "47 - NW 27th Ave from TPK North",
+   "number": "47",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "47 - MIRAMAR PLAZA",
+   "number": "47",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "2X - Dolphin Center",
+   "number": "2X",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "0X - GOLDEN GLADES PLAZA",
+   "number": "0X",
+   "road": "Turnpike Mainline (SR 91)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "20 - DEERFIELD PLAZA",
+   "number": "20",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "19 - Lyons Road",
+   "number": "19",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 0.86,
+    "4_axle": 0.86,
+    "5_axle": 0.86,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 1.16,
+    "4_axle": 1.16,
+    "5_axle": 1.16,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "18-A/B - US 441 (SR 7)",
+   "number": "18-A/B",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 0.58,
+    "4_axle": 0.58,
+    "5_axle": 0.58,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 0.86,
+    "4_axle": 0.86,
+    "5_axle": 0.86,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "15 - University Drive",
+   "number": "15",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.28,
+    "4_axle": 0.28,
+    "5_axle": 0.28,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 0.58,
+    "4_axle": 0.58,
+    "5_axle": 0.58,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "11 - Sample Road",
+   "number": "11",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.28,
+    "4_axle": 0.28,
+    "5_axle": 0.28,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 0.58,
+    "4_axle": 0.58,
+    "5_axle": 0.58,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "8 - Atlantic Boulevard",
+   "number": "8",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 0.58,
+    "4_axle": 0.58,
+    "5_axle": 0.58,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 0.86,
+    "4_axle": 0.86,
+    "5_axle": 0.86,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "5 - Commercial Boulevard",
+   "number": "5",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 0.58,
+    "4_axle": 0.58,
+    "5_axle": 0.58,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 0.86,
+    "4_axle": 0.86,
+    "5_axle": 0.86,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "3 - Oakland Park Boulevard",
+   "number": "3",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 0.86,
+    "4_axle": 0.86,
+    "5_axle": 0.86,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 1.16,
+    "4_axle": 1.16,
+    "5_axle": 1.16,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "1B - Pat Salerno Drive",
+   "number": "1B",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "1B - SUNRISE PLAZA",
+   "number": "1B",
+   "road": "Sawgrass Expressway (SR 869)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "25 - EAST TOLL PLAZA",
+   "number": "25",
+   "road": "Alligator Alley (Everglades Parkway)",
+   "plaza_type": "mainline",
+   "effective": "2026-08-03",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 3.18,
+    "3_axle": 6.36,
+    "4_axle": 9.54,
+    "5_axle": 12.72,
+    "additional_axle": 3.18
+   },
+   "toll_by_plate": {
+    "2_axle": 3.51,
+    "3_axle": 7.02,
+    "4_axle": 10.53,
+    "5_axle": 14.04,
+    "additional_axle": 3.51
+   }
+  },
+  {
+   "name": "100 - WEST TOLL PLAZA",
+   "number": "100",
+   "road": "Alligator Alley (Everglades Parkway)",
+   "plaza_type": "mainline",
+   "effective": "2026-08-03",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/07/South-Florida-8-3-2026.pdf",
+   "sunpass": {
+    "2_axle": 3.18,
+    "3_axle": 6.36,
+    "4_axle": 9.54,
+    "5_axle": 12.72,
+    "additional_axle": 3.18
+   },
+   "toll_by_plate": {
+    "2_axle": 3.51,
+    "3_axle": 7.02,
+    "4_axle": 10.53,
+    "5_axle": 14.04,
+    "additional_axle": 3.51
+   }
+  },
+  {
+   "name": "12 - Hutchison Road",
+   "number": "12",
+   "road": "Veterans Expressway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "11 - SUGARWOOD PLAZA",
+   "number": "11",
+   "road": "Veterans Expressway (SR 589)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "9 - Gunn Highway",
+   "number": "9",
+   "road": "Veterans Expressway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "8 - Wilsky Boulevard",
+   "number": "8",
+   "road": "Veterans Expressway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "6 - ANDERSON PLAZA",
+   "number": "6",
+   "road": "Veterans Expressway (SR 589)",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "6B - Anderson Road",
+   "number": "6B",
+   "road": "Veterans Expressway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "6A - Waters Avenue",
+   "number": "6A",
+   "road": "Veterans Expressway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "4 - Hillsborough Avenue",
+   "number": "4",
+   "road": "Veterans Expressway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "68 - SR 44",
+   "number": "68",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "65 - LECANTO PLAZA",
+   "number": "65",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "mainline",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "57 - SUGARMILL PLAZA",
+   "number": "57",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "mainline",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "49 - OAK HAMMOCK PLAZA",
+   "number": "49",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "mainline",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "46 - SR 50",
+   "number": "46",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "37 - CR 578 (County Line Rd.)",
+   "number": "37",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "32 - SPRING HILL PLAZA",
+   "number": "32",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "mainline",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "25 - Ridge Road",
+   "number": "25",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "21 - ANCLOTE PLAZA",
+   "number": "21",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "mainline",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "19 - SR 54",
+   "number": "19",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "14 - Van Dyke Road",
+   "number": "14",
+   "road": "Suncoast Parkway (SR 589)",
+   "plaza_type": "ramp",
+   "effective": "2025-08-25",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "23 - Pace Road",
+   "number": "23",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "ramp",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "20 - Braddock Road",
+   "number": "20",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "ramp",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "19 - EASTERN PLAZA",
+   "number": "19",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "mainline",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "18 - CR 546 (Old Dixie Hwy)",
+   "number": "18",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "ramp",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "16 - WINTER LAKE PLAZA",
+   "number": "16",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "mainline",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "13 - CENTRAL PLAZA",
+   "number": "13",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "mainline",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "9 - Lakeland Highlands Rd.",
+   "number": "9",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "ramp",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "8 - WESTERN PLAZA",
+   "number": "8",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "mainline",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.45,
+    "3_axle": 2.9,
+    "4_axle": 4.35,
+    "5_axle": 5.8,
+    "additional_axle": 1.45
+   }
+  },
+  {
+   "name": "7 - South Florida Avenue",
+   "number": "7",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "ramp",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "5 - Harden Boulevard",
+   "number": "5",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "ramp",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "4 - Waring Road",
+   "number": "4",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "ramp",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   }
+  },
+  {
+   "name": "3 - Airport Road",
+   "number": "3",
+   "road": "Polk Parkway (SR 570)",
+   "plaza_type": "ramp",
+   "effective": "2024-03-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "0.4 - MAINLINE PLAZA (S-Move)",
+   "number": "0.4",
+   "road": "I-4 Connector",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.13,
+    "3_axle": 2.26,
+    "4_axle": 3.39,
+    "5_axle": 4.52,
+    "additional_axle": 1.13
+   },
+   "toll_by_plate": {
+    "2_axle": 1.41,
+    "3_axle": 2.82,
+    "4_axle": 4.23,
+    "5_axle": 5.64,
+    "additional_axle": 1.41
+   }
+  },
+  {
+   "name": "0.4 - MAINLINE PLAZA (Z-Move)",
+   "number": "0.4",
+   "road": "I-4 Connector",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.57,
+    "3_axle": 1.14,
+    "4_axle": 1.71,
+    "5_axle": 2.28,
+    "additional_axle": 0.57
+   },
+   "toll_by_plate": {
+    "2_axle": 0.84,
+    "3_axle": 1.68,
+    "4_axle": 2.52,
+    "5_axle": 3.36,
+    "additional_axle": 0.84
+   }
+  },
+  {
+   "name": "0.4 - MAINLINE PLAZA (T-Move)",
+   "number": "0.4",
+   "road": "I-4 Connector",
+   "plaza_type": "mainline",
+   "effective": "2023-07-01",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.13,
+    "3_axle": 1.13,
+    "4_axle": 1.13,
+    "5_axle": 1.13,
+    "additional_axle": null
+   },
+   "toll_by_plate": {
+    "2_axle": 1.41,
+    "3_axle": 1.41,
+    "4_axle": 1.41,
+    "5_axle": 1.41,
+    "additional_axle": null
+   }
+  },
+  {
+   "name": "15 - NORTH PLAZA",
+   "number": "15",
+   "road": "Sunshine Skyway Bridge (I-275)",
+   "plaza_type": "mainline",
+   "effective": "2026-04-12",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.62,
+    "3_axle": 3.24,
+    "4_axle": 4.86,
+    "5_axle": 6.48,
+    "additional_axle": 1.62
+   }
+  },
+  {
+   "name": "6 - SOUTH PLAZA",
+   "number": "6",
+   "road": "Sunshine Skyway Bridge (I-275)",
+   "plaza_type": "mainline",
+   "effective": "2026-04-12",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   },
+   "toll_by_plate": {
+    "2_axle": 1.62,
+    "3_axle": 3.24,
+    "4_axle": 4.86,
+    "5_axle": 6.48,
+    "additional_axle": 1.62
+   }
+  },
+  {
+   "name": "1 - PINELLAS BAYWAY II (WEST PLAZA)",
+   "number": "1",
+   "road": "Pinellas Bayway System (SR 682 and SR 679)",
+   "plaza_type": "mainline",
+   "effective": "2023-09-22",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 1.08,
+    "3_axle": 2.16,
+    "4_axle": 3.24,
+    "5_axle": 4.32,
+    "additional_axle": 1.08
+   }
+  },
+  {
+   "name": "3 - PINELLAS BAYWAY I (EAST PLAZA)",
+   "number": "3",
+   "road": "Pinellas Bayway System (SR 682 and SR 679)",
+   "plaza_type": "mainline",
+   "effective": "2023-09-22",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   },
+   "toll_by_plate": {
+    "2_axle": 1.08,
+    "3_axle": 2.16,
+    "4_axle": 3.24,
+    "5_axle": 4.32,
+    "additional_axle": 1.08
+   }
+  },
+  {
+   "name": "6 - PINELLAS BAYWAY IV (SOUTH PLAZA)",
+   "number": "6",
+   "road": "Pinellas Bayway System (SR 682 and SR 679)",
+   "plaza_type": "mainline",
+   "effective": "2023-09-22",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.81,
+    "3_axle": 1.62,
+    "4_axle": 2.43,
+    "5_axle": 3.24,
+    "additional_axle": 0.81
+   }
+  },
+  {
+   "name": "2 - GATEWAY PLAZA",
+   "number": "2",
+   "road": "Pinellas Bayway System (SR 690 and SR 686A)",
+   "plaza_type": "mainline",
+   "effective": "2024-05-03",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.86,
+    "3_axle": 1.72,
+    "4_axle": 2.58,
+    "5_axle": 3.44,
+    "additional_axle": 0.86
+   },
+   "toll_by_plate": {
+    "2_axle": 1.16,
+    "3_axle": 2.32,
+    "4_axle": 3.48,
+    "5_axle": 4.64,
+    "additional_axle": 1.16
+   }
+  },
+  {
+   "name": "6 - Roosevelt Blvd.",
+   "number": "6",
+   "road": "Pinellas Bayway System (SR 690 and SR 686A)",
+   "plaza_type": "ramp",
+   "effective": "2024-05-03",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/04/West-Central-Florida-4-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.28,
+    "3_axle": 0.56,
+    "4_axle": 0.84,
+    "5_axle": 1.12,
+    "additional_axle": 0.28
+   },
+   "toll_by_plate": {
+    "2_axle": 0.58,
+    "3_axle": 1.16,
+    "4_axle": 1.74,
+    "5_axle": 2.32,
+    "additional_axle": 0.58
+   }
+  },
+  {
+   "name": "43 - POW-MIA PARKWAY PLAZA",
+   "number": "43",
+   "road": "First Coast Expressway",
+   "plaza_type": "mainline",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.22,
+    "3_axle": 0.44,
+    "4_axle": 0.66,
+    "5_axle": 0.88,
+    "additional_axle": 0.22
+   },
+   "toll_by_plate": {
+    "2_axle": 0.49,
+    "3_axle": 0.98,
+    "4_axle": 1.47,
+    "5_axle": 1.96,
+    "additional_axle": 0.49
+   }
+  },
+  {
+   "name": "42 - NORMANDY PLAZA",
+   "number": "42",
+   "road": "First Coast Expressway",
+   "plaza_type": "mainline",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.22,
+    "3_axle": 0.44,
+    "4_axle": 0.66,
+    "5_axle": 0.88,
+    "additional_axle": 0.22
+   },
+   "toll_by_plate": {
+    "2_axle": 0.49,
+    "3_axle": 0.98,
+    "4_axle": 1.47,
+    "5_axle": 1.96,
+    "additional_axle": 0.49
+   }
+  },
+  {
+   "name": "38 - ARGYLE FOREST PLAZA",
+   "number": "38",
+   "road": "First Coast Expressway",
+   "plaza_type": "mainline",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.65,
+    "3_axle": 1.3,
+    "4_axle": 1.95,
+    "5_axle": 2.6,
+    "additional_axle": 0.65
+   },
+   "toll_by_plate": {
+    "2_axle": 0.92,
+    "3_axle": 1.84,
+    "4_axle": 2.76,
+    "5_axle": 3.68,
+    "additional_axle": 0.92
+   }
+  },
+  {
+   "name": "36 - PLANTATION PLAZA",
+   "number": "36",
+   "road": "First Coast Expressway",
+   "plaza_type": "mainline",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.65,
+    "3_axle": 1.3,
+    "4_axle": 1.95,
+    "5_axle": 2.6,
+    "additional_axle": 0.65
+   },
+   "toll_by_plate": {
+    "2_axle": 0.92,
+    "3_axle": 1.84,
+    "4_axle": 2.76,
+    "5_axle": 3.68,
+    "additional_axle": 0.92
+   }
+  },
+  {
+   "name": "33 - TRAIL RIDGE PLAZA",
+   "number": "33",
+   "road": "First Coast Expressway",
+   "plaza_type": "mainline",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.65,
+    "3_axle": 1.3,
+    "4_axle": 1.95,
+    "5_axle": 2.6,
+    "additional_axle": 0.65
+   },
+   "toll_by_plate": {
+    "2_axle": 0.92,
+    "3_axle": 1.84,
+    "4_axle": 2.76,
+    "5_axle": 3.68,
+    "additional_axle": 0.92
+   }
+  },
+  {
+   "name": "28 - Henley Road",
+   "number": "28",
+   "road": "First Coast Expressway",
+   "plaza_type": "ramp",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.65,
+    "3_axle": 1.3,
+    "4_axle": 1.95,
+    "5_axle": 2.6,
+    "additional_axle": 0.65
+   },
+   "toll_by_plate": {
+    "2_axle": 0.92,
+    "3_axle": 1.84,
+    "4_axle": 2.76,
+    "5_axle": 3.68,
+    "additional_axle": 0.92
+   }
+  },
+  {
+   "name": "24 - SANDRIDGE PLAZA",
+   "number": "24",
+   "road": "First Coast Expressway",
+   "plaza_type": "mainline",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 1.62,
+    "3_axle": 3.24,
+    "4_axle": 4.86,
+    "5_axle": 6.48,
+    "additional_axle": 1.62
+   },
+   "toll_by_plate": {
+    "2_axle": 1.89,
+    "3_axle": 3.78,
+    "4_axle": 5.67,
+    "5_axle": 7.56,
+    "additional_axle": 1.89
+   }
+  },
+  {
+   "name": "23 - CR 218",
+   "number": "23",
+   "road": "First Coast Expressway",
+   "plaza_type": "ramp",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.65,
+    "3_axle": 1.3,
+    "4_axle": 1.95,
+    "5_axle": 2.6,
+    "additional_axle": 0.65
+   },
+   "toll_by_plate": {
+    "2_axle": 0.92,
+    "3_axle": 1.84,
+    "4_axle": 2.76,
+    "5_axle": 3.68,
+    "additional_axle": 0.92
+   }
+  },
+  {
+   "name": "20 - S.R. 16",
+   "number": "20",
+   "road": "First Coast Expressway",
+   "plaza_type": "ramp",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.65,
+    "3_axle": 1.3,
+    "4_axle": 1.95,
+    "5_axle": 2.6,
+    "additional_axle": 0.65
+   },
+   "toll_by_plate": {
+    "2_axle": 0.92,
+    "3_axle": 1.84,
+    "4_axle": 2.76,
+    "5_axle": 3.68,
+    "additional_axle": 0.92
+   }
+  },
+  {
+   "name": "13 - GREEN COVE PLAZA",
+   "number": "13",
+   "road": "First Coast Expressway",
+   "plaza_type": "mainline",
+   "effective": "2026-06-29",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2026/06/North_East_Florida-6-2026.pdf",
+   "sunpass": {
+    "2_axle": 0.65,
+    "3_axle": 1.3,
+    "4_axle": 1.95,
+    "5_axle": 2.6,
+    "additional_axle": 0.65
+   },
+   "toll_by_plate": {
+    "2_axle": 0.92,
+    "3_axle": 1.84,
+    "4_axle": 2.76,
+    "5_axle": 3.68,
+    "additional_axle": 0.92
+   }
+  },
+  {
+   "name": "5 - GARCON POINT PLAZA",
+   "number": "5",
+   "road": "Garcon Point Bridge",
+   "plaza_type": "mainline",
+   "effective": "2025-09-28",
+   "source": "https://floridasturnpike.com/wp-content/uploads/2025/09/Panhandle-9-2025.pdf",
+   "sunpass": {
+    "2_axle": 2.3,
+    "3_axle": 4.6,
+    "4_axle": 6.9,
+    "5_axle": 9.2,
+    "additional_axle": 2.3
+   },
+   "toll_by_plate": {
+    "2_axle": 2.75,
+    "3_axle": 5.5,
+    "4_axle": 8.25,
+    "5_axle": 11.0,
+    "additional_axle": 2.75
+   }
+  }
+ ]
+}

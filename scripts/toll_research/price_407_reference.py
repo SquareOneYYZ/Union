@@ -18,8 +18,10 @@ Usage:
 """
 import argparse
 import datetime as dt
+from decimal import Decimal, ROUND_HALF_UP
 import json
 import os
+import re
 import sys
 
 CARD = os.path.join("docs", "toll-pricing", "data", "rate-cards",
@@ -30,12 +32,23 @@ BAND_START = {
     "5 a.m.": (5, 0), "7 a.m.": (7, 0), "9:30 a.m.": (9, 30), "10:30 a.m.": (10, 30),
     "2:30 p.m.": (14, 30), "3:30 p.m.": (15, 30), "6 p.m.": (18, 0), "9 p.m.": (21, 0),
     "8:30 a.m.": (8, 30), "10 a.m.": (10, 0), "7 p.m.": (19, 0),
+    "12:30 p.m.": (12, 30),                     # weekday band new in 2027
 }
 
 
 def load_card(path=CARD):
     with open(path) as fh:
         return json.load(fh)
+
+
+def camera_fee(card):
+    """The per-trip camera charge as the card's fee table states it ($5.30 in 2026, $5.40 in 2027)."""
+    for fee in card["fees"]:
+        if fee["name"].startswith("Camera Charge"):
+            m = re.search(r"\$(\d+(?:\.\d+)?) per trip", fee["without_transponder"])
+            if m:
+                return Decimal(m.group(1))
+    sys.exit("card has no per-trip Camera Charge")
 
 
 def resolve_band(card, entry_local, day_type):
@@ -58,19 +71,23 @@ def price(card, entry_local, direction, zone_km, is_holiday=False):
     lookup = {(r["zone_code"], r["direction"], r["day_type"], r["band_start_local"]):
               r["rate_cents_per_km"] for r in card["rates"]}
 
-    lines, distance_total = [], 0.0
+    # Exact decimal, rounded half-up once on the distance component and once on the total -
+    # the same arithmetic as DistanceZonedEstimator. Binary floats put exact half-cent ties
+    # (3.0 km x 66.5 c = $1.995) on either side of the tie at random.
+    cent = Decimal("0.01")
+    lines, distance_total = [], Decimal(0)
     for zone, km in zone_km.items():
         key = (zone, direction, day_type, band)
         if key not in lookup:
             sys.exit(f"no rate for {key} - rate card does not cover this combination")
         rate = lookup[key]
-        amount = km * rate / 100.0
+        amount = Decimal(repr(km)) * Decimal(repr(rate)) / 100
         distance_total += amount
         lines.append({"zone": zone, "km": km, "rate_cents_per_km": rate,
-                      "amount": round(amount, 2)})
+                      "amount": float(amount.quantize(cent, ROUND_HALF_UP))})
 
-    trip_charge = 1.00                              # applies to ALL customers, per entry
-    camera_charge = 5.30                            # plate-billed only - our fleet
+    trip_charge = Decimal("1.00")                   # applies to ALL customers, per entry
+    camera_charge = camera_fee(card)                # plate-billed only - our fleet
     total = distance_total + trip_charge + camera_charge
 
     return {
@@ -82,10 +99,10 @@ def price(card, entry_local, direction, zone_km, is_holiday=False):
         "vehicle_class": "light",
         "payment_method": "license_plate",
         "zone_lines": lines,
-        "distance_component": round(distance_total, 2),
-        "trip_toll_charge": trip_charge,
-        "camera_charge": camera_charge,
-        "total_cad": round(total, 2),
+        "distance_component": float(distance_total.quantize(cent, ROUND_HALF_UP)),
+        "trip_toll_charge": float(trip_charge),
+        "camera_charge": float(camera_charge),
+        "total_cad": float(total.quantize(cent, ROUND_HALF_UP)),
         "rate_card": {"valid_from": card["valid_from"], "source_url": card["source_url"]},
     }
 
@@ -96,6 +113,7 @@ def main():
     ap.add_argument("--direction", required=True, choices=["eastbound", "westbound"])
     ap.add_argument("--zones", required=True, help="Z6=4.1,Z7=5.2,Z8=3.7 (km per zone)")
     ap.add_argument("--holiday", action="store_true", help="Ontario statutory holiday")
+    ap.add_argument("--card", help="rate card JSON (default: 407-etr-<entry year>-light.json)")
     args = ap.parse_args()
 
     zone_km = {}
@@ -103,8 +121,12 @@ def main():
         z, _, km = part.partition("=")
         zone_km[z.strip()] = float(km)
 
-    result = price(load_card(), dt.datetime.fromisoformat(args.entry),
-                   args.direction, zone_km, args.holiday)
+    entry = dt.datetime.fromisoformat(args.entry)
+    card_path = args.card or os.path.join(os.path.dirname(CARD), f"407-etr-{entry.year}-light.json")
+    card = load_card(card_path)
+    if not card["valid_from"][:4] == str(entry.year) or entry.date() < dt.date.fromisoformat(card["valid_from"]):
+        sys.exit(f"entry {entry.date()} is not in the rate year of {card_path} (valid_from {card['valid_from']})")
+    result = price(card, entry, args.direction, zone_km, args.holiday)
     print(json.dumps(result, indent=2))
 
 

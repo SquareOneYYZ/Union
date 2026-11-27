@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd"
+        logicalFilePath="changelog-6.7.1">
+
+    <!--
+        Toll pricing (docs/toll-pricing/22, 23): one row per detected toll exit, written complete by
+        TaskTollPricing from the enter/exit events. Detection never writes here. A NULL amount means
+        the price is unknown and reason says why; it is never zero.
+    -->
+    <changeSet author="author" id="changelog-6.7.1-create-toll-traversal">
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="tc_toll_traversal"/>
+            </not>
+        </preConditions>
+
+        <createTable tableName="tc_toll_traversal">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="deviceid" type="BIGINT">
+                <constraints nullable="false" />
+            </column>
+            <column name="facilityid" type="VARCHAR(64)" />
+            <column name="entereventid" type="BIGINT" />
+            <column name="exiteventid" type="BIGINT">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_toll_traversal_exitevent" />
+            </column>
+            <column name="enterpositionid" type="BIGINT" />
+            <column name="exitpositionid" type="BIGINT" />
+            <column name="entertime" type="DATETIME" />
+            <column name="exittime" type="DATETIME" />
+            <column name="enterlatitude" type="DOUBLE" />
+            <column name="enterlongitude" type="DOUBLE" />
+            <column name="exitlatitude" type="DOUBLE" />
+            <column name="exitlongitude" type="DOUBLE" />
+            <column name="distance" type="DOUBLE" />
+            <column name="direction" type="VARCHAR(16)" />
+            <column name="daytype" type="VARCHAR(32)" />
+            <column name="band" type="VARCHAR(32)" />
+            <column name="vehicleclass" type="VARCHAR(32)" />
+            <column name="paymentmethod" type="VARCHAR(32)" />
+            <column name="amount" type="DECIMAL(10,2)" />
+            <column name="currency" type="VARCHAR(3)" />
+            <column name="reason" type="VARCHAR(32)" />
+            <column name="calcversion" type="INT">
+                <constraints nullable="false" />
+            </column>
+            <column name="cardvalidfrom" type="VARCHAR(16)" />
+            <column name="pricedat" type="DATETIME">
+                <constraints nullable="false" />
+            </column>
+            <column name="mergedintoid" type="BIGINT" />
+            <column name="inputs" type="TEXT" />
+        </createTable>
+
+        <createIndex tableName="tc_toll_traversal" indexName="idx_toll_traversal_device_entertime">
+            <column name="deviceid" />
+            <column name="entertime" />
+        </createIndex>
+
+        <!-- GET /api/tolltraversals and the IoT API select and order a device's rows by exit time
+             (an exit without an enter has no entertime). -->
+        <createIndex tableName="tc_toll_traversal" indexName="idx_toll_traversal_device_exittime">
+            <column name="deviceid" />
+            <column name="exittime" />
+        </createIndex>
+
+        <createIndex tableName="tc_toll_traversal" indexName="idx_toll_traversal_facility_entertime">
+            <column name="facilityid" />
+            <column name="entertime" />
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>

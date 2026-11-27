@@ -83,6 +83,7 @@ dependencies {
     implementation "org.mnode.ical4j:ical4j:4.0.8"
     implementation "org.locationtech.spatial4j:spatial4j:0.8"
     implementation "org.locationtech.jts:jts-core:1.20.0"
+    implementation "de.focus-shift:jollyday-jaxb:2.22.1" // holiday date rules for toll rate cards
     implementation "net.java.dev.jna:jna-platform:5.16.0"
     implementation "com.github.jnr:jnr-posix:3.1.20"
     implementation "com.google.protobuf:protobuf-java:$protobufVersion"
@@ -126,6 +127,26 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+// Toll rate cards ship inside the jar, from their single sourced copy (docs/toll-pricing/23, Gap 10).
+processResources {
+    from('docs/toll-pricing/data/rate-cards') {
+        include '*.json'
+        into 'toll-pricing/cards'
+    }
+    from('docs/toll-pricing/data') {
+        include 'facilities.json'
+        into 'toll-pricing'
+    }
+    from('docs/toll-pricing/data/gantries') {
+        include '*.json'
+        into 'toll-pricing/gantries'
+    }
+    from('docs/toll-pricing/data/corridors') {
+        include '*.json'
+        into 'toll-pricing/corridors'
+    }
 }
 
 tasks.register('copyDependencies', Copy) {

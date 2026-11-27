@@ -1,0 +1,3186 @@
+{
+ "facility": "Illinois Tollway",
+ "operator": "Illinois State Toll Highway Authority",
+ "country": "US",
+ "region": "IL",
+ "currency": "USD",
+ "rate_model_type": "flat",
+ "rate_model_note": "Flat amount per plaza. NOT distance-based. Passenger rates have no time-of-day or day-of-week variation; truck rates are daytime/overnight.",
+ "valid_from": "2027-01-01",
+ "valid_to": null,
+ "reprices_on": "1 January 2027 (board vote 2026-08-19); then every two years from 2029 by CPI-U, max 8%",
+ "source_url": "https://agency.illinoistollway.com/toll-rates",
+ "source_type": "published",
+ "source_note": "The rates page embeds the '2027 Toll Rates by Plaza' table as JSON. Every passenger I-PASS / Pay By Plate / Invoice rate was checked equal, by plaza number, to the board-approved PDF https://agency.illinoistollway.com/documents/d/guest/2026-06_proposedrates-1 (titled 'Proposed', linked as '2027 Toll Rates').",
+ "payment_premium_note": "Pay By Plate is 1.5x I-PASS and Invoice 2x (rounded to the nickel).",
+ "plazas": [
+  {
+   "name": "South Beloit",
+   "number": "1",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.5,
+    "small_daytime": 5.25,
+    "medium_daytime": 7.85,
+    "large_daytime": 13.75,
+    "small_overnight": 3.45,
+    "medium_overnight": 6.0,
+    "large_overnight": 10.3
+   },
+   "pay_by_plate": {
+    "passenger": 2.25,
+    "small_daytime": 7.9,
+    "medium_daytime": 11.8,
+    "large_daytime": 20.65,
+    "small_overnight": 5.2,
+    "medium_overnight": 9.0,
+    "large_overnight": 15.45
+   },
+   "invoice": {
+    "passenger": 3.0,
+    "small_daytime": 10.5,
+    "medium_daytime": 15.7,
+    "large_daytime": 27.5,
+    "small_overnight": 6.9,
+    "medium_overnight": 12.0,
+    "large_overnight": 20.6
+   }
+  },
+  {
+   "name": "East Riverside Boulevard",
+   "number": "2",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Genoa Road (EB Exit)",
+   "number": "3",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Genoa Road (WB Exit)",
+   "number": "3",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Illinois 173",
+   "number": "4",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Irene Road",
+   "number": "5A",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Belvidere",
+   "number": "5",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 2.4,
+    "small_daytime": 8.25,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.65,
+    "large_overnight": 16.5
+   },
+   "pay_by_plate": {
+    "passenger": 3.6,
+    "small_daytime": 12.4,
+    "medium_daytime": 18.6,
+    "large_daytime": 33.0,
+    "small_overnight": 8.25,
+    "medium_overnight": 14.5,
+    "large_overnight": 24.75
+   },
+   "invoice": {
+    "passenger": 4.8,
+    "small_daytime": 16.5,
+    "medium_daytime": 24.8,
+    "large_daytime": 44.0,
+    "small_overnight": 11.0,
+    "medium_overnight": 19.3,
+    "large_overnight": 33.0
+   }
+  },
+  {
+   "name": "Illinois 47 (EB Exit/WB Entrance)",
+   "number": "6",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Illinois 47 (EB Entrance/WB Exit)",
+   "number": "6",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.5,
+    "small_daytime": 1.65,
+    "medium_daytime": 2.3,
+    "large_daytime": 4.15,
+    "small_overnight": 1.1,
+    "medium_overnight": 1.9,
+    "large_overnight": 3.2
+   },
+   "pay_by_plate": {
+    "passenger": 0.75,
+    "small_daytime": 2.5,
+    "medium_daytime": 3.45,
+    "large_daytime": 6.25,
+    "small_overnight": 1.65,
+    "medium_overnight": 2.85,
+    "large_overnight": 4.8
+   },
+   "invoice": {
+    "passenger": 1.0,
+    "small_daytime": 3.3,
+    "medium_daytime": 4.6,
+    "large_daytime": 8.3,
+    "small_overnight": 2.2,
+    "medium_overnight": 3.8,
+    "large_overnight": 6.4
+   }
+  },
+  {
+   "name": "Illinois 23",
+   "number": "7A",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Marengo-Hampshire",
+   "number": "7",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 2.4,
+    "small_daytime": 8.25,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.65,
+    "large_overnight": 16.5
+   },
+   "pay_by_plate": {
+    "passenger": 3.6,
+    "small_daytime": 12.4,
+    "medium_daytime": 18.6,
+    "large_daytime": 33.0,
+    "small_overnight": 8.25,
+    "medium_overnight": 14.5,
+    "large_overnight": 24.75
+   },
+   "invoice": {
+    "passenger": 4.8,
+    "small_daytime": 16.5,
+    "medium_daytime": 24.8,
+    "large_daytime": 44.0,
+    "small_overnight": 11.0,
+    "medium_overnight": 19.3,
+    "large_overnight": 33.0
+   }
+  },
+  {
+   "name": "Randall Road",
+   "number": "8",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Elgin",
+   "number": "9",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Barrington Rd (EB Ent/WB Exit)",
+   "number": "10",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Barrington Rd (EB Exit/WB Ent)",
+   "number": "10",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Illinois Route 31",
+   "number": "11",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Roselle Road (EB Entrance/WB Exit)",
+   "number": "12",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Roselle Road (EB Exit/WB Entrance)",
+   "number": "12",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Meacham Road",
+   "number": "12A",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Illinois Route 25",
+   "number": "13",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Illinois Route 59 Westbound Exit",
+   "number": "16A",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Illinois Route 59 Eastbound Exit",
+   "number": "14",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.5,
+    "small_daytime": 1.65,
+    "medium_daytime": 2.3,
+    "large_daytime": 4.15,
+    "small_overnight": 1.1,
+    "medium_overnight": 1.9,
+    "large_overnight": 3.2
+   },
+   "pay_by_plate": {
+    "passenger": 0.75,
+    "small_daytime": 2.5,
+    "medium_daytime": 3.45,
+    "large_daytime": 6.25,
+    "small_overnight": 1.65,
+    "medium_overnight": 2.85,
+    "large_overnight": 4.8
+   },
+   "invoice": {
+    "passenger": 1.0,
+    "small_daytime": 3.3,
+    "medium_daytime": 4.6,
+    "large_daytime": 8.3,
+    "small_overnight": 2.2,
+    "medium_overnight": 3.8,
+    "large_overnight": 6.4
+   }
+  },
+  {
+   "name": "I-290, Illinois Route 53",
+   "number": "15",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.5,
+    "small_daytime": 1.65,
+    "medium_daytime": 2.3,
+    "large_daytime": 4.15,
+    "small_overnight": 1.1,
+    "medium_overnight": 1.9,
+    "large_overnight": 3.2
+   },
+   "pay_by_plate": {
+    "passenger": 0.75,
+    "small_daytime": 2.5,
+    "medium_daytime": 3.45,
+    "large_daytime": 6.25,
+    "small_overnight": 1.65,
+    "medium_overnight": 2.85,
+    "large_overnight": 4.8
+   },
+   "invoice": {
+    "passenger": 1.0,
+    "small_daytime": 3.3,
+    "medium_daytime": 4.6,
+    "large_daytime": 8.3,
+    "small_overnight": 2.2,
+    "medium_overnight": 3.8,
+    "large_overnight": 6.4
+   }
+  },
+  {
+   "name": "Beverly Road",
+   "number": "16B",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Devon Avenue",
+   "number": "17",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Arlington Heights Road",
+   "number": "18",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Elmhurst Road (EB Exit/WB Ent)",
+   "number": "18A",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "River Road",
+   "number": "19",
+   "road": "Jane Addams Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Buckley Road (Illinois 137)",
+   "number": "20",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Waukegan",
+   "number": "21",
+   "road": "Tri-State Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 2.25,
+    "small_daytime": 7.85,
+    "medium_daytime": 11.7,
+    "large_daytime": 20.65,
+    "small_overnight": 5.25,
+    "medium_overnight": 9.1,
+    "large_overnight": 15.55
+   },
+   "pay_by_plate": {
+    "passenger": 3.4,
+    "small_daytime": 11.8,
+    "medium_daytime": 17.55,
+    "large_daytime": 31.0,
+    "small_overnight": 7.9,
+    "medium_overnight": 13.65,
+    "large_overnight": 23.35
+   },
+   "invoice": {
+    "passenger": 4.5,
+    "small_daytime": 15.7,
+    "medium_daytime": 23.4,
+    "large_daytime": 41.3,
+    "small_overnight": 10.5,
+    "medium_overnight": 18.2,
+    "large_overnight": 31.1
+   }
+  },
+  {
+   "name": "Townline Rd (Illinois 60)",
+   "number": "22",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Half Day Road (Illinois 22)",
+   "number": "23",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Edens Spur",
+   "number": "24",
+   "road": "Tri-State Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.5,
+    "small_daytime": 5.25,
+    "medium_daytime": 7.85,
+    "large_daytime": 13.75,
+    "small_overnight": 3.45,
+    "medium_overnight": 6.0,
+    "large_overnight": 10.3
+   },
+   "pay_by_plate": {
+    "passenger": 2.25,
+    "small_daytime": 7.9,
+    "medium_daytime": 11.8,
+    "large_daytime": 20.65,
+    "small_overnight": 5.2,
+    "medium_overnight": 9.0,
+    "large_overnight": 15.45
+   },
+   "invoice": {
+    "passenger": 3.0,
+    "small_daytime": 10.5,
+    "medium_daytime": 15.7,
+    "large_daytime": 27.5,
+    "small_overnight": 6.9,
+    "medium_overnight": 12.0,
+    "large_overnight": 20.6
+   }
+  },
+  {
+   "name": "Lake-Cook Road",
+   "number": "26",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.5,
+    "small_daytime": 5.25,
+    "medium_daytime": 7.85,
+    "large_daytime": 13.75,
+    "small_overnight": 3.45,
+    "medium_overnight": 6.0,
+    "large_overnight": 10.3
+   },
+   "pay_by_plate": {
+    "passenger": 2.25,
+    "small_daytime": 7.9,
+    "medium_daytime": 11.8,
+    "large_daytime": 20.65,
+    "small_overnight": 5.2,
+    "medium_overnight": 9.0,
+    "large_overnight": 15.45
+   },
+   "invoice": {
+    "passenger": 3.0,
+    "small_daytime": 10.5,
+    "medium_daytime": 15.7,
+    "large_daytime": 27.5,
+    "small_overnight": 6.9,
+    "medium_overnight": 12.0,
+    "large_overnight": 20.6
+   }
+  },
+  {
+   "name": "Willow Road",
+   "number": "27",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.5,
+    "small_daytime": 5.25,
+    "medium_daytime": 7.85,
+    "large_daytime": 13.75,
+    "small_overnight": 3.45,
+    "medium_overnight": 6.0,
+    "large_overnight": 10.3
+   },
+   "pay_by_plate": {
+    "passenger": 2.25,
+    "small_daytime": 7.9,
+    "medium_daytime": 11.8,
+    "large_daytime": 20.65,
+    "small_overnight": 5.2,
+    "medium_overnight": 9.0,
+    "large_overnight": 15.45
+   },
+   "invoice": {
+    "passenger": 3.0,
+    "small_daytime": 10.5,
+    "medium_daytime": 15.7,
+    "large_daytime": 27.5,
+    "small_overnight": 6.9,
+    "medium_overnight": 12.0,
+    "large_overnight": 20.6
+   }
+  },
+  {
+   "name": "Golf Road (Illinois 58)",
+   "number": "28",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.5,
+    "small_daytime": 5.25,
+    "medium_daytime": 7.85,
+    "large_daytime": 13.75,
+    "small_overnight": 3.45,
+    "medium_overnight": 6.0,
+    "large_overnight": 10.3
+   },
+   "pay_by_plate": {
+    "passenger": 2.25,
+    "small_daytime": 7.9,
+    "medium_daytime": 11.8,
+    "large_daytime": 20.65,
+    "small_overnight": 5.2,
+    "medium_overnight": 9.0,
+    "large_overnight": 15.45
+   },
+   "invoice": {
+    "passenger": 3.0,
+    "small_daytime": 10.5,
+    "medium_daytime": 15.7,
+    "large_daytime": 27.5,
+    "small_overnight": 6.9,
+    "medium_overnight": 12.0,
+    "large_overnight": 20.6
+   }
+  },
+  {
+   "name": "Touhy Avenue",
+   "number": "29",
+   "road": "Tri-State Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.5,
+    "small_daytime": 5.25,
+    "medium_daytime": 7.85,
+    "large_daytime": 13.75,
+    "small_overnight": 3.45,
+    "medium_overnight": 6.0,
+    "large_overnight": 10.3
+   },
+   "pay_by_plate": {
+    "passenger": 2.25,
+    "small_daytime": 7.9,
+    "medium_daytime": 11.8,
+    "large_daytime": 20.65,
+    "small_overnight": 5.2,
+    "medium_overnight": 9.0,
+    "large_overnight": 15.45
+   },
+   "invoice": {
+    "passenger": 3.0,
+    "small_daytime": 10.5,
+    "medium_daytime": 15.7,
+    "large_daytime": 27.5,
+    "small_overnight": 6.9,
+    "medium_overnight": 12.0,
+    "large_overnight": 20.6
+   }
+  },
+  {
+   "name": "Balmoral Northbound",
+   "number": "30",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.3,
+    "small_daytime": 5.25,
+    "medium_daytime": 7.85,
+    "large_daytime": 13.75,
+    "small_overnight": 3.45,
+    "medium_overnight": 6.0,
+    "large_overnight": 10.3
+   },
+   "pay_by_plate": {
+    "passenger": 1.95,
+    "small_daytime": 7.9,
+    "medium_daytime": 11.8,
+    "large_daytime": 20.65,
+    "small_overnight": 5.2,
+    "medium_overnight": 9.0,
+    "large_overnight": 15.45
+   },
+   "invoice": {
+    "passenger": 2.6,
+    "small_daytime": 10.5,
+    "medium_daytime": 15.7,
+    "large_daytime": 27.5,
+    "small_overnight": 6.9,
+    "medium_overnight": 12.0,
+    "large_overnight": 20.6
+   }
+  },
+  {
+   "name": "O'Hare West",
+   "number": "31",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "O'Hare East",
+   "number": "32",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Irving Park Road (Illinois 19)",
+   "number": "33",
+   "road": "Tri-State Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "County Line Road",
+   "number": "300",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.5,
+    "small_daytime": 1.65,
+    "medium_daytime": 2.3,
+    "large_daytime": 4.15,
+    "small_overnight": 1.1,
+    "medium_overnight": 1.9,
+    "large_overnight": 3.2
+   },
+   "pay_by_plate": {
+    "passenger": 0.75,
+    "small_daytime": 2.5,
+    "medium_daytime": 3.45,
+    "large_daytime": 6.25,
+    "small_overnight": 1.65,
+    "medium_overnight": 2.85,
+    "large_overnight": 4.8
+   },
+   "invoice": {
+    "passenger": 1.0,
+    "small_daytime": 3.3,
+    "medium_daytime": 4.6,
+    "large_daytime": 8.3,
+    "small_overnight": 2.2,
+    "medium_overnight": 3.8,
+    "large_overnight": 6.4
+   }
+  },
+  {
+   "name": "75th Street, Willow Springs Road",
+   "number": "34",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Cermak Road (22nd Street)",
+   "number": "35",
+   "road": "Tri-State Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "82nd Street",
+   "number": "36",
+   "road": "Tri-State Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "I-55 (Stevenson Expressway)",
+   "number": "37",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.5,
+    "small_daytime": 1.65,
+    "medium_daytime": 2.3,
+    "large_daytime": 4.15,
+    "small_overnight": 1.1,
+    "medium_overnight": 1.9,
+    "large_overnight": 3.2
+   },
+   "pay_by_plate": {
+    "passenger": 0.75,
+    "small_daytime": 2.5,
+    "medium_daytime": 3.45,
+    "large_daytime": 6.25,
+    "small_overnight": 1.65,
+    "medium_overnight": 2.85,
+    "large_overnight": 4.8
+   },
+   "invoice": {
+    "passenger": 1.0,
+    "small_daytime": 3.3,
+    "medium_daytime": 4.6,
+    "large_daytime": 8.3,
+    "small_overnight": 2.2,
+    "medium_overnight": 3.8,
+    "large_overnight": 6.4
+   }
+  },
+  {
+   "name": "U.S. 12-20, 95th Street",
+   "number": "38",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "83rd Street",
+   "number": "39",
+   "road": "Tri-State Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "U.S. 6, 159th Street",
+   "number": "40",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Markham Mainline",
+   "number": "41",
+   "road": "Tri-State Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "I-57/147th St (Illinois 83)",
+   "number": "42",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "I-80, Westbound",
+   "number": "43",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "I-80, Eastbound",
+   "number": "45",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Halsted Street (Illinois 1)",
+   "number": "47",
+   "road": "Tri-State Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.5,
+    "small_daytime": 1.65,
+    "medium_daytime": 2.3,
+    "large_daytime": 4.15,
+    "small_overnight": 1.1,
+    "medium_overnight": 1.9,
+    "large_overnight": 3.2
+   },
+   "pay_by_plate": {
+    "passenger": 0.75,
+    "small_daytime": 2.5,
+    "medium_daytime": 3.45,
+    "large_daytime": 6.25,
+    "small_overnight": 1.65,
+    "medium_overnight": 2.85,
+    "large_overnight": 4.8
+   },
+   "invoice": {
+    "passenger": 1.0,
+    "small_daytime": 3.3,
+    "medium_daytime": 4.6,
+    "large_daytime": 8.3,
+    "small_overnight": 2.2,
+    "medium_overnight": 3.8,
+    "large_overnight": 6.4
+   }
+  },
+  {
+   "name": "York Mainline",
+   "number": "51",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Meyers Mainline",
+   "number": "52",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Spring Road (22nd Street)",
+   "number": "53",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Illinois 83",
+   "number": "54",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Midwest Road",
+   "number": "55",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Highland Avenue",
+   "number": "56",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Naperville Road",
+   "number": "57",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.5,
+    "small_daytime": 1.65,
+    "medium_daytime": 2.3,
+    "large_daytime": 4.15,
+    "small_overnight": 1.1,
+    "medium_overnight": 1.9,
+    "large_overnight": 3.2
+   },
+   "pay_by_plate": {
+    "passenger": 0.75,
+    "small_daytime": 2.5,
+    "medium_daytime": 3.45,
+    "large_daytime": 6.25,
+    "small_overnight": 1.65,
+    "medium_overnight": 2.85,
+    "large_overnight": 4.8
+   },
+   "invoice": {
+    "passenger": 1.0,
+    "small_daytime": 3.3,
+    "medium_daytime": 4.6,
+    "large_daytime": 8.3,
+    "small_overnight": 2.2,
+    "medium_overnight": 3.8,
+    "large_overnight": 6.4
+   }
+  },
+  {
+   "name": "Winfield Road",
+   "number": "58",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.5,
+    "small_daytime": 1.65,
+    "medium_daytime": 2.3,
+    "large_daytime": 4.15,
+    "small_overnight": 1.1,
+    "medium_overnight": 1.9,
+    "large_overnight": 3.2
+   },
+   "pay_by_plate": {
+    "passenger": 0.75,
+    "small_daytime": 2.5,
+    "medium_daytime": 3.45,
+    "large_daytime": 6.25,
+    "small_overnight": 1.65,
+    "medium_overnight": 2.85,
+    "large_overnight": 4.8
+   },
+   "invoice": {
+    "passenger": 1.0,
+    "small_daytime": 3.3,
+    "medium_daytime": 4.6,
+    "large_daytime": 8.3,
+    "small_overnight": 2.2,
+    "medium_overnight": 3.8,
+    "large_overnight": 6.4
+   }
+  },
+  {
+   "name": "Farnsworth Avenue",
+   "number": "59",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Eola Road",
+   "number": "60",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Aurora Mainline",
+   "number": "61",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Illinois 31",
+   "number": "63",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Orchard Road",
+   "number": "64",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.95,
+    "large_daytime": 6.9,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.9,
+    "medium_daytime": 5.95,
+    "large_daytime": 10.35,
+    "small_overnight": 2.7,
+    "medium_overnight": 4.8,
+    "large_overnight": 7.9
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 5.2,
+    "medium_daytime": 7.9,
+    "large_daytime": 13.8,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.4,
+    "large_overnight": 10.5
+   }
+  },
+  {
+   "name": "Illinois 47 (I-88)",
+   "number": "64A",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 3.2,
+    "medium_daytime": 4.65,
+    "large_daytime": 8.25,
+    "small_overnight": 2.05,
+    "medium_overnight": 3.7,
+    "large_overnight": 6.2
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 4.8,
+    "medium_daytime": 7.0,
+    "large_daytime": 12.4,
+    "small_overnight": 3.1,
+    "medium_overnight": 5.55,
+    "large_overnight": 9.3
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 6.4,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.1,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   }
+  },
+  {
+   "name": "Peace Road",
+   "number": "65",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "DeKalb Mainline",
+   "number": "66",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 2.9,
+    "small_daytime": 9.9,
+    "medium_daytime": 14.7,
+    "large_daytime": 26.15,
+    "small_overnight": 6.6,
+    "medium_overnight": 11.5,
+    "large_overnight": 19.7
+   },
+   "pay_by_plate": {
+    "passenger": 4.35,
+    "small_daytime": 14.85,
+    "medium_daytime": 22.05,
+    "large_daytime": 39.25,
+    "small_overnight": 9.9,
+    "medium_overnight": 17.25,
+    "large_overnight": 29.55
+   },
+   "invoice": {
+    "passenger": 5.8,
+    "small_daytime": 19.8,
+    "medium_daytime": 29.4,
+    "large_daytime": 52.3,
+    "small_overnight": 13.2,
+    "medium_overnight": 23.0,
+    "large_overnight": 39.4
+   }
+  },
+  {
+   "name": "Annie Glidden Road",
+   "number": "67",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.7,
+    "small_daytime": 5.75,
+    "medium_daytime": 8.5,
+    "large_daytime": 15.15,
+    "small_overnight": 3.85,
+    "medium_overnight": 6.7,
+    "large_overnight": 11.45
+   },
+   "pay_by_plate": {
+    "passenger": 2.55,
+    "small_daytime": 8.65,
+    "medium_daytime": 12.75,
+    "large_daytime": 22.75,
+    "small_overnight": 5.8,
+    "medium_overnight": 10.05,
+    "large_overnight": 17.2
+   },
+   "invoice": {
+    "passenger": 3.4,
+    "small_daytime": 11.5,
+    "medium_daytime": 17.0,
+    "large_daytime": 30.3,
+    "small_overnight": 7.7,
+    "medium_overnight": 13.4,
+    "large_overnight": 22.9
+   }
+  },
+  {
+   "name": "Dixon",
+   "number": "69",
+   "road": "Reagan Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 2.9,
+    "small_daytime": 9.9,
+    "medium_daytime": 14.7,
+    "large_daytime": 26.15,
+    "small_overnight": 6.6,
+    "medium_overnight": 11.5,
+    "large_overnight": 19.7
+   },
+   "pay_by_plate": {
+    "passenger": 4.35,
+    "small_daytime": 14.85,
+    "medium_daytime": 22.05,
+    "large_daytime": 39.25,
+    "small_overnight": 9.9,
+    "medium_overnight": 17.25,
+    "large_overnight": 29.55
+   },
+   "invoice": {
+    "passenger": 5.8,
+    "small_daytime": 19.8,
+    "medium_daytime": 29.4,
+    "large_daytime": 52.3,
+    "small_overnight": 13.2,
+    "medium_overnight": 23.0,
+    "large_overnight": 39.4
+   }
+  },
+  {
+   "name": "Army Trail Road",
+   "number": "73",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.5,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 2.25,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 3.0,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "North Avenue (Illinois 64)",
+   "number": "75",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 3.25,
+    "medium_daytime": 5.0,
+    "large_daytime": 8.75,
+    "small_overnight": 2.25,
+    "medium_overnight": 3.85,
+    "large_overnight": 6.6
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 4.9,
+    "medium_daytime": 7.5,
+    "large_daytime": 13.15,
+    "small_overnight": 3.4,
+    "medium_overnight": 5.8,
+    "large_overnight": 9.9
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 6.5,
+    "medium_daytime": 10.0,
+    "large_daytime": 17.5,
+    "small_overnight": 4.5,
+    "medium_overnight": 7.7,
+    "large_overnight": 13.2
+   }
+  },
+  {
+   "name": "Roosevelt Road (Illinois 38)",
+   "number": "77",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.05,
+    "small_daytime": 2.9,
+    "medium_daytime": 4.4,
+    "large_daytime": 7.75,
+    "small_overnight": 1.9,
+    "medium_overnight": 3.45,
+    "large_overnight": 5.75
+   },
+   "pay_by_plate": {
+    "passenger": 1.6,
+    "small_daytime": 4.35,
+    "medium_daytime": 6.6,
+    "large_daytime": 11.65,
+    "small_overnight": 2.85,
+    "medium_overnight": 5.2,
+    "large_overnight": 8.65
+   },
+   "invoice": {
+    "passenger": 2.1,
+    "small_daytime": 5.8,
+    "medium_daytime": 8.8,
+    "large_daytime": 15.5,
+    "small_overnight": 3.8,
+    "medium_overnight": 6.9,
+    "large_overnight": 11.5
+   }
+  },
+  {
+   "name": "Butterfield Road (Illinois 56)",
+   "number": "79",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.05,
+    "medium_daytime": 3.2,
+    "large_daytime": 5.5,
+    "small_overnight": 1.4,
+    "medium_overnight": 2.5,
+    "large_overnight": 4.15
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.1,
+    "medium_daytime": 4.8,
+    "large_daytime": 8.25,
+    "small_overnight": 2.1,
+    "medium_overnight": 3.75,
+    "large_overnight": 6.25
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 4.1,
+    "medium_daytime": 6.4,
+    "large_daytime": 11.0,
+    "small_overnight": 2.8,
+    "medium_overnight": 5.0,
+    "large_overnight": 8.3
+   }
+  },
+  {
+   "name": "Ogden Avenue (U.S.34)",
+   "number": "81",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.05,
+    "medium_daytime": 3.2,
+    "large_daytime": 5.5,
+    "small_overnight": 1.4,
+    "medium_overnight": 2.5,
+    "large_overnight": 4.15
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.1,
+    "medium_daytime": 4.8,
+    "large_daytime": 8.25,
+    "small_overnight": 2.1,
+    "medium_overnight": 3.75,
+    "large_overnight": 6.25
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 4.1,
+    "medium_daytime": 6.4,
+    "large_daytime": 11.0,
+    "small_overnight": 2.8,
+    "medium_overnight": 5.0,
+    "large_overnight": 8.3
+   }
+  },
+  {
+   "name": "Maple Avenue",
+   "number": "83",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 2.5,
+    "medium_daytime": 3.7,
+    "large_daytime": 6.6,
+    "small_overnight": 1.65,
+    "medium_overnight": 2.9,
+    "large_overnight": 5.0
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 3.75,
+    "medium_daytime": 5.55,
+    "large_daytime": 9.9,
+    "small_overnight": 2.5,
+    "medium_overnight": 4.35,
+    "large_overnight": 7.5
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 5.0,
+    "medium_daytime": 7.4,
+    "large_daytime": 13.2,
+    "small_overnight": 3.3,
+    "medium_overnight": 5.8,
+    "large_overnight": 10.0
+   }
+  },
+  {
+   "name": "63rd Street",
+   "number": "85",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.05,
+    "small_daytime": 2.9,
+    "medium_daytime": 4.4,
+    "large_daytime": 7.75,
+    "small_overnight": 1.9,
+    "medium_overnight": 3.45,
+    "large_overnight": 5.75
+   },
+   "pay_by_plate": {
+    "passenger": 1.6,
+    "small_daytime": 4.35,
+    "medium_daytime": 6.6,
+    "large_daytime": 11.65,
+    "small_overnight": 2.85,
+    "medium_overnight": 5.2,
+    "large_overnight": 8.65
+   },
+   "invoice": {
+    "passenger": 2.1,
+    "small_daytime": 5.8,
+    "medium_daytime": 8.8,
+    "large_daytime": 15.5,
+    "small_overnight": 3.8,
+    "medium_overnight": 6.9,
+    "large_overnight": 11.5
+   }
+  },
+  {
+   "name": "75th Street",
+   "number": "87",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.2,
+    "small_daytime": 3.25,
+    "medium_daytime": 5.0,
+    "large_daytime": 8.75,
+    "small_overnight": 2.25,
+    "medium_overnight": 3.85,
+    "large_overnight": 6.6
+   },
+   "pay_by_plate": {
+    "passenger": 1.8,
+    "small_daytime": 4.9,
+    "medium_daytime": 7.5,
+    "large_daytime": 13.15,
+    "small_overnight": 3.4,
+    "medium_overnight": 5.8,
+    "large_overnight": 9.9
+   },
+   "invoice": {
+    "passenger": 2.4,
+    "small_daytime": 6.5,
+    "medium_daytime": 10.0,
+    "large_daytime": 17.5,
+    "small_overnight": 4.5,
+    "medium_overnight": 7.7,
+    "large_overnight": 13.2
+   }
+  },
+  {
+   "name": "Boughton Road Mainline",
+   "number": "89",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 1.5,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 2.25,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 3.0,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Boughton Road",
+   "number": "90",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.05,
+    "medium_daytime": 3.2,
+    "large_daytime": 5.5,
+    "small_overnight": 1.4,
+    "medium_overnight": 2.5,
+    "large_overnight": 4.15
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.1,
+    "medium_daytime": 4.8,
+    "large_daytime": 8.25,
+    "small_overnight": 2.1,
+    "medium_overnight": 3.75,
+    "large_overnight": 6.25
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 4.1,
+    "medium_daytime": 6.4,
+    "large_daytime": 11.0,
+    "small_overnight": 2.8,
+    "medium_overnight": 5.0,
+    "large_overnight": 8.3
+   }
+  },
+  {
+   "name": "127th Street",
+   "number": "93",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.5,
+    "small_daytime": 4.15,
+    "medium_daytime": 6.2,
+    "large_daytime": 11.0,
+    "small_overnight": 2.75,
+    "medium_overnight": 4.8,
+    "large_overnight": 8.25
+   },
+   "pay_by_plate": {
+    "passenger": 2.25,
+    "small_daytime": 6.25,
+    "medium_daytime": 9.3,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.2,
+    "large_overnight": 12.4
+   },
+   "invoice": {
+    "passenger": 3.0,
+    "small_daytime": 8.3,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.6,
+    "large_overnight": 16.5
+   }
+  },
+  {
+   "name": "Archer Avenue/143rd Street",
+   "number": "95",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 1.9,
+    "small_daytime": 5.35,
+    "medium_daytime": 8.25,
+    "large_daytime": 14.3,
+    "small_overnight": 3.6,
+    "medium_overnight": 6.35,
+    "large_overnight": 10.75
+   },
+   "pay_by_plate": {
+    "passenger": 2.85,
+    "small_daytime": 8.05,
+    "medium_daytime": 12.4,
+    "large_daytime": 21.45,
+    "small_overnight": 5.4,
+    "medium_overnight": 9.55,
+    "large_overnight": 16.15
+   },
+   "invoice": {
+    "passenger": 3.8,
+    "small_daytime": 10.7,
+    "medium_daytime": 16.5,
+    "large_daytime": 28.6,
+    "small_overnight": 7.2,
+    "medium_overnight": 12.7,
+    "large_overnight": 21.5
+   }
+  },
+  {
+   "name": "Illinois 7 (159th Street)",
+   "number": "97",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 2.25,
+    "small_daytime": 6.2,
+    "medium_daytime": 9.45,
+    "large_daytime": 16.5,
+    "small_overnight": 4.15,
+    "medium_overnight": 7.4,
+    "large_overnight": 12.4
+   },
+   "pay_by_plate": {
+    "passenger": 3.4,
+    "small_daytime": 9.3,
+    "medium_daytime": 14.2,
+    "large_daytime": 24.75,
+    "small_overnight": 6.25,
+    "medium_overnight": 11.1,
+    "large_overnight": 18.6
+   },
+   "invoice": {
+    "passenger": 4.5,
+    "small_daytime": 12.4,
+    "medium_daytime": 18.9,
+    "large_daytime": 33.0,
+    "small_overnight": 8.3,
+    "medium_overnight": 14.8,
+    "large_overnight": 24.8
+   }
+  },
+  {
+   "name": "Spring Creek Mainline",
+   "number": "99",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 3.05,
+    "small_daytime": 8.25,
+    "medium_daytime": 12.4,
+    "large_daytime": 22.0,
+    "small_overnight": 5.5,
+    "medium_overnight": 9.65,
+    "large_overnight": 16.5
+   },
+   "pay_by_plate": {
+    "passenger": 4.6,
+    "small_daytime": 12.4,
+    "medium_daytime": 18.6,
+    "large_daytime": 33.0,
+    "small_overnight": 8.25,
+    "medium_overnight": 14.5,
+    "large_overnight": 24.75
+   },
+   "invoice": {
+    "passenger": 6.1,
+    "small_daytime": 16.5,
+    "medium_daytime": 24.8,
+    "large_daytime": 44.0,
+    "small_overnight": 11.0,
+    "medium_overnight": 19.3,
+    "large_overnight": 33.0
+   }
+  },
+  {
+   "name": "U.S. 6",
+   "number": "101",
+   "road": "Veterans Memorial Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.7,
+    "small_daytime": 2.05,
+    "medium_daytime": 3.2,
+    "large_daytime": 5.5,
+    "small_overnight": 1.4,
+    "medium_overnight": 2.5,
+    "large_overnight": 4.15
+   },
+   "pay_by_plate": {
+    "passenger": 1.05,
+    "small_daytime": 3.1,
+    "medium_daytime": 4.8,
+    "large_daytime": 8.25,
+    "small_overnight": 2.1,
+    "medium_overnight": 3.75,
+    "large_overnight": 6.25
+   },
+   "invoice": {
+    "passenger": 1.4,
+    "small_daytime": 4.1,
+    "medium_daytime": 6.4,
+    "large_daytime": 11.0,
+    "small_overnight": 2.8,
+    "medium_overnight": 5.0,
+    "large_overnight": 8.3
+   }
+  },
+  {
+   "name": "Lively Boulevard",
+   "number": "320",
+   "road": "Illinois Route 390 Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.3,
+    "small_daytime": 0.7,
+    "medium_daytime": 1.05,
+    "large_daytime": 1.8,
+    "small_overnight": 0.45,
+    "medium_overnight": 0.75,
+    "large_overnight": 1.3
+   },
+   "pay_by_plate": {
+    "passenger": 0.45,
+    "small_daytime": 1.05,
+    "medium_daytime": 1.6,
+    "large_daytime": 2.7,
+    "small_overnight": 0.7,
+    "medium_overnight": 1.15,
+    "large_overnight": 1.95
+   },
+   "invoice": {
+    "passenger": 0.6,
+    "small_daytime": 1.4,
+    "medium_daytime": 2.1,
+    "large_daytime": 3.6,
+    "small_overnight": 0.9,
+    "medium_overnight": 1.5,
+    "large_overnight": 2.6
+   }
+  },
+  {
+   "name": "Mittel Drive",
+   "number": "322",
+   "road": "Illinois Route 390 Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.3,
+    "small_daytime": 0.7,
+    "medium_daytime": 1.05,
+    "large_daytime": 1.8,
+    "small_overnight": 0.45,
+    "medium_overnight": 0.75,
+    "large_overnight": 1.3
+   },
+   "pay_by_plate": {
+    "passenger": 0.45,
+    "small_daytime": 1.05,
+    "medium_daytime": 1.6,
+    "large_daytime": 2.7,
+    "small_overnight": 0.7,
+    "medium_overnight": 1.15,
+    "large_overnight": 1.95
+   },
+   "invoice": {
+    "passenger": 0.6,
+    "small_daytime": 1.4,
+    "medium_daytime": 2.1,
+    "large_daytime": 3.6,
+    "small_overnight": 0.9,
+    "medium_overnight": 1.5,
+    "large_overnight": 2.6
+   }
+  },
+  {
+   "name": "Hamilton Lakes Drive Mainline",
+   "number": "324",
+   "road": "Illinois Route 390 Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.4,
+    "small_daytime": 0.85,
+    "medium_daytime": 1.3,
+    "large_daytime": 2.3,
+    "small_overnight": 0.6,
+    "medium_overnight": 1.05,
+    "large_overnight": 1.7
+   },
+   "pay_by_plate": {
+    "passenger": 0.6,
+    "small_daytime": 1.3,
+    "medium_daytime": 1.95,
+    "large_daytime": 3.45,
+    "small_overnight": 0.9,
+    "medium_overnight": 1.6,
+    "large_overnight": 2.55
+   },
+   "invoice": {
+    "passenger": 0.8,
+    "small_daytime": 1.7,
+    "medium_daytime": 2.6,
+    "large_daytime": 4.6,
+    "small_overnight": 1.2,
+    "medium_overnight": 2.1,
+    "large_overnight": 3.4
+   }
+  },
+  {
+   "name": "Ketter Drive",
+   "number": "325",
+   "road": "Illinois Route 390 Tollway",
+   "plaza_type": "ramp",
+   "ipass": {
+    "passenger": 0.3,
+    "small_daytime": 0.7,
+    "medium_daytime": 1.05,
+    "large_daytime": 1.8,
+    "small_overnight": 0.45,
+    "medium_overnight": 0.75,
+    "large_overnight": 1.3
+   },
+   "pay_by_plate": {
+    "passenger": 0.45,
+    "small_daytime": 1.05,
+    "medium_daytime": 1.6,
+    "large_daytime": 2.7,
+    "small_overnight": 0.7,
+    "medium_overnight": 1.15,
+    "large_overnight": 1.95
+   },
+   "invoice": {
+    "passenger": 0.6,
+    "small_daytime": 1.4,
+    "medium_daytime": 2.1,
+    "large_daytime": 3.6,
+    "small_overnight": 0.9,
+    "medium_overnight": 1.5,
+    "large_overnight": 2.6
+   }
+  },
+  {
+   "name": "Plum Grove Road Mainline",
+   "number": "326",
+   "road": "Illinois Route 390 Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.95,
+    "small_daytime": 2.0,
+    "medium_daytime": 3.0,
+    "large_daytime": 5.35,
+    "small_overnight": 1.3,
+    "medium_overnight": 2.3,
+    "large_overnight": 3.95
+   },
+   "pay_by_plate": {
+    "passenger": 1.45,
+    "small_daytime": 3.0,
+    "medium_daytime": 4.5,
+    "large_daytime": 8.05,
+    "small_overnight": 1.95,
+    "medium_overnight": 3.45,
+    "large_overnight": 5.95
+   },
+   "invoice": {
+    "passenger": 1.9,
+    "small_daytime": 4.0,
+    "medium_daytime": 6.0,
+    "large_daytime": 10.7,
+    "small_overnight": 2.6,
+    "medium_overnight": 4.6,
+    "large_overnight": 7.9
+   }
+  },
+  {
+   "name": "Mitchell Boulevard",
+   "number": "328",
+   "road": "Illinois Route 390 Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.55,
+    "small_daytime": 1.3,
+    "medium_daytime": 1.9,
+    "large_daytime": 3.35,
+    "small_overnight": 0.85,
+    "medium_overnight": 1.45,
+    "large_overnight": 2.5
+   },
+   "pay_by_plate": {
+    "passenger": 0.85,
+    "small_daytime": 1.95,
+    "medium_daytime": 2.85,
+    "large_daytime": 5.05,
+    "small_overnight": 1.3,
+    "medium_overnight": 2.2,
+    "large_overnight": 3.75
+   },
+   "invoice": {
+    "passenger": 1.1,
+    "small_daytime": 2.6,
+    "medium_daytime": 3.8,
+    "large_daytime": 6.7,
+    "small_overnight": 1.7,
+    "medium_overnight": 2.9,
+    "large_overnight": 5.0
+   }
+  },
+  {
+   "name": "Lake Street Mainline",
+   "number": "330",
+   "road": "Illinois Route 390 Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.5,
+    "small_daytime": 1.05,
+    "medium_daytime": 1.65,
+    "large_daytime": 2.85,
+    "small_overnight": 0.7,
+    "medium_overnight": 1.2,
+    "large_overnight": 2.15
+   },
+   "pay_by_plate": {
+    "passenger": 0.75,
+    "small_daytime": 1.6,
+    "medium_daytime": 2.5,
+    "large_daytime": 4.3,
+    "small_overnight": 1.05,
+    "medium_overnight": 1.8,
+    "large_overnight": 3.2
+   },
+   "invoice": {
+    "passenger": 1.0,
+    "small_daytime": 2.1,
+    "medium_daytime": 3.3,
+    "large_daytime": 5.7,
+    "small_overnight": 1.4,
+    "medium_overnight": 2.4,
+    "large_overnight": 4.3
+   }
+  },
+  {
+   "name": "Acorn Lane*",
+   "number": "303",
+   "road": "I-490 Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 1.9,
+    "medium_daytime": 2.85,
+    "large_daytime": 5.0,
+    "small_overnight": 1.2,
+    "medium_overnight": 2.15,
+    "large_overnight": 3.8
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 2.85,
+    "medium_daytime": 4.3,
+    "large_daytime": 7.5,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.7
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 3.8,
+    "medium_daytime": 5.7,
+    "large_daytime": 10.0,
+    "small_overnight": 2.4,
+    "medium_overnight": 4.3,
+    "large_overnight": 7.6
+   }
+  },
+  {
+   "name": "Franklin Avenue*",
+   "number": "304",
+   "road": "I-490 Tollway",
+   "plaza_type": "mainline",
+   "ipass": {
+    "passenger": 0.9,
+    "small_daytime": 1.9,
+    "medium_daytime": 2.85,
+    "large_daytime": 5.0,
+    "small_overnight": 1.2,
+    "medium_overnight": 2.15,
+    "large_overnight": 3.8
+   },
+   "pay_by_plate": {
+    "passenger": 1.35,
+    "small_daytime": 2.85,
+    "medium_daytime": 4.3,
+    "large_daytime": 7.5,
+    "small_overnight": 1.8,
+    "medium_overnight": 3.2,
+    "large_overnight": 5.7
+   },
+   "invoice": {
+    "passenger": 1.8,
+    "small_daytime": 3.8,
+    "medium_daytime": 5.7,
+    "large_daytime": 10.0,
+    "small_overnight": 2.4,
+    "medium_overnight": 4.3,
+    "large_overnight": 7.6
+   }
+  }
+ ]
+}
