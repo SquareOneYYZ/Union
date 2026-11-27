@@ -9,6 +9,7 @@ from the operators live, so re-running is also how you detect a reprice.
 | File | Facility | Model | Rows | Effective | Reprices |
 |---|---|---|---:|---|---|
 | `407-etr-2026-light.json` | 407 ETR (Ontario) | `distance_zoned` | 288 per-km cells | 2026-01-01 | **1 January** |
+| `407-etr-2027-light.json` | 407 ETR (Ontario) | `distance_zoned` | 312 per-km cells (weekday adds a 12:30 p.m. band) | **2027-01-01** (announced 2026-11-20) | **1 January** |
 | `cfx-2026-07-01.json` | CFX (Central Florida) | `flat` | 58 plazas × 4 axle × 2 payment | 2026-07-01 | **1 July** (fiscal year) |
 | `istha-2026-01-01.json` | Illinois Tollway | `flat` | 96 plazas × passenger + 3 truck tiers × day/night × 2 payment | 2026-01-01 (passenger since 2012) | until 2026-12-31 |
 | `istha-2027-01-01.json` | Illinois Tollway | `flat` | 96 plazas × same × 3 payment | **2027-01-01** (approved 2026-08-19) | every 2 years from 2029 (CPI-U, max 8 %) |

@@ -93,7 +93,14 @@ public final class FacilityRegistry {
             } catch (IllegalArgumentException e) {
                 throw new IOException("facility " + id + ": " + e.getMessage(), e);
             }
-            DistanceZonedCard card = DistanceZonedCard.loadResource(f.path("card").asText());
+            List<DistanceZonedCard> cards = new ArrayList<>();
+            if (f.has("cards")) {
+                for (JsonNode name : f.path("cards")) {
+                    cards.add(DistanceZonedCard.loadResource(name.asText()));
+                }
+            } else {
+                cards.add(DistanceZonedCard.loadResource(f.path("card").asText()));
+            }
             ZonedCorridor corridor = ZonedCorridor.loadResource(f.path("corridor").asText());
             DistanceZonedPricer.Continuation continuation = null;
             JsonNode c = f.path("continuation");
@@ -121,9 +128,14 @@ public final class FacilityRegistry {
                     throw new IOException("facility " + id + ": continuation without a facility id");
                 }
             }
-            DistanceZonedPricer pricer = new DistanceZonedPricer(
-                    card, corridor, ZoneId.of(f.path("timezone").asText()), holidays, continuation);
-            facilities.add(new Facility(id, card.getCurrency(), pricer, corridor));
+            DistanceZonedPricer pricer;
+            try {
+                pricer = new DistanceZonedPricer(
+                        cards, corridor, ZoneId.of(f.path("timezone").asText()), holidays, continuation);
+            } catch (IllegalArgumentException | DateTimeParseException e) {
+                throw new IOException("facility " + id + ": " + e.getMessage(), e);
+            }
+            facilities.add(new Facility(id, cards.get(0).getCurrency(), pricer, corridor));
         }
         GantrySet.linkShared(gantrySets);
         return new FacilityRegistry(facilities, gantrySets, skipped);

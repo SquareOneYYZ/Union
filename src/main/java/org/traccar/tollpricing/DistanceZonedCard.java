@@ -108,6 +108,26 @@ public final class DistanceZonedCard {
             }
             rateIndex.put(key(r.zoneCode, r.direction, r.dayType, r.bandStartLocal), r.rateCentsPerKm);
         }
+        // Every zone x direction x band the card declares must have a rate: a cell the operator's page
+        // left blank fails here at load, not months later when a trip first lands in it.
+        List<String> directions = new ArrayList<>();
+        for (Rate r : rates) {
+            if (!directions.contains(r.direction)) {
+                directions.add(r.direction);
+            }
+        }
+        for (Map.Entry<String, List<String>> e : bandBoundariesLocal.entrySet()) {
+            for (String band : e.getValue()) {
+                for (String zone : zoneCodes()) {
+                    for (String direction : directions) {
+                        if (!rateIndex.containsKey(key(zone, direction, e.getKey(), band))) {
+                            throw new IOException("card " + validFrom + " has no rate for "
+                                    + key(zone, direction, e.getKey(), band));
+                        }
+                    }
+                }
+            }
+        }
         perTripFee("Trip Toll Charge");
         perTripFee("Camera Charge");
     }

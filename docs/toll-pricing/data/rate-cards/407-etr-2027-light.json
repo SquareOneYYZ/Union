@@ -1,0 +1,2324 @@
+{
+ "facility": "407 ETR",
+ "operator": "407 International Inc.",
+ "osm_route_relation": 109574,
+ "osm_network_tag": "CA:ON:private_toll",
+ "country": "CA",
+ "region": "ON",
+ "currency": "CAD",
+ "rate_model_type": "distance_zoned",
+ "vehicle_class": "light",
+ "vehicle_class_note": "407 ETR publishes FIVE classes: motorcycle, light, medium, heavy single unit, heavy multiple unit. Only light is captured here.",
+ "valid_from": "2027-01-01",
+ "valid_to": null,
+ "reprices_on": "January 1 (annual)",
+ "source_url": "https://www.407etr.com/en/2027-rates-and-fees-for-light-vehicles",
+ "source_type": "published",
+ "time_band_rule": "Priced by TIME OF ENTRY for the whole trip - ETR does not split a traversal at band boundaries. Bands are LOCAL time (America/Toronto).",
+ "band_boundaries_local": {
+  "weekday": [
+   "5 a.m.",
+   "7 a.m.",
+   "9:30 a.m.",
+   "10:30 a.m.",
+   "12:30 p.m.",
+   "2:30 p.m.",
+   "3:30 p.m.",
+   "6 p.m.",
+   "9 p.m."
+  ],
+  "weekend_or_holiday": [
+   "8:30 a.m.",
+   "10 a.m.",
+   "7 p.m.",
+   "9 p.m."
+  ]
+ },
+ "zones": [
+  {
+   "zone_code": "Z1",
+   "from": "QEW",
+   "to": "Dundas",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z2",
+   "from": "Dundas",
+   "to": "Neyagawa",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z3",
+   "from": "Neyagawa",
+   "to": "Highway 403",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z4",
+   "from": "Highway 403",
+   "to": "Highway 401",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z5",
+   "from": "Highway 401",
+   "to": "Highway 410",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z6",
+   "from": "Highway 410",
+   "to": "Highway 427",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z7",
+   "from": "Highway 427",
+   "to": "Highway 400",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z8",
+   "from": "Highway 400",
+   "to": "Yonge",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z9",
+   "from": "Yonge",
+   "to": "Highway 404",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z10",
+   "from": "Highway 404",
+   "to": "McCowan",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z11",
+   "from": "McCowan",
+   "to": "York Durham Line",
+   "geometry_source": "NOT IN OSM - must be curated"
+  },
+  {
+   "zone_code": "Z12",
+   "from": "York Durham Line",
+   "to": "Brock",
+   "geometry_source": "NOT IN OSM - must be curated"
+  }
+ ],
+ "rates": [
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 94.95
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 74.94
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 76.61
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 70.36
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 94.89
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 78.71
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 87.66
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 83.75
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 83.75
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 67.79
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 70.46
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 70.46
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 116.86
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 74.95
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 77.6
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 80.03
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 98.16
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 110.14
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 130.54
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 130.54
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 130.54
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 74.76
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 119.08
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 119.08
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 90.95
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 74.94
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 76.58
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 70.36
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 90.95
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 78.71
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 83.86
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 80.12
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 80.12
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 74.75
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 73.15
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 73.15
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 90.94
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 74.93
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 76.57
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 70.35
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 90.94
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 78.7
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 83.85
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 80.11
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 80.11
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 67.78
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 68.5
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 70.45
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 90.95
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 74.94
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 76.58
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 70.36
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 90.95
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 78.71
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 83.86
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 80.12
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 80.12
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 67.78
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 68.51
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 70.46
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 119.76
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 74.95
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 77.61
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 80.03
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 94.89
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 78.72
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 83.87
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 80.13
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 80.13
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 74.74
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 68.52
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 70.47
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 119.77
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 74.96
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 77.62
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 80.04
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 99.63
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 120.15
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 130.56
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 130.54
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 130.54
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 74.75
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 77.84
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 77.84
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 90.95
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 74.95
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 76.58
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 80.03
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 90.95
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 78.71
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 83.86
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 80.12
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 80.12
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 74.74
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 68.51
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 70.46
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.73
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.59
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.54
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 76.11
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 65.25
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.6
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 60.6
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 86.29
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 86.29
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 61.59
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 79.11
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 76.12
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 65.26
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 55.61
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 60.61
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 70.97
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 99.82
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 104.72
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 94.63
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 104.72
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 55.64
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 55.64
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 100.78
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 76.11
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 64.12
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.6
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.55
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.73
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.59
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.54
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "westbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 64.97
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 65.92
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 71.9
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 69.81
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 78.49
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 89.46
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 95.17
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 92.95
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 95.21
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 74.57
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 80.39
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "5 a.m.",
+   "rate_cents_per_km": 89.55
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 72.34
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 71.93
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 71.93
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 71.94
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 79.73
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 127.89
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 135.34
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 135.34
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 135.34
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 114.72
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 114.72
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "7 a.m.",
+   "rate_cents_per_km": 114.72
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 71.9
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 71.91
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 71.91
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 71.9
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 79.3
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 89.46
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 92.1
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 88.92
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 91.07
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 74.57
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 80.39
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9:30 a.m.",
+   "rate_cents_per_km": 89.72
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 64.96
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 65.91
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 71.89
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 69.8
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 78.48
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 89.45
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 92.09
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 88.91
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 91.06
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 74.56
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 80.38
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "10:30 a.m.",
+   "rate_cents_per_km": 86.51
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 64.97
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 65.92
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 71.9
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 69.81
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 78.49
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 89.46
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 95.16
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 88.92
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 91.07
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 74.57
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 80.39
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "12:30 p.m.",
+   "rate_cents_per_km": 89.54
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 72.27
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 71.9
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 71.91
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 71.91
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 79.71
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 89.47
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 95.17
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 88.93
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 91.08
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 76.34
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 80.4
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "2:30 p.m.",
+   "rate_cents_per_km": 111.62
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 72.33
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 71.91
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 71.92
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 71.93
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 79.72
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 127.9
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 143.05
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 143.05
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 143.05
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 123.27
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 140.28
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "3:30 p.m.",
+   "rate_cents_per_km": 140.24
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 72.32
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 71.9
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 71.9
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 71.73
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 78.49
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 89.46
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 92.1
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 88.92
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 91.07
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 74.57
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 80.39
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "6 p.m.",
+   "rate_cents_per_km": 89.55
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 54.93
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 54.94
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 86.29
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 86.29
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 86.29
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 86.29
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 61.76
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "8:30 a.m.",
+   "rate_cents_per_km": 86.28
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 54.95
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 55.64
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 55.64
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 55.64
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 55.64
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 94.81
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 104.72
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 104.72
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 104.72
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 61.77
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 58.13
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "10 a.m.",
+   "rate_cents_per_km": 100.84
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 54.94
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 55.63
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "7 p.m.",
+   "rate_cents_per_km": 86.29
+  },
+  {
+   "zone_code": "Z1",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 54.93
+  },
+  {
+   "zone_code": "Z2",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z3",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z4",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z5",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z6",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z7",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z8",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z9",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z10",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z11",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  },
+  {
+   "zone_code": "Z12",
+   "direction": "eastbound",
+   "day_type": "weekend_or_holiday",
+   "band_start_local": "9 p.m.",
+   "rate_cents_per_km": 55.62
+  }
+ ],
+ "fees": [
+  {
+   "name": "Trip Toll ChargeNot a per-kilometre charge.",
+   "with_transponder": "$1 per trip",
+   "without_transponder": "$1 per trip"
+  },
+  {
+   "name": "Account FeeMonthly fee for accounts without a transponder.",
+   "with_transponder": "N/A",
+   "without_transponder": "$5.10 per month"
+  },
+  {
+   "name": "Camera ChargeApplies to a camera-recorded trip (no transponder detected).",
+   "with_transponder": "N/A",
+   "without_transponder": "$5.40 per trip"
+  },
+  {
+   "name": "Unrecognizable Plate ChargeApplied each time a vehicle uses Highway 407 ETR without a valid transponder and the front or rear licence plates are altered, not visible or not recognizable.",
+   "with_transponder": "N/A",
+   "without_transponder": "$60 per trip"
+  },
+  {
+   "name": "Returned Payment FeeApplied for each returned unpaid payment due (for example, due to insufficient funds).",
+   "with_transponder": "$35 each",
+   "without_transponder": "$35 each"
+  }
+ ]
+}

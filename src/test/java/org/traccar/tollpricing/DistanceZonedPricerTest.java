@@ -89,6 +89,47 @@ public class DistanceZonedPricerTest {
         assertEquals("105", r.inputs().get("exitExit"));
     }
 
+    private static final double[] EXIT_58 = {43.753331, -79.629303};   // Hwy 427
+
+    /**
+     * Hwy 427 to Weston eastbound is 7.5 km, all Zone 7. The card is chosen by the entry date in
+     * Toronto, not UTC: 2026-12-31 23:50 EST is already 2027 in UTC but still priced on 2026.
+     * Rates from the published tables: 2026 weekday 9 p.m. Z7 EB 50.56; 2027 weekend/holiday
+     * 9 p.m. 55.62; 2027 weekday 12:30 p.m. (a band new in 2027) 95.16. Camera charge 5.30 -> 5.40.
+     */
+    @Test
+    public void newYearSwitchesTo2027Card() throws Exception {
+        DistanceZonedPricer p = registryPricer();
+        assertEquals(java.util.List.of("2026-01-01", "2027-01-01"), p.getCards());
+
+        DistanceZonedPricer.Result r = p.price(EXIT_58[0], EXIT_58[1],
+                Instant.parse("2027-01-01T04:50:00Z"), EXIT_65[0], EXIT_65[1]); // Thu 2026-12-31 23:50 EST
+        assertEquals("2026-01-01", r.estimate().getCardValidFrom());
+        assertEquals("9 p.m.", r.estimate().getBand());
+        assertEquals(0, new BigDecimal("10.09").compareTo(r.estimate().getAmount()), r.inputs().toString());
+
+        r = p.price(EXIT_58[0], EXIT_58[1],
+                Instant.parse("2027-01-01T05:10:00Z"), EXIT_65[0], EXIT_65[1]); // New Year's Day 00:10 EST
+        assertEquals("2027-01-01", r.estimate().getCardValidFrom());
+        assertEquals("2027-01-01", r.inputs().get("cardValidFrom"));
+        assertEquals(DistanceZonedCard.DAY_WEEKEND_OR_HOLIDAY, r.estimate().getDayType());
+        assertEquals(0, new BigDecimal("10.57").compareTo(r.estimate().getAmount()), r.inputs().toString());
+
+        r = p.price(EXIT_58[0], EXIT_58[1],
+                Instant.parse("2027-01-05T17:45:00Z"), EXIT_65[0], EXIT_65[1]); // Tue 12:45 EST
+        assertEquals("12:30 p.m.", r.estimate().getBand());
+        assertEquals(0, new BigDecimal("13.54").compareTo(r.estimate().getAmount()), r.inputs().toString());
+    }
+
+    @Test
+    public void cardsMustBeDistinctAndOneCurrency() throws Exception {
+        DistanceZonedCard c2026 = DistanceZonedCard.loadResource("407-etr-2026-light.json");
+        assertThrows(IllegalArgumentException.class, () -> new DistanceZonedPricer(
+                java.util.List.of(c2026, c2026), corridor, ZoneId.of("America/Toronto"), holidays, null));
+        assertThrows(IllegalArgumentException.class, () -> new DistanceZonedPricer(
+                java.util.List.of(), corridor, ZoneId.of("America/Toronto"), holidays, null));
+    }
+
     // Highway 407 East junctions (OSM relation 6328033, motorway_junction refs 112, 127, 145).
     private static final double[] EAST_112 = {43.94931, -79.02184};
     private static final double[] EAST_127 = {43.98021, -78.87715};

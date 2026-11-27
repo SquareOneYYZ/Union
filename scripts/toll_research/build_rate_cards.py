@@ -5,7 +5,8 @@ Every rate row carries a provenance URL and an effective date, per the project's
 non-negotiable constraint: never invent a rate, never store one without provenance.
 
 Sources are operator publications, fetched live:
-  407 ETR  https://www.407etr.com/en/rate-chart-light   (HTML tables)
+  407 ETR  https://www.407etr.com/en/rate-chart-light   (HTML tables; 2026 card)
+           https://www.407etr.com/en/2027-rates-and-fees-for-light-vehicles   (2027 card)
   CFX      https://www.cfxway.com/wp-content/uploads/2026/07/
            CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf   (PDF, needs PyMuPDF)
   ISTHA    https://agency.illinoistollway.com/toll-rates  (2026 and 2027 plaza tables, embedded
@@ -21,7 +22,7 @@ Output: docs/toll-pricing/data/rate-cards/*.json
 THESE ARE TRANSCRIPTIONS, NOT VALIDATED RATE CARDS. Nothing here has been checked
 against a real invoice. Treat as a sourced draft for Phase 2, not a billing input.
 
-Usage:  python scripts/toll_research/build_rate_cards.py [--etr] [--cfx] [--istha] [--e470] [--nwp] [--fte] [--a30]
+Usage:  python scripts/toll_research/build_rate_cards.py [--etr [--etr-year YYYY]] [--cfx] [--istha] [--e470] [--nwp] [--fte] [--a30]
 """
 import argparse
 import html
@@ -36,6 +37,13 @@ UA = "RidesIQ-toll-research/1.0"
 OUT_DIR = os.path.join("docs", "toll-pricing", "data", "rate-cards")
 
 ETR_URL = "https://www.407etr.com/en/rate-chart-light"
+# One card per rate year. Each page must carry its own year's heading, or the builder refuses: the
+# undated rate-chart-light page will start showing the next year's rates once that year begins.
+ETR_CARDS = [
+    ("2026-01-01", ETR_URL, "407-etr-2026-light.json"),
+    ("2027-01-01", "https://www.407etr.com/en/2027-rates-and-fees-for-light-vehicles",
+     "407-etr-2027-light.json"),
+]
 CFX_URL = ("https://www.cfxway.com/wp-content/uploads/2026/07/"
            "CFX-Toll-Rates-As-of-July-1-2026-FINAL.pdf")
 
@@ -92,16 +100,27 @@ class TableParser(HTMLParser):
             self.cell.append(data)
 
 
-def build_etr():
+def build_etr(valid_from, url):
     """407 ETR: per-km rates by zone x direction x day type x time band."""
+    page = fetch(url)
+    year = valid_from[:4]
+    if f"{year} Rates &amp; Fees" not in page and f"{year} Rates & Fees" not in page:
+        sys.exit(f"407 ETR: {url} does not say '{year} Rates & Fees' - not the {year} card")
     p = TableParser()
-    p.feed(fetch(ETR_URL))
+    p.feed(page)
     if len(p.tables) < 6:
         sys.exit(f"407 ETR: expected >=6 tables, got {len(p.tables)} - page layout changed")
 
     # Table order on the page, verified 2026-09-01.
     layout = [(0, "westbound", "weekday"), (1, "westbound", "weekend_or_holiday"),
               (2, "eastbound", "weekday"), (3, "eastbound", "weekend_or_holiday")]
+    # Bands come from the tables' first column, never a fixed list: 2027 added a weekday
+    # 12:30 p.m. band. Both directions must publish the same bands for a day type.
+    bands = {}
+    for idx, direction, day_type in layout:
+        labels = [row[0].strip() for row in p.tables[idx][1:]]
+        if bands.setdefault(day_type, labels) != labels:
+            sys.exit(f"407 ETR: {direction} {day_type} bands {labels} differ from {bands[day_type]}")
     rates = []
     for idx, direction, day_type in layout:
         table = p.tables[idx]
@@ -139,19 +158,15 @@ def build_etr():
         "vehicle_class_note": (
             "407 ETR publishes FIVE classes: motorcycle, light, medium, "
             "heavy single unit, heavy multiple unit. Only light is captured here."),
-        "valid_from": "2026-01-01",
+        "valid_from": valid_from,
         "valid_to": None,
         "reprices_on": "January 1 (annual)",
-        "source_url": ETR_URL,
+        "source_url": url,
         "source_type": "published",
         "time_band_rule": (
             "Priced by TIME OF ENTRY for the whole trip - ETR does not split a "
             "traversal at band boundaries. Bands are LOCAL time (America/Toronto)."),
-        "band_boundaries_local": {
-            "weekday": ["5 a.m.", "7 a.m.", "9:30 a.m.", "10:30 a.m.",
-                        "2:30 p.m.", "3:30 p.m.", "6 p.m.", "9 p.m."],
-            "weekend_or_holiday": ["8:30 a.m.", "10 a.m.", "7 p.m.", "9 p.m."],
-        },
+        "band_boundaries_local": bands,
         "zones": [{"zone_code": f"Z{n}", "from": a, "to": b,
                    "geometry_source": "NOT IN OSM - must be curated"}
                   for n, a, b in ETR_ZONES],
@@ -774,6 +789,7 @@ def build_a30():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--etr", action="store_true")
+    ap.add_argument("--etr-year", help="with --etr, build only this rate year's card, e.g. 2027")
     ap.add_argument("--cfx", action="store_true")
     ap.add_argument("--istha", action="store_true")
     ap.add_argument("--e470", action="store_true")
@@ -785,11 +801,14 @@ def main():
 
     os.makedirs(OUT_DIR, exist_ok=True)
     if args.etr or do_all:
-        card = build_etr()
-        path = os.path.join(OUT_DIR, "407-etr-2026-light.json")
-        json.dump(card, open(path, "w"), indent=1)
-        print(f"wrote {path}: {len(card['rates'])} per-km cells, "
-              f"{len(card['fees'])} fees, {len(card['zones'])} zones")
+        for valid_from, url, name in ETR_CARDS:
+            if args.etr_year and not valid_from.startswith(args.etr_year):
+                continue
+            card = build_etr(valid_from, url)
+            path = os.path.join(OUT_DIR, name)
+            json.dump(card, open(path, "w"), indent=1)
+            print(f"wrote {path}: {len(card['rates'])} per-km cells, "
+                  f"{len(card['fees'])} fees, {len(card['zones'])} zones")
     if args.cfx or do_all:
         card = build_cfx()
         path = os.path.join(OUT_DIR, "cfx-2026-07-01.json")

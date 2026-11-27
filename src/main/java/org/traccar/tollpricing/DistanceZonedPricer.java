@@ -8,6 +8,8 @@ import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 
 /**
  * Prices one traversal of a distance-zoned facility from its two edges: project both onto the
@@ -65,19 +67,34 @@ public final class DistanceZonedPricer {
 
     private static final double METRES_PER_DEG = 111195;
 
-    private final DistanceZonedCard card;
+    /** Rate cards by {@code valid_from}; a trip is priced by the latest card in force on its entry date. */
+    private final NavigableMap<LocalDate, DistanceZonedCard> cards = new TreeMap<>();
     private final ZonedCorridor corridor;
     private final ZoneId zone;
     private final OperatorHolidays holidays;
     private final Continuation continuation;
 
     public DistanceZonedPricer(DistanceZonedCard card, ZonedCorridor corridor, ZoneId zone, OperatorHolidays holidays) {
-        this(card, corridor, zone, holidays, null);
+        this(List.of(card), corridor, zone, holidays, null);
     }
 
-    public DistanceZonedPricer(DistanceZonedCard card, ZonedCorridor corridor, ZoneId zone, OperatorHolidays holidays,
-                               Continuation continuation) {
-        this.card = card;
+    /**
+     * @param cards one per rate period (407 ETR reprices every 1 January); distinct {@code valid_from},
+     *              one currency. A new year's card can ship before it takes effect: no redeploy on the day.
+     */
+    public DistanceZonedPricer(List<DistanceZonedCard> cards, ZonedCorridor corridor, ZoneId zone,
+                               OperatorHolidays holidays, Continuation continuation) {
+        if (cards.isEmpty()) {
+            throw new IllegalArgumentException("no rate card");
+        }
+        for (DistanceZonedCard card : cards) {
+            if (this.cards.put(LocalDate.parse(card.getValidFrom()), card) != null) {
+                throw new IllegalArgumentException("two cards valid from " + card.getValidFrom());
+            }
+            if (!card.getCurrency().equals(cards.get(0).getCurrency())) {
+                throw new IllegalArgumentException("cards in different currencies: " + card.getValidFrom());
+            }
+        }
         this.corridor = corridor;
         this.zone = zone;
         this.holidays = holidays;
@@ -89,6 +106,10 @@ public final class DistanceZonedPricer {
         Map<String, Object> inputs = new LinkedHashMap<>();
         LocalDateTime entryLocal = LocalDateTime.ofInstant(entryTime, zone);
         boolean holiday = holidays.isHoliday(entryLocal.toLocalDate());
+        // ETR prices the whole trip by entry time, so the card is the one in force on the entry date.
+        Map.Entry<LocalDate, DistanceZonedCard> inForce = cards.floorEntry(entryLocal.toLocalDate());
+        // Before every card there is no rate; the earliest card still names the currency and the date.
+        DistanceZonedCard card = inForce != null ? inForce.getValue() : cards.firstEntry().getValue();
         inputs.put("entryLocal", entryLocal.toString());
         inputs.put("holiday", holiday);
         inputs.put("cardValidFrom", card.getValidFrom());
@@ -125,7 +146,7 @@ public final class DistanceZonedPricer {
                 inputs.put("exitOnContinuation", true);
             }
         }
-        if (entryLocal.toLocalDate().isBefore(LocalDate.parse(card.getValidFrom()))) {
+        if (inForce == null) {
             // Before the loaded card: unknown, never a later card's price (as the flat facilities).
             return new Result(TollEstimate.unknown(TollEstimate.REASON_NO_RATE, card.getCurrency(), null, null,
                     card.getValidFrom()), inputs);
@@ -163,8 +184,9 @@ public final class DistanceZonedPricer {
                 && continuation.distanceM(lat, lon) <= ON_CONTINUATION_M;
     }
 
-    public String getCardValidFrom() {
-        return card.getValidFrom();
+    /** The loaded cards' {@code valid_from}, oldest first. */
+    public List<String> getCards() {
+        return cards.values().stream().map(DistanceZonedCard::getValidFrom).toList();
     }
 
     private static double round3(double v) {

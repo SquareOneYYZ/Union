@@ -9,7 +9,8 @@
    "currency": "CAD",
    "timezone": "America/Toronto",
    "rate_model": "distance_zoned",
-   "card": "407-etr-2026-light.json",
+   "cards": ["407-etr-2026-light.json", "407-etr-2027-light.json"],
+   "cards_note": "One card per rate year; a trip is priced by the card in force on its entry date (America/Toronto). 2027 rates announced 2026-11-20, effective 2027-01-01, and add a weekday 12:30 p.m. band.",
    "corridor": "407-etr.json",
    "continuation": {
     "facility": "407-east",

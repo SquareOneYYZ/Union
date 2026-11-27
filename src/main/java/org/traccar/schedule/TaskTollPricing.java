@@ -91,8 +91,8 @@ public class TaskTollPricing extends SingleScheduleTask {
         }
         builder = new TraversalBuilder(registry);
         for (FacilityRegistry.Facility f : registry.getFacilities()) {
-            LOGGER.info("Toll pricing facility {} (card {}, osm_base {})",
-                    f.id(), f.pricer().getCardValidFrom(), f.corridor().getOsmBase());
+            LOGGER.info("Toll pricing facility {} (cards {}, osm_base {})",
+                    f.id(), f.pricer().getCards(), f.corridor().getOsmBase());
         }
         for (GantrySet s : registry.getGantrySets()) {
             LOGGER.info("Toll pricing facility {} (cards {}, osm_base {}, {} toll points, unlocated plazas {})",
